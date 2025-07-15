@@ -74,7 +74,16 @@ spring:
       enabled: true
 
 # MyBatis
-mybatis:
+# mybatis:
+  # 搜索指定包别名
+ #  typeAliasesPackage: com.ruoyi.**.domain
+  # 配置mapper的扫描，找到所有的mapper.xml映射文件
+ # mapperLocations: classpath*:mapper/**/*Mapper.xml
+  # 加载全局的配置文件
+ # configLocation: classpath:mybatis/mybatis-config.xml
+
+# MyBatis Plus配置
+mybatis-plus:
   # 搜索指定包别名
   typeAliasesPackage: com.ruoyi.**.domain
   # 配置mapper的扫描，找到所有的mapper.xml映射文件
