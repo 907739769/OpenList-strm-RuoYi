@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.system.mapper.OpenlistCopyMapper">
+    
+    <resultMap type="OpenlistCopy" id="OpenlistCopyResult">
+        <result property="copyId"    column="copy_id"    />
+        <result property="copySrcPath"    column="copy_src_path"    />
+        <result property="copyDstPath"    column="copy_dst_path"    />
+        <result property="copySrcFileName"    column="copy_src_file_name"    />
+        <result property="copyDstFileName"    column="copy_dst_file_name"    />
+        <result property="copyTaskId"    column="copy_task_id"    />
+        <result property="copyStatus"    column="copy_status"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateTime"    column="update_time"    />
+    </resultMap>
+
+    <sql id="selectOpenlistCopyVo">
+        select copy_id, copy_src_path, copy_dst_path, copy_src_file_name, copy_dst_file_name, copy_task_id, copy_status, create_time, update_time from openlist_copy
+    </sql>
+
+    <select id="selectOpenlistCopyList" parameterType="OpenlistCopy" resultMap="OpenlistCopyResult">
+        <include refid="selectOpenlistCopyVo"/>
+        <where>  
+            <if test="copySrcPath != null  and copySrcPath != ''"> and copy_src_path = #{copySrcPath}</if>
+            <if test="copyDstPath != null  and copyDstPath != ''"> and copy_dst_path = #{copyDstPath}</if>
+            <if test="copySrcFileName != null  and copySrcFileName != ''"> and copy_src_file_name like concat('%', #{copySrcFileName}, '%')</if>
+            <if test="copyDstFileName != null  and copyDstFileName != ''"> and copy_dst_file_name like concat('%', #{copyDstFileName}, '%')</if>
+            <if test="copyTaskId != null  and copyTaskId != ''"> and copy_task_id = #{copyTaskId}</if>
+            <if test="copyStatus != null  and copyStatus != ''"> and copy_status = #{copyStatus}</if>
+        </where>
+    </select>
+    
+    <select id="selectOpenlistCopyByCopyId" parameterType="Integer" resultMap="OpenlistCopyResult">
+        <include refid="selectOpenlistCopyVo"/>
+        where copy_id = #{copyId}
+    </select>
+
+    <insert id="insertOpenlistCopy" parameterType="OpenlistCopy" useGeneratedKeys="true" keyProperty="copyId">
+        insert into openlist_copy
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="copySrcPath != null and copySrcPath != ''">copy_src_path,</if>
+            <if test="copyDstPath != null and copyDstPath != ''">copy_dst_path,</if>
+            <if test="copySrcFileName != null and copySrcFileName != ''">copy_src_file_name,</if>
+            <if test="copyDstFileName != null and copyDstFileName != ''">copy_dst_file_name,</if>
+            <if test="copyTaskId != null">copy_task_id,</if>
+            <if test="copyStatus != null">copy_status,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateTime != null">update_time,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="copySrcPath != null and copySrcPath != ''">#{copySrcPath},</if>
+            <if test="copyDstPath != null and copyDstPath != ''">#{copyDstPath},</if>
+            <if test="copySrcFileName != null and copySrcFileName != ''">#{copySrcFileName},</if>
+            <if test="copyDstFileName != null and copyDstFileName != ''">#{copyDstFileName},</if>
+            <if test="copyTaskId != null">#{copyTaskId},</if>
+            <if test="copyStatus != null">#{copyStatus},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+         </trim>
+    </insert>
+
+    <update id="updateOpenlistCopy" parameterType="OpenlistCopy">
+        update openlist_copy
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="copySrcPath != null and copySrcPath != ''">copy_src_path = #{copySrcPath},</if>
+            <if test="copyDstPath != null and copyDstPath != ''">copy_dst_path = #{copyDstPath},</if>
+            <if test="copySrcFileName != null and copySrcFileName != ''">copy_src_file_name = #{copySrcFileName},</if>
+            <if test="copyDstFileName != null and copyDstFileName != ''">copy_dst_file_name = #{copyDstFileName},</if>
+            <if test="copyTaskId != null">copy_task_id = #{copyTaskId},</if>
+            <if test="copyStatus != null">copy_status = #{copyStatus},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where copy_id = #{copyId}
+    </update>
+
+    <delete id="deleteOpenlistCopyByCopyId" parameterType="Integer">
+        delete from openlist_copy where copy_id = #{copyId}
+    </delete>
+
+    <delete id="deleteOpenlistCopyByCopyIds" parameterType="String">
+        delete from openlist_copy where copy_id in 
+        <foreach item="copyId" collection="array" open="(" separator="," close=")">
+            #{copyId}
+        </foreach>
+    </delete>
+
+</mapper>
