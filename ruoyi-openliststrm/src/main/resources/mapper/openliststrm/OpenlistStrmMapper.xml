@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.openliststrm.mapper.OpenlistStrmMapper">
+    
+    <resultMap type="OpenlistStrm" id="OpenlistStrmResult">
+        <result property="strmId"    column="strm_id"    />
+        <result property="strmPath"    column="strm_path"    />
+        <result property="strmFileName"    column="strm_file_name"    />
+        <result property="strmStatus"    column="strm_status"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateTime"    column="update_time"    />
+    </resultMap>
+
+    <sql id="selectOpenlistStrmVo">
+        select strm_id, strm_path, strm_file_name, strm_status, create_time, update_time from openlist_strm
+    </sql>
+
+    <select id="selectOpenlistStrmList" parameterType="OpenlistStrm" resultMap="OpenlistStrmResult">
+        <include refid="selectOpenlistStrmVo"/>
+        <where>  
+            <if test="strmPath != null  and strmPath != ''"> and strm_path = #{strmPath}</if>
+            <if test="strmFileName != null  and strmFileName != ''"> and strm_file_name like concat('%', #{strmFileName}, '%')</if>
+            <if test="strmStatus != null  and strmStatus != ''"> and strm_status = #{strmStatus}</if>
+        </where>
+    </select>
+    
+    <select id="selectOpenlistStrmByStrmId" parameterType="Integer" resultMap="OpenlistStrmResult">
+        <include refid="selectOpenlistStrmVo"/>
+        where strm_id = #{strmId}
+    </select>
+
+    <insert id="insertOpenlistStrm" parameterType="OpenlistStrm" useGeneratedKeys="true" keyProperty="strmId">
+        insert into openlist_strm
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="strmPath != null and strmPath != ''">strm_path,</if>
+            <if test="strmFileName != null and strmFileName != ''">strm_file_name,</if>
+            <if test="strmStatus != null">strm_status,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateTime != null">update_time,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="strmPath != null and strmPath != ''">#{strmPath},</if>
+            <if test="strmFileName != null and strmFileName != ''">#{strmFileName},</if>
+            <if test="strmStatus != null">#{strmStatus},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+         </trim>
+    </insert>
+
+    <update id="updateOpenlistStrm" parameterType="OpenlistStrm">
+        update openlist_strm
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="strmPath != null and strmPath != ''">strm_path = #{strmPath},</if>
+            <if test="strmFileName != null and strmFileName != ''">strm_file_name = #{strmFileName},</if>
+            <if test="strmStatus != null">strm_status = #{strmStatus},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where strm_id = #{strmId}
+    </update>
+
+    <delete id="deleteOpenlistStrmByStrmId" parameterType="Integer">
+        delete from openlist_strm where strm_id = #{strmId}
+    </delete>
+
+    <delete id="deleteOpenlistStrmByStrmIds" parameterType="String">
+        delete from openlist_strm where strm_id in 
+        <foreach item="strmId" collection="array" open="(" separator="," close=")">
+            #{strmId}
+        </foreach>
+    </delete>
+
+</mapper>
