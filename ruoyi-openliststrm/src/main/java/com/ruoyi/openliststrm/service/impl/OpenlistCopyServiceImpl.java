@@ -1,19 +1,19 @@
-package com.ruoyi.system.service.impl;
+package com.ruoyi.openliststrm.service.impl;
 
 import java.util.List;
 import com.ruoyi.common.utils.DateUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import com.ruoyi.system.mapper.OpenlistCopyMapper;
-import com.ruoyi.system.domain.OpenlistCopy;
-import com.ruoyi.system.service.IOpenlistCopyService;
+import com.ruoyi.openliststrm.mapper.OpenlistCopyMapper;
+import com.ruoyi.openliststrm.domain.OpenlistCopy;
+import com.ruoyi.openliststrm.service.IOpenlistCopyService;
 import com.ruoyi.common.core.text.Convert;
 
 /**
  * openlist的文件同步复制任务Service业务层处理
  * 
  * @author Jack
- * @date 2025-07-15
+ * @date 2025-07-16
  */
 @Service
 public class OpenlistCopyServiceImpl implements IOpenlistCopyService 

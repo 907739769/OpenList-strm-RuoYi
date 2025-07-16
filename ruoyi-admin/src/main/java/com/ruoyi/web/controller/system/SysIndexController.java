@@ -135,7 +135,7 @@ public class SysIndexController extends BaseController
     public String main(ModelMap mmap)
     {
         mmap.put("version", RuoYiConfig.getVersion());
-        return "/system/copy/copy";
+        return "/openliststrm/copy/copy";
     }
 
     // content-main class

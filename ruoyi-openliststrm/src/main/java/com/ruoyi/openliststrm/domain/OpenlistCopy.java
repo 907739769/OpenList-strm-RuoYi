@@ -1,4 +1,4 @@
-package com.ruoyi.system.domain;
+package com.ruoyi.openliststrm.domain;
 
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
@@ -9,7 +9,7 @@ import com.ruoyi.common.core.domain.BaseEntity;
  * openlist的文件同步复制任务对象 openlist_copy
  * 
  * @author Jack
- * @date 2025-07-15
+ * @date 2025-07-16
  */
 public class OpenlistCopy extends BaseEntity
 {

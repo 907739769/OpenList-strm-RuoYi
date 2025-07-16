@@ -31,16 +31,16 @@
             </div>
 
             <div class="btn-group-sm" id="toolbar" role="group">
-                <a class="btn btn-success" onclick="$.operate.add()" shiro:hasPermission="system:copy:add">
+                <a class="btn btn-success" onclick="$.operate.add()" shiro:hasPermission="openliststrm:copy:add">
                     <i class="fa fa-plus"></i> 添加
                 </a>
-                <a class="btn btn-primary single disabled" onclick="$.operate.edit()" shiro:hasPermission="system:copy:edit">
+                <a class="btn btn-primary single disabled" onclick="$.operate.edit()" shiro:hasPermission="openliststrm:copy:edit">
                     <i class="fa fa-edit"></i> 修改
                 </a>
-                <a class="btn btn-danger multiple disabled" onclick="$.operate.removeAll()" shiro:hasPermission="system:copy:remove">
+                <a class="btn btn-danger multiple disabled" onclick="$.operate.removeAll()" shiro:hasPermission="openliststrm:copy:remove">
                     <i class="fa fa-remove"></i> 删除
                 </a>
-                <a class="btn btn-warning" onclick="$.table.exportExcel()" shiro:hasPermission="system:copy:export">
+                <a class="btn btn-warning" onclick="$.table.exportExcel()" shiro:hasPermission="openliststrm:copy:export">
                     <i class="fa fa-download"></i> 导出
                 </a>
             </div>
@@ -51,10 +51,10 @@
     </div>
     <th:block th:include="include :: footer" />
     <script th:inline="javascript">
-        var editFlag = [[${@permission.hasPermi('system:copy:edit')}]];
-        var removeFlag = [[${@permission.hasPermi('system:copy:remove')}]];
+        var editFlag = [[${@permission.hasPermi('openliststrm:copy:edit')}]];
+        var removeFlag = [[${@permission.hasPermi('openliststrm:copy:remove')}]];
         var copyStatusDatas = [[${@dict.getType('openlist_copy_status')}]];
-        var prefix = ctx + "system/copy";
+        var prefix = ctx + "openliststrm/copy";
 
         $(function() {
             var options = {

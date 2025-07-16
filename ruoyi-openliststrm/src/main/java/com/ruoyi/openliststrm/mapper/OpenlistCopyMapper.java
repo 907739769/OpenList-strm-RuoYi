@@ -1,15 +1,15 @@
-package com.ruoyi.system.service;
+package com.ruoyi.openliststrm.mapper;
 
 import java.util.List;
-import com.ruoyi.system.domain.OpenlistCopy;
+import com.ruoyi.openliststrm.domain.OpenlistCopy;
 
 /**
- * openlist的文件同步复制任务Service接口
+ * openlist的文件同步复制任务Mapper接口
  * 
  * @author Jack
- * @date 2025-07-15
+ * @date 2025-07-16
  */
-public interface IOpenlistCopyService 
+public interface OpenlistCopyMapper 
 {
     /**
      * 查询openlist的文件同步复制任务
@@ -44,18 +44,18 @@ public interface IOpenlistCopyService
     public int updateOpenlistCopy(OpenlistCopy openlistCopy);
 
     /**
-     * 批量删除openlist的文件同步复制任务
-     * 
-     * @param copyIds 需要删除的openlist的文件同步复制任务主键集合
-     * @return 结果
-     */
-    public int deleteOpenlistCopyByCopyIds(String copyIds);
-
-    /**
-     * 删除openlist的文件同步复制任务信息
+     * 删除openlist的文件同步复制任务
      * 
      * @param copyId openlist的文件同步复制任务主键
      * @return 结果
      */
     public int deleteOpenlistCopyByCopyId(Integer copyId);
+
+    /**
+     * 批量删除openlist的文件同步复制任务
+     * 
+     * @param copyIds 需要删除的数据主键集合
+     * @return 结果
+     */
+    public int deleteOpenlistCopyByCopyIds(String[] copyIds);
 }

@@ -1,4 +1,4 @@
-package com.ruoyi.system.controller;
+package com.ruoyi.openliststrm.controller;
 
 import com.ruoyi.common.annotation.Log;
 import com.ruoyi.common.core.controller.BaseController;
@@ -6,8 +6,8 @@ import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.enums.BusinessType;
 import com.ruoyi.common.utils.poi.ExcelUtil;
-import com.ruoyi.system.domain.OpenlistCopy;
-import com.ruoyi.system.service.IOpenlistCopyService;
+import com.ruoyi.openliststrm.domain.OpenlistCopy;
+import com.ruoyi.openliststrm.service.IOpenlistCopyService;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
@@ -20,18 +20,18 @@ import java.util.List;
  * openlist的文件同步复制任务Controller
  * 
  * @author Jack
- * @date 2025-07-15
+ * @date 2025-07-16
  */
 @Controller
-@RequestMapping("/system/copy")
+@RequestMapping("/openliststrm/copy")
 public class OpenlistCopyController extends BaseController
 {
-    private String prefix = "system/copy";
+    private String prefix = "openliststrm/copy";
 
     @Autowired
     private IOpenlistCopyService openlistCopyService;
 
-    @RequiresPermissions("system:copy:view")
+    @RequiresPermissions("openliststrm:copy:view")
     @GetMapping()
     public String copy()
     {
@@ -41,7 +41,7 @@ public class OpenlistCopyController extends BaseController
     /**
      * 查询openlist的文件同步复制任务列表
      */
-    @RequiresPermissions("system:copy:list")
+    @RequiresPermissions("openliststrm:copy:list")
     @PostMapping("/list")
     @ResponseBody
     public TableDataInfo list(OpenlistCopy openlistCopy)
@@ -54,7 +54,7 @@ public class OpenlistCopyController extends BaseController
     /**
      * 导出openlist的文件同步复制任务列表
      */
-    @RequiresPermissions("system:copy:export")
+    @RequiresPermissions("openliststrm:copy:export")
     @Log(title = "openlist的文件同步复制任务", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
     @ResponseBody
@@ -68,7 +68,7 @@ public class OpenlistCopyController extends BaseController
     /**
      * 新增openlist的文件同步复制任务
      */
-    @RequiresPermissions("system:copy:add")
+    @RequiresPermissions("openliststrm:copy:add")
     @GetMapping("/add")
     public String add()
     {
@@ -78,7 +78,7 @@ public class OpenlistCopyController extends BaseController
     /**
      * 新增保存openlist的文件同步复制任务
      */
-    @RequiresPermissions("system:copy:add")
+    @RequiresPermissions("openliststrm:copy:add")
     @Log(title = "openlist的文件同步复制任务", businessType = BusinessType.INSERT)
     @PostMapping("/add")
     @ResponseBody
@@ -90,7 +90,7 @@ public class OpenlistCopyController extends BaseController
     /**
      * 修改openlist的文件同步复制任务
      */
-    @RequiresPermissions("system:copy:edit")
+    @RequiresPermissions("openliststrm:copy:edit")
     @GetMapping("/edit/{copyId}")
     public String edit(@PathVariable("copyId") Integer copyId, ModelMap mmap)
     {
@@ -102,7 +102,7 @@ public class OpenlistCopyController extends BaseController
     /**
      * 修改保存openlist的文件同步复制任务
      */
-    @RequiresPermissions("system:copy:edit")
+    @RequiresPermissions("openliststrm:copy:edit")
     @Log(title = "openlist的文件同步复制任务", businessType = BusinessType.UPDATE)
     @PostMapping("/edit")
     @ResponseBody
@@ -114,7 +114,7 @@ public class OpenlistCopyController extends BaseController
     /**
      * 删除openlist的文件同步复制任务
      */
-    @RequiresPermissions("system:copy:remove")
+    @RequiresPermissions("openliststrm:copy:remove")
     @Log(title = "openlist的文件同步复制任务", businessType = BusinessType.DELETE)
     @PostMapping( "/remove")
     @ResponseBody
