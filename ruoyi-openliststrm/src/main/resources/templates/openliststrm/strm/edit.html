@@ -23,6 +23,17 @@
                     </div>
                 </div>
             </div>
+            <div class="col-xs-12">
+                <div class="form-group">
+                    <label class="col-sm-3 control-label">状态0-失败1-成功：</label>
+                    <div class="col-sm-8">
+                        <div class="radio-box" th:each="dict : ${@dict.getType('openlist_strm_status')}">
+                            <input type="radio" th:id="${'strmStatus_' + dict.dictCode}" name="strmStatus" th:value="${dict.dictValue}" th:field="*{strmStatus}">
+                            <label th:for="${'strmStatus_' + dict.dictCode}" th:text="${dict.dictLabel}"></label>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </form>
     </div>
     <th:block th:include="include :: footer" />
