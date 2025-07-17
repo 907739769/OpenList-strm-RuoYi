@@ -9,7 +9,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
-import java.io.File;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -190,7 +189,7 @@ public class OpenlistApi {
                 .post(RequestBody.create(MediaType.parse("application/json"), requestBodyString))
                 .build();
 
-        log.debug("开始复制[{}]=>[{}]", srcDir + File.separator + names.get(0), dstDir);
+        log.debug("开始复制[{}]=>[{}]", srcDir + "/" + names.get(0), dstDir);
         for (int i = 0; i < 3; i++) {
             // 发送请求并处理响应
             try (Response response = client.newCall(request).execute()) {
@@ -203,11 +202,11 @@ public class OpenlistApi {
 
                     // 处理响应数据
                     if (200 == jsonResponse.getInteger("code")) {
-                        log.debug("复制[{}]=>[{}]成功", srcDir + File.separator + names.get(0), dstDir);
+                        log.debug("复制[{}]=>[{}]成功", srcDir + "/" + names.get(0), dstDir);
                         return jsonResponse;
                     } else {
                         log.warn("Response Body: " + jsonResponse.toJSONString());
-                        log.error("复制[{}]=>[{}]第{}次失败", srcDir + File.separator + names.get(0), dstDir, i + 1);
+                        log.error("复制[{}]=>[{}]第{}次失败", srcDir + "/" + names.get(0), dstDir, i + 1);
                         Threads.sleep(1000);
                     }
 
@@ -217,7 +216,7 @@ public class OpenlistApi {
                     return jsonResponse;
                 }
             } catch (Exception e) {
-                log.error("复制[{}]=>[{}]失败", srcDir + File.separator + names.get(0), dstDir);
+                log.error("复制[{}]=>[{}]失败", srcDir + "/" + names.get(0), dstDir);
                 log.error("", e);
             }
         }

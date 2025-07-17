@@ -15,14 +15,24 @@ public class OpenlistConfig {
     @Autowired
     private ISysConfigService sysConfigService;
 
-    public String getOpenListUrl(){
+    //	openlist-访问地址
+    public String getOpenListUrl() {
         return sysConfigService.selectConfigByKey("openlist.server.url");
     }
 
-    public String getOpenListToken(){
+    //openlist-api访问token
+    public String getOpenListToken() {
         return sysConfigService.selectConfigByKey("openlist.server.token");
     }
 
+    //复制的最小文件
+    public String getOpenListMinFileSize() {
+        return sysConfigService.selectConfigByKey("openlist.copy.minfilesize");
+    }
 
+    //复制完文件生成strm
+    public String getOpenListCopyStrm() {
+        return sysConfigService.selectConfigByKey("openlist.copy.strm");
+    }
 
 }

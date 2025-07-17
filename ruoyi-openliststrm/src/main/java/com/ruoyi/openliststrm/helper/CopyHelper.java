@@ -29,7 +29,9 @@ public class CopyHelper {
         List<OpenlistCopy> copyList = copyService.selectOpenlistCopyList(query);
         if (!CollectionUtils.isEmpty(copyList)) {
             OpenlistCopy newCopy = copyList.get(0);
+            int id = newCopy.getCopyId();
             BeanUtils.copyProperties(openlistCopy, newCopy);
+            newCopy.setCopyId(id);
             copyService.updateOpenlistCopy(newCopy);
         } else {
             copyService.insertOpenlistCopy(openlistCopy);

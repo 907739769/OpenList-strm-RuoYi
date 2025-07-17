@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org" >
+<head>
+    <th:block th:include="include :: header('新增文件同步任务')" />
+</head>
+<body class="white-bg">
+    <div class="wrapper wrapper-content animated fadeInRight ibox-content">
+        <form class="form-horizontal m" id="form-task-add">
+            <div class="col-xs-12">
+                <div class="form-group">
+                    <label class="col-sm-3 control-label is-required">源目录：</label>
+                    <div class="col-sm-8">
+                        <textarea name="copyTaskSrc" class="form-control" required></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xs-12">
+                <div class="form-group">
+                    <label class="col-sm-3 control-label is-required">目标目录：</label>
+                    <div class="col-sm-8">
+                        <textarea name="copyTaskDst" class="form-control" required></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xs-12">
+                <div class="form-group">
+                    <label class="col-sm-3 control-label">状态0-停用1-启用：</label>
+                    <div class="col-sm-8">
+                        <div class="radio-box" th:each="dict : ${@dict.getType('openlist_copy_task_status')}">
+                            <input type="radio" th:id="${'copyTaskStatus_' + dict.dictCode}" name="copyTaskStatus" th:value="${dict.dictValue}" th:checked="${dict.default}">
+                            <label th:for="${'copyTaskStatus_' + dict.dictCode}" th:text="${dict.dictLabel}"></label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+    <th:block th:include="include :: footer" />
+    <script th:inline="javascript">
+        var prefix = ctx + "openliststrm/task"
+        $("#form-task-add").validate({
+            focusCleanup: true
+        });
+
+        function submitHandler() {
+            if ($.validate.form()) {
+                $.operate.save(prefix + "/add", $('#form-task-add').serialize());
+            }
+        }
+    </script>
+</body>
+</html>

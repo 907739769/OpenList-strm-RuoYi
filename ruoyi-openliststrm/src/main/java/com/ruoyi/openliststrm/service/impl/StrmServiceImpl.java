@@ -105,7 +105,7 @@ public class StrmServiceImpl implements IStrmService {
                 return;
             }
 
-            jsonArray.stream().forEach(obj -> {
+            for (Object obj : jsonArray) {
                 JSONObject object = (JSONObject) obj;
                 String name = object.getString("name");
                 if (object.getBoolean("is_dir")) {
@@ -119,7 +119,7 @@ public class StrmServiceImpl implements IStrmService {
                     //判断是否处理过
                     if (strmHelper.exitStrm(path, name)) {
                         log.info("文件已处理过，跳过处理" + path + "/" + name);
-                        return;
+                        continue;
                     }
                     //视频文件
                     if (openListHelper.isVideo(name)) {
@@ -151,7 +151,7 @@ public class StrmServiceImpl implements IStrmService {
 
                     }
                 }
-            });
+            }
 
         }
 
