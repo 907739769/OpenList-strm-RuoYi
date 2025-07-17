@@ -6,6 +6,7 @@ import com.ruoyi.openliststrm.api.OpenlistApi;
 import com.ruoyi.openliststrm.config.OpenlistConfig;
 import com.ruoyi.openliststrm.helper.OpenListHelper;
 import com.ruoyi.openliststrm.helper.StrmHelper;
+import com.ruoyi.openliststrm.service.IStrmService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,7 +25,7 @@ import java.time.LocalDateTime;
  */
 @Service
 @Slf4j
-public class StrmServiceImpl {
+public class StrmServiceImpl implements IStrmService {
 
     @Autowired
     private OpenlistConfig config;
@@ -35,7 +36,7 @@ public class StrmServiceImpl {
     @Autowired
     private OpenListHelper openListHelper;
 
-    private final String outputDir = "/data";
+    private final String outputDir = "/data/strm";
 
     private final String encode = "0";
 

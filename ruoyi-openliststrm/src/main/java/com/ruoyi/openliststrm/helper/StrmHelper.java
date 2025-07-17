@@ -6,6 +6,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 
+import java.util.List;
+
 /**
  * @Author Jack
  * @Date 2025/7/16 20:50
@@ -28,8 +30,16 @@ public class StrmHelper {
         OpenlistStrm strm = new OpenlistStrm();
         strm.setStrmPath(strmPath);
         strm.setStrmFileName(strmFileName);
-        strm.setStrmStatus(status);
-        strmService.insertOpenlistStrm(strm);
+        //存在就更新 不存在就新增
+        List<OpenlistStrm> openlistStrmList = strmService.selectOpenlistStrmList(strm);
+        if (!CollectionUtils.isEmpty(openlistStrmList)) {
+            strm = openlistStrmList.get(0);
+            strm.setStrmStatus(status);
+            strmService.updateOpenlistStrm(strm);
+        } else {
+            strm.setStrmStatus(status);
+            strmService.insertOpenlistStrm(strm);
+        }
     }
 
     /**
