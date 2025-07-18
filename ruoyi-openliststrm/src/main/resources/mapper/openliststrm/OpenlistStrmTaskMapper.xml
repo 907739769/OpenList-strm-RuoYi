@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.openliststrm.mapper.OpenlistStrmTaskMapper">
+    
+    <resultMap type="OpenlistStrmTask" id="OpenlistStrmTaskResult">
+        <result property="strmTaskId"    column="strm_task_id"    />
+        <result property="strmTaskPath"    column="strm_task_path"    />
+        <result property="strmTaskStatus"    column="strm_task_status"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateTime"    column="update_time"    />
+    </resultMap>
+
+    <sql id="selectOpenlistStrmTaskVo">
+        select strm_task_id, strm_task_path, strm_task_status, create_time, update_time from openlist_strm_task
+    </sql>
+
+    <select id="selectOpenlistStrmTaskList" parameterType="OpenlistStrmTask" resultMap="OpenlistStrmTaskResult">
+        <include refid="selectOpenlistStrmTaskVo"/>
+        <where>  
+            <if test="strmTaskPath != null  and strmTaskPath != ''"> and strm_task_path = #{strmTaskPath}</if>
+            <if test="strmTaskStatus != null  and strmTaskStatus != ''"> and strm_task_status = #{strmTaskStatus}</if>
+        </where>
+    </select>
+    
+    <select id="selectOpenlistStrmTaskByStrmTaskId" parameterType="Long" resultMap="OpenlistStrmTaskResult">
+        <include refid="selectOpenlistStrmTaskVo"/>
+        where strm_task_id = #{strmTaskId}
+    </select>
+
+    <insert id="insertOpenlistStrmTask" parameterType="OpenlistStrmTask" useGeneratedKeys="true" keyProperty="strmTaskId">
+        insert into openlist_strm_task
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="strmTaskPath != null and strmTaskPath != ''">strm_task_path,</if>
+            <if test="strmTaskStatus != null">strm_task_status,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateTime != null">update_time,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="strmTaskPath != null and strmTaskPath != ''">#{strmTaskPath},</if>
+            <if test="strmTaskStatus != null">#{strmTaskStatus},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+         </trim>
+    </insert>
+
+    <update id="updateOpenlistStrmTask" parameterType="OpenlistStrmTask">
+        update openlist_strm_task
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="strmTaskPath != null and strmTaskPath != ''">strm_task_path = #{strmTaskPath},</if>
+            <if test="strmTaskStatus != null">strm_task_status = #{strmTaskStatus},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where strm_task_id = #{strmTaskId}
+    </update>
+
+    <delete id="deleteOpenlistStrmTaskByStrmTaskId" parameterType="Long">
+        delete from openlist_strm_task where strm_task_id = #{strmTaskId}
+    </delete>
+
+    <delete id="deleteOpenlistStrmTaskByStrmTaskIds" parameterType="String">
+        delete from openlist_strm_task where strm_task_id in 
+        <foreach item="strmTaskId" collection="array" open="(" separator="," close=")">
+            #{strmTaskId}
+        </foreach>
+    </delete>
+
+</mapper>
