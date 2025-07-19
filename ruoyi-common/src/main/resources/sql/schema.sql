@@ -1,7 +1,7 @@
 -- ----------------------------
--- Table structure for QRTZ_JOB_DETAILS
+-- Table structure for qrtz_job_details
 -- ----------------------------
-CREATE TABLE IF NOT EXISTS `QRTZ_JOB_DETAILS`  (
+CREATE TABLE IF NOT EXISTS `qrtz_job_details`  (
                                                    `sched_name` varchar(120)  NOT NULL COMMENT '调度名称',
     `job_name` varchar(200)  NOT NULL COMMENT '任务名称',
     `job_group` varchar(200)  NOT NULL COMMENT '任务组名',
@@ -16,9 +16,9 @@ CREATE TABLE IF NOT EXISTS `QRTZ_JOB_DETAILS`  (
     )  COMMENT = '任务详细信息表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
--- Table structure for QRTZ_TRIGGERS
+-- Table structure for qrtz_triggers
 -- ----------------------------
-CREATE TABLE IF NOT EXISTS `QRTZ_TRIGGERS`  (
+CREATE TABLE IF NOT EXISTS `qrtz_triggers`  (
                                                 `sched_name` varchar(120)  NOT NULL COMMENT '调度名称',
     `trigger_name` varchar(200)  NOT NULL COMMENT '触发器的名字',
     `trigger_group` varchar(200)  NOT NULL COMMENT '触发器所属组的名字',
@@ -37,25 +37,25 @@ CREATE TABLE IF NOT EXISTS `QRTZ_TRIGGERS`  (
     `job_data` blob NULL COMMENT '存放持久化job对象',
     PRIMARY KEY (`sched_name`, `trigger_name`, `trigger_group`) USING BTREE,
     INDEX `sched_name`(`sched_name`, `job_name`, `job_group`) USING BTREE,
-    CONSTRAINT `QRTZ_TRIGGERS_ibfk_1` FOREIGN KEY (`sched_name`, `job_name`, `job_group`) REFERENCES `QRTZ_JOB_DETAILS` (`sched_name`, `job_name`, `job_group`) ON DELETE RESTRICT ON UPDATE RESTRICT
+    CONSTRAINT `qrtz_triggers_ibfk_1` FOREIGN KEY (`sched_name`, `job_name`, `job_group`) REFERENCES `qrtz_job_details` (`sched_name`, `job_name`, `job_group`) ON DELETE RESTRICT ON UPDATE RESTRICT
     )  COMMENT = '触发器详细信息表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
--- Table structure for QRTZ_BLOB_TRIGGERS
+-- Table structure for qrtz_blob_triggers
 -- ----------------------------
-CREATE TABLE IF NOT EXISTS `QRTZ_BLOB_TRIGGERS`  (
+CREATE TABLE IF NOT EXISTS `qrtz_blob_triggers`  (
                                                      `sched_name` varchar(120)  NOT NULL COMMENT '调度名称',
     `trigger_name` varchar(200)  NOT NULL COMMENT 'qrtz_triggers表trigger_name的外键',
     `trigger_group` varchar(200)  NOT NULL COMMENT 'qrtz_triggers表trigger_group的外键',
     `blob_data` blob NULL COMMENT '存放持久化Trigger对象',
     PRIMARY KEY (`sched_name`, `trigger_name`, `trigger_group`) USING BTREE,
-    CONSTRAINT `QRTZ_BLOB_TRIGGERS_ibfk_1` FOREIGN KEY (`sched_name`, `trigger_name`, `trigger_group`) REFERENCES `QRTZ_TRIGGERS` (`sched_name`, `trigger_name`, `trigger_group`) ON DELETE RESTRICT ON UPDATE RESTRICT
+    CONSTRAINT `qrtz_blob_triggers_ibfk_1` FOREIGN KEY (`sched_name`, `trigger_name`, `trigger_group`) REFERENCES `qrtz_triggers` (`sched_name`, `trigger_name`, `trigger_group`) ON DELETE RESTRICT ON UPDATE RESTRICT
     )  COMMENT = 'Blob类型的触发器表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
--- Table structure for QRTZ_CALENDARS
+-- Table structure for qrtz_calendars
 -- ----------------------------
-CREATE TABLE IF NOT EXISTS `QRTZ_CALENDARS`  (
+CREATE TABLE IF NOT EXISTS `qrtz_calendars`  (
                                                  `sched_name` varchar(120)  NOT NULL COMMENT '调度名称',
     `calendar_name` varchar(200)  NOT NULL COMMENT '日历名称',
     `calendar` blob NOT NULL COMMENT '存放持久化calendar对象',
@@ -63,22 +63,22 @@ CREATE TABLE IF NOT EXISTS `QRTZ_CALENDARS`  (
     )  COMMENT = '日历信息表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
--- Table structure for QRTZ_CRON_TRIGGERS
+-- Table structure for qrtz_cron_triggers
 -- ----------------------------
-CREATE TABLE IF NOT EXISTS `QRTZ_CRON_TRIGGERS`  (
+CREATE TABLE IF NOT EXISTS `qrtz_cron_triggers`  (
                                                      `sched_name` varchar(120)  NOT NULL COMMENT '调度名称',
     `trigger_name` varchar(200)  NOT NULL COMMENT 'qrtz_triggers表trigger_name的外键',
     `trigger_group` varchar(200)  NOT NULL COMMENT 'qrtz_triggers表trigger_group的外键',
     `cron_expression` varchar(200)  NOT NULL COMMENT 'cron表达式',
     `time_zone_id` varchar(80)  NULL DEFAULT NULL COMMENT '时区',
     PRIMARY KEY (`sched_name`, `trigger_name`, `trigger_group`) USING BTREE,
-    CONSTRAINT `QRTZ_CRON_TRIGGERS_ibfk_1` FOREIGN KEY (`sched_name`, `trigger_name`, `trigger_group`) REFERENCES `QRTZ_TRIGGERS` (`sched_name`, `trigger_name`, `trigger_group`) ON DELETE RESTRICT ON UPDATE RESTRICT
+    CONSTRAINT `qrtz_cron_triggers_ibfk_1` FOREIGN KEY (`sched_name`, `trigger_name`, `trigger_group`) REFERENCES `qrtz_triggers` (`sched_name`, `trigger_name`, `trigger_group`) ON DELETE RESTRICT ON UPDATE RESTRICT
     )  COMMENT = 'Cron类型的触发器表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
--- Table structure for QRTZ_FIRED_TRIGGERS
+-- Table structure for qrtz_fired_triggers
 -- ----------------------------
-CREATE TABLE IF NOT EXISTS `QRTZ_FIRED_TRIGGERS`  (
+CREATE TABLE IF NOT EXISTS `qrtz_fired_triggers`  (
                                                       `sched_name` varchar(120)  NOT NULL COMMENT '调度名称',
     `entry_id` varchar(95)  NOT NULL COMMENT '调度器实例id',
     `trigger_name` varchar(200)  NOT NULL COMMENT 'qrtz_triggers表trigger_name的外键',
@@ -96,27 +96,27 @@ CREATE TABLE IF NOT EXISTS `QRTZ_FIRED_TRIGGERS`  (
     )  COMMENT = '已触发的触发器表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
--- Table structure for QRTZ_LOCKS
+-- Table structure for qrtz_locks
 -- ----------------------------
-CREATE TABLE IF NOT EXISTS `QRTZ_LOCKS`  (
+CREATE TABLE IF NOT EXISTS `qrtz_locks`  (
                                              `sched_name` varchar(120)  NOT NULL COMMENT '调度名称',
     `lock_name` varchar(40)  NOT NULL COMMENT '悲观锁名称',
     PRIMARY KEY (`sched_name`, `lock_name`) USING BTREE
     )  COMMENT = '存储的悲观锁信息表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
--- Table structure for QRTZ_PAUSED_TRIGGER_GRPS
+-- Table structure for qrtz_paused_trigger_grps
 -- ----------------------------
-CREATE TABLE IF NOT EXISTS `QRTZ_PAUSED_TRIGGER_GRPS`  (
+CREATE TABLE IF NOT EXISTS `qrtz_paused_trigger_grps`  (
                                                            `sched_name` varchar(120)  NOT NULL COMMENT '调度名称',
     `trigger_group` varchar(200)  NOT NULL COMMENT 'qrtz_triggers表trigger_group的外键',
     PRIMARY KEY (`sched_name`, `trigger_group`) USING BTREE
     )  COMMENT = '暂停的触发器表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
--- Table structure for QRTZ_SCHEDULER_STATE
+-- Table structure for qrtz_scheduler_state
 -- ----------------------------
-CREATE TABLE IF NOT EXISTS `QRTZ_SCHEDULER_STATE`  (
+CREATE TABLE IF NOT EXISTS `qrtz_scheduler_state`  (
                                                        `sched_name` varchar(120)  NOT NULL COMMENT '调度名称',
     `instance_name` varchar(200)  NOT NULL COMMENT '实例名称',
     `last_checkin_time` bigint(13) NOT NULL COMMENT '上次检查时间',
@@ -125,9 +125,9 @@ CREATE TABLE IF NOT EXISTS `QRTZ_SCHEDULER_STATE`  (
     )  COMMENT = '调度器状态表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
--- Table structure for QRTZ_SIMPLE_TRIGGERS
+-- Table structure for qrtz_simple_triggers
 -- ----------------------------
-CREATE TABLE IF NOT EXISTS `QRTZ_SIMPLE_TRIGGERS`  (
+CREATE TABLE IF NOT EXISTS `qrtz_simple_triggers`  (
                                                        `sched_name` varchar(120)  NOT NULL COMMENT '调度名称',
     `trigger_name` varchar(200)  NOT NULL COMMENT 'qrtz_triggers表trigger_name的外键',
     `trigger_group` varchar(200)  NOT NULL COMMENT 'qrtz_triggers表trigger_group的外键',
@@ -135,13 +135,13 @@ CREATE TABLE IF NOT EXISTS `QRTZ_SIMPLE_TRIGGERS`  (
     `repeat_interval` bigint(12) NOT NULL COMMENT '重复的间隔时间',
     `times_triggered` bigint(10) NOT NULL COMMENT '已经触发的次数',
     PRIMARY KEY (`sched_name`, `trigger_name`, `trigger_group`) USING BTREE,
-    CONSTRAINT `QRTZ_SIMPLE_TRIGGERS_ibfk_1` FOREIGN KEY (`sched_name`, `trigger_name`, `trigger_group`) REFERENCES `QRTZ_TRIGGERS` (`sched_name`, `trigger_name`, `trigger_group`) ON DELETE RESTRICT ON UPDATE RESTRICT
+    CONSTRAINT `qrtz_simple_triggers_ibfk_1` FOREIGN KEY (`sched_name`, `trigger_name`, `trigger_group`) REFERENCES `qrtz_triggers` (`sched_name`, `trigger_name`, `trigger_group`) ON DELETE RESTRICT ON UPDATE RESTRICT
     )  COMMENT = '简单触发器的信息表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
--- Table structure for QRTZ_SIMPROP_TRIGGERS
+-- Table structure for qrtz_simprop_triggers
 -- ----------------------------
-CREATE TABLE IF NOT EXISTS `QRTZ_SIMPROP_TRIGGERS`  (
+CREATE TABLE IF NOT EXISTS `qrtz_simprop_triggers`  (
                                                         `sched_name` varchar(120)  NOT NULL COMMENT '调度名称',
     `trigger_name` varchar(200)  NOT NULL COMMENT 'qrtz_triggers表trigger_name的外键',
     `trigger_group` varchar(200)  NOT NULL COMMENT 'qrtz_triggers表trigger_group的外键',
@@ -157,7 +157,7 @@ CREATE TABLE IF NOT EXISTS `QRTZ_SIMPROP_TRIGGERS`  (
     `bool_prop_1` varchar(1)  NULL DEFAULT NULL COMMENT 'Boolean类型的trigger的第一个参数',
     `bool_prop_2` varchar(1)  NULL DEFAULT NULL COMMENT 'Boolean类型的trigger的第二个参数',
     PRIMARY KEY (`sched_name`, `trigger_name`, `trigger_group`) USING BTREE,
-    CONSTRAINT `QRTZ_SIMPROP_TRIGGERS_ibfk_1` FOREIGN KEY (`sched_name`, `trigger_name`, `trigger_group`) REFERENCES `QRTZ_TRIGGERS` (`sched_name`, `trigger_name`, `trigger_group`) ON DELETE RESTRICT ON UPDATE RESTRICT
+    CONSTRAINT `qrtz_simprop_triggers_ibfk_1` FOREIGN KEY (`sched_name`, `trigger_name`, `trigger_group`) REFERENCES `qrtz_triggers` (`sched_name`, `trigger_name`, `trigger_group`) ON DELETE RESTRICT ON UPDATE RESTRICT
     )  COMMENT = '同步机制的行锁表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
