@@ -76,6 +76,7 @@ spring:
     init:
       mode: always
       schema-locations: classpath*:sql/schema.sql
+      data-locations: classpath*:sql/data.sql
 
 # MyBatis
 # mybatis:

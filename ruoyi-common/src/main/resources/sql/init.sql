@@ -81,12 +81,6 @@ INSERT INTO `sys_dict_type` VALUES (103, 'openlist字幕格式', 'openlist_srt_t
 INSERT INTO `sys_dict_type` VALUES (104, 'openlist同步文件任务状态', 'openlist_copy_task_status', '0', 'admin', '2025-07-17 10:28:35', '', NULL, 'openlist同步文件任务状态0-停用1-启用');
 
 -- ----------------------------
--- Records of sys_job
--- ----------------------------
-INSERT INTO `sys_job` VALUES (100, 'openliststrm-复制任务', 'DEFAULT', 'openListStrmTask.copy()', '0 0 3 * * ?', '3', '1', '1', 'admin', '2025-07-17 11:38:05', '', NULL, '');
-INSERT INTO `sys_job` VALUES (101, 'openliststrm-strm任务', 'DEFAULT', 'openListStrmTask.strm()', '0 0 5 * * ?', '3', '1', '1', 'admin', '2025-07-18 11:44:23', '', NULL, '');
-
--- ----------------------------
 -- Records of sys_menu
 -- ----------------------------
 INSERT INTO `sys_menu` VALUES (1, '系统管理', 0, 1, '#', '', 'M', '0', '1', '', 'fa fa-gear', 'admin', '2025-07-15 11:53:20', '', NULL, '系统管理目录');
