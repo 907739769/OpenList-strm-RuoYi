@@ -5,6 +5,8 @@ INSERT INTO `sys_config` VALUES (100, 'openlist-访问地址', 'openlist.server.
 INSERT INTO `sys_config` VALUES (101, 'openlist-api访问token', 'openlist.server.token', 'xxx', 'N', 'admin', '2025-07-16 11:38:39', 'admin', '2025-07-17 11:39:24', 'openlist的api访问token');
 INSERT INTO `sys_config` VALUES (102, 'openlist复制的最小文件', 'openlist.copy.minfilesize', '10', 'N', 'admin', '2025-07-17 10:43:53', 'admin', '2025-07-17 11:55:27', '单位是MB');
 INSERT INTO `sys_config` VALUES (103, 'openlist复制完文件生成strm', 'openlist.copy.strm', '1', 'N', 'admin', '2025-07-17 10:44:48', '', NULL, NULL);
+INSERT INTO `sys_config` VALUES (104, 'tg机器人token', 'openlist.tg.token', '', 'N', 'admin', '2025-07-20 18:42:46', '', NULL, 'tg机器人token');
+INSERT INTO `sys_config` VALUES (105, 'tg用户id', 'openlist.tg.userid', '', 'N', 'admin', '2025-07-20 18:43:22', '', NULL, 'tg用户id');
 
 
 -- ----------------------------

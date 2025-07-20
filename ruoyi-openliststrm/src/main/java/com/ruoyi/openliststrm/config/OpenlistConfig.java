@@ -35,4 +35,14 @@ public class OpenlistConfig {
         return sysConfigService.selectConfigByKey("openlist.copy.strm");
     }
 
+    //tg机器人token
+    public String getOpenListTgToken() {
+        return sysConfigService.selectConfigByKey("openlist.tg.token");
+    }
+
+    //tg用户id
+    public String getOpenListTgUserId() {
+        return sysConfigService.selectConfigByKey("openlist.tg.userid");
+    }
+
 }
