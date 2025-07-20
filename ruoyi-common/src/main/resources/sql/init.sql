@@ -7,6 +7,7 @@ INSERT INTO `sys_config` VALUES (102, 'openlist复制的最小文件', 'openlist
 INSERT INTO `sys_config` VALUES (103, 'openlist复制完文件生成strm', 'openlist.copy.strm', '1', 'N', 'admin', '2025-07-17 10:44:48', '', NULL, NULL);
 INSERT INTO `sys_config` VALUES (104, 'tg机器人token', 'openlist.tg.token', '', 'N', 'admin', '2025-07-20 18:42:46', '', NULL, 'tg机器人token');
 INSERT INTO `sys_config` VALUES (105, 'tg用户id', 'openlist.tg.userid', '', 'N', 'admin', '2025-07-20 18:43:22', '', NULL, 'tg用户id');
+INSERT INTO `sys_config` VALUES (106, 'OSR接口Apikey', 'openlist.api.apikey', '', 'N', 'admin', '2025-07-20 20:01:53', '', NULL, NULL);
 
 
 -- ----------------------------

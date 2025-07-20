@@ -45,4 +45,10 @@ public class OpenlistConfig {
         return sysConfigService.selectConfigByKey("openlist.tg.userid");
     }
 
+    //Apikey
+    public String getOpenListApiKey() {
+        return sysConfigService.selectConfigByKey("openlist.api.apikey");
+    }
+
+
 }

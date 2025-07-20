@@ -7,6 +7,13 @@ package com.ruoyi.openliststrm.service;
  */
 public interface ICopyService {
 
+    //同步目录所有文件
     void syncFiles(String srcDir, String dstDir);
+
+    //同步一个文件
+    void syncOneFile(String srcDir, String dstDir, String relativePath);
+
+    //同步指定子目录
+    void syncFiles(String srcDir, String dstDir, String relativePath);
 
 }

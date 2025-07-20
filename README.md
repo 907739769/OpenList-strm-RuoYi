@@ -8,7 +8,7 @@
 
 ## 安装配置
 
-直接可用docker安装
+直接可用docker安装，安装完成访问http://192.x.x.x:6895
 
 ```
 version : '3'
@@ -51,6 +51,24 @@ services:
     links:
       - osr_db
 ```
+
+## qb脚本参考
+sh /config/notify.sh "%G" "%F"
+
+```
+#!/bin/bash
+
+# 获取传递的标签
+TAG=$1
+qbDlFilePath=$2
+MOVIEPILOT="MOVIEPILOT"
+
+if [[ "$TAG" =~ "$MOVIEPILOT" ]]; then
+# 调用 notify 接口
+curl -X POST -H "Content-Type: application/json" -H "X-API-KEY: xxx" -d "{\"qbDlFilePath\": \"$qbDlFilePath\",\"srcDir\": \"/download/pt\",\"srcDst\": \"/115网盘/影视/pt\",\"qbDlRootPath\": \"/data/downloads/pt\"}" http://192.168.31.66:6895/api/v1/notifyByDir &>/dev/null &
+fi
+```
+
 ## 演示图
 
 <table>

@@ -50,7 +50,7 @@ public class CopyServiceImpl implements ICopyService {
             return;
         }
         if (relativePath.startsWith("/")) {
-            relativePath = relativePath.replaceFirst("/", "");
+            relativePath = relativePath.replaceFirst("/" , "");
         }
         if (srcDir.endsWith("/")) {
             srcDir = srcDir.substring(0, srcDir.lastIndexOf("/"));
@@ -129,8 +129,11 @@ public class CopyServiceImpl implements ICopyService {
     }
 
     public void syncOneFile(String srcDir, String dstDir, String relativePath) {
+        if (!openListHelper.isVideo(relativePath)) {
+            return;
+        }
         if (relativePath.startsWith("/")) {
-            relativePath = relativePath.replaceFirst("/", "");
+            relativePath = relativePath.replaceFirst("/" , "");
         }
         if (srcDir.endsWith("/")) {
             srcDir = srcDir.substring(0, srcDir.lastIndexOf("/"));
@@ -138,11 +141,17 @@ public class CopyServiceImpl implements ICopyService {
         if (dstDir.endsWith("/")) {
             dstDir = dstDir.substring(0, dstDir.lastIndexOf("/"));
         }
+        //源目录
+        String copySrcPath = srcDir + "/" + relativePath.substring(0, relativePath.lastIndexOf("/"));
+        //目标目录
+        String copyDstPath = dstDir + "/" + relativePath.substring(0, relativePath.lastIndexOf("/"));
+        //文件名
+        String fileName = relativePath.substring(relativePath.lastIndexOf("/"));
         OpenlistCopy copy = new OpenlistCopy();
-        copy.setCopySrcPath(srcDir + "/" + relativePath);
-        copy.setCopyDstPath(dstDir + "/" + relativePath);
-        copy.setCopySrcFileName(relativePath.substring(relativePath.lastIndexOf("/")));
-        copy.setCopyDstFileName(relativePath.substring(relativePath.lastIndexOf("/")));
+        copy.setCopySrcPath(copySrcPath);
+        copy.setCopyDstPath(copyDstPath);
+        copy.setCopySrcFileName(fileName);
+        copy.setCopyDstFileName(fileName);
         if (copyHelper.exitCopy(copy)) {
             log.info("文件已处理过，跳过处理" + dstDir + "/" + relativePath);
             return;
@@ -152,8 +161,8 @@ public class CopyServiceImpl implements ICopyService {
         if (!(200 == jsonObject.getInteger("code")) && openListHelper.isVideo(relativePath)) {
             JSONObject srcJson = openlistApi.getFile(srcDir + "/" + relativePath);
             if (srcJson.getJSONObject("data").getLong("size") > Long.parseLong(config.getOpenListMinFileSize()) * 1024 * 1024) {
-                openlistApi.mkdir(dstDir + "/" + relativePath.substring(0, relativePath.lastIndexOf("/")));
-                JSONObject jsonResponse = openlistApi.copyOpenlist(srcDir + "/" + relativePath.substring(0, relativePath.lastIndexOf("/")), dstDir + "/" + relativePath.substring(0, relativePath.lastIndexOf("/")), Collections.singletonList(relativePath.substring(relativePath.lastIndexOf("/"))));
+                openlistApi.mkdir(copyDstPath);
+                JSONObject jsonResponse = openlistApi.copyOpenlist(copySrcPath, copyDstPath, Collections.singletonList(fileName));
                 if (jsonResponse != null && 200 == jsonResponse.getInteger("code")) {
                     flag.set(true);
                     //获取上传文件的任务id
@@ -172,11 +181,15 @@ public class CopyServiceImpl implements ICopyService {
     }
 
     public void syncFiles(String srcDir, String dstDir, String relativePath, Set<OpenlistCopy> taskIdList) {
-        syncFiles(srcDir, dstDir, relativePath, "", taskIdList);
+        syncFiles(srcDir, dstDir, relativePath, "" , taskIdList);
+    }
+
+    public void syncFiles(String srcDir, String dstDir, String relativePath) {
+        syncFiles(srcDir, dstDir, relativePath, relativePath, ConcurrentHashMap.newKeySet());
     }
 
     public void syncFiles(String srcDir, String dstDir) {
-        syncFiles(srcDir, dstDir, "", "", ConcurrentHashMap.newKeySet());
+        syncFiles(srcDir, dstDir, "" , "" , ConcurrentHashMap.newKeySet());
     }
 
 
