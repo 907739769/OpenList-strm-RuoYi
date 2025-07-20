@@ -11,7 +11,15 @@
                     <div class="select-list">
                         <ul>
                             <li>
-                                <label>状态0-失败1-成功：</label>
+                                <label>strm目录：</label>
+                                <input type="text" name="strmPath"/>
+                            </li>
+                            <li>
+                                <label>strm文件名：</label>
+                                <input type="text" name="strmFileName"/>
+                            </li>
+                            <li>
+                                <label>状态：</label>
                                 <select name="strmStatus" th:with="type=${@dict.getType('openlist_strm_status')}">
                                     <option value="">所有</option>
                                     <option th:each="dict : ${type}" th:text="${dict.dictLabel}" th:value="${dict.dictValue}"></option>
@@ -78,7 +86,7 @@
                 },
                 {
                     field: 'strmStatus',
-                    title: '状态0-失败1-成功',
+                    title: '状态',
                     formatter: function(value, row, index) {
                        return $.table.selectDictLabel(strmStatusDatas, value);
                     }

@@ -11,11 +11,23 @@
                     <div class="select-list">
                         <ul>
                             <li>
-                                <label>openlist的复制任务ID：</label>
-                                <input type="text" name="copyTaskId"/>
+                                <label>源目录：</label>
+                                <input type="text" name="copySrcPath"/>
                             </li>
                             <li>
-                                <label>复制状态1-处理中2-失败3-成功4-未知：</label>
+                                <label>目标目录：</label>
+                                <input type="text" name="copyDstPath"/>
+                            </li>
+                            <li>
+                                <label>源文件名：</label>
+                                <input type="text" name="copySrcFileName"/>
+                            </li>
+                            <li>
+                                <label>目标文件名：</label>
+                                <input type="text" name="copyDstFileName"/>
+                            </li>
+                            <li>
+                                <label>状态：</label>
                                 <select name="copyStatus" th:with="type=${@dict.getType('openlist_copy_status')}">
                                     <option value="">所有</option>
                                     <option th:each="dict : ${type}" th:text="${dict.dictLabel}" th:value="${dict.dictValue}"></option>
@@ -82,19 +94,20 @@
                 },
                 {
                     field: 'copySrcFileName',
-                    title: '源文件名称'
+                    title: '源文件名'
                 },
                 {
                     field: 'copyDstFileName',
-                    title: '目标文件名称'
+                    title: '目标文件名'
                 },
                 {
                     field: 'copyTaskId',
-                    title: 'openlist的复制任务ID'
+                    title: 'openlist的复制任务ID',
+                    visible: false
                 },
                 {
                     field: 'copyStatus',
-                    title: '复制状态1-处理中2-失败3-成功4-未知',
+                    title: '状态',
                     formatter: function(value, row, index) {
                        return $.table.selectDictLabel(copyStatusDatas, value);
                     }
