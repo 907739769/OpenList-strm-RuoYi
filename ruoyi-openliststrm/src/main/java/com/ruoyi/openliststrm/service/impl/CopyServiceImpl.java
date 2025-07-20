@@ -50,7 +50,7 @@ public class CopyServiceImpl implements ICopyService {
             return;
         }
         if (relativePath.startsWith("/")) {
-            relativePath = relativePath.replaceFirst("/" , "");
+            relativePath = relativePath.replaceFirst("/", "");
         }
         if (srcDir.endsWith("/")) {
             srcDir = srcDir.substring(0, srcDir.lastIndexOf("/"));
@@ -133,7 +133,7 @@ public class CopyServiceImpl implements ICopyService {
             return;
         }
         if (relativePath.startsWith("/")) {
-            relativePath = relativePath.replaceFirst("/" , "");
+            relativePath = relativePath.replaceFirst("/", "");
         }
         if (srcDir.endsWith("/")) {
             srcDir = srcDir.substring(0, srcDir.lastIndexOf("/"));
@@ -175,13 +175,13 @@ public class CopyServiceImpl implements ICopyService {
         }
 
         if (flag.get() && "1".equals(config.getOpenListCopyStrm())) {
-            asynHelper.isCopyDoneOneFile(dstDir + relativePath, copy);
+            asynHelper.isCopyDoneOneFile(dstDir + "/" + relativePath, copy);
         }
 
     }
 
     public void syncFiles(String srcDir, String dstDir, String relativePath, Set<OpenlistCopy> taskIdList) {
-        syncFiles(srcDir, dstDir, relativePath, "" , taskIdList);
+        syncFiles(srcDir, dstDir, relativePath, "", taskIdList);
     }
 
     public void syncFiles(String srcDir, String dstDir, String relativePath) {
@@ -189,7 +189,7 @@ public class CopyServiceImpl implements ICopyService {
     }
 
     public void syncFiles(String srcDir, String dstDir) {
-        syncFiles(srcDir, dstDir, "" , "" , ConcurrentHashMap.newKeySet());
+        syncFiles(srcDir, dstDir, "", "", ConcurrentHashMap.newKeySet());
     }
 
 
