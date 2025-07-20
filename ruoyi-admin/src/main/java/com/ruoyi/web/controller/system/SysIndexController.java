@@ -57,7 +57,7 @@ public class SysIndexController extends BaseController
         mmap.put("user", user);
         mmap.put("sideTheme", configService.selectConfigByKey("sys.index.sideTheme"));
         mmap.put("skinName", configService.selectConfigByKey("sys.index.skinName"));
-        Boolean footer = Convert.toBool(configService.selectConfigByKey("sys.index.footer"), true);
+        Boolean footer = Convert.toBool(configService.selectConfigByKey("sys.index.footer"), false);
         Boolean tagsView = Convert.toBool(configService.selectConfigByKey("sys.index.tagsView"), true);
         mmap.put("footer", footer);
         mmap.put("tagsView", tagsView);
