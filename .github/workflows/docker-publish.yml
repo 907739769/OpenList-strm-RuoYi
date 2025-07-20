@@ -3,11 +3,11 @@ name: Java CI with Maven docker
 on:
   push:
     # 分支
-    branches: [ main ]
+    branches: [ master ]
     paths-ignore:
       - '**.md'
   pull_request:
-    branches: [ main ]
+    branches: [ master ]
     paths-ignore:
       - '**.md'
 
