@@ -24,6 +24,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="strmFileName != null  and strmFileName != ''"> and strm_file_name like concat('%', #{strmFileName}, '%')</if>
             <if test="strmStatus != null  and strmStatus != ''"> and strm_status = #{strmStatus}</if>
         </where>
+        order by create_time desc
     </select>
     
     <select id="selectOpenlistStrmByStrmId" parameterType="Integer" resultMap="OpenlistStrmResult">

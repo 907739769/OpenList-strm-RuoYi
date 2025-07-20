@@ -30,6 +30,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="copyTaskId != null  and copyTaskId != ''"> and copy_task_id = #{copyTaskId}</if>
             <if test="copyStatus != null  and copyStatus != ''"> and copy_status = #{copyStatus}</if>
         </where>
+        order by create_time desc
     </select>
     
     <select id="selectOpenlistCopyByCopyId" parameterType="Integer" resultMap="OpenlistCopyResult">
