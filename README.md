@@ -8,7 +8,7 @@
 
 ## 安装配置
 
-直接可用docker安装，安装完成访问http://192.x.x.x:6895
+直接可用docker安装，安装完成访问http://192.x.x.x:6895，账号密码admin/openliststrm666
 
 ```
 version : '3'
