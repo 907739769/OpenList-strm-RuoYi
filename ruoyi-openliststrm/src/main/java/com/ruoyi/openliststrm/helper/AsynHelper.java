@@ -5,12 +5,14 @@ import com.ruoyi.common.utils.Threads;
 import com.ruoyi.framework.manager.AsyncManager;
 import com.ruoyi.openliststrm.api.OpenlistApi;
 import com.ruoyi.openliststrm.domain.OpenlistCopy;
+import com.ruoyi.openliststrm.service.IOpenlistCopyService;
 import com.ruoyi.openliststrm.service.IStrmService;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.Set;
+import java.util.Iterator;
+import java.util.List;
 import java.util.TimerTask;
 
 /**
@@ -32,20 +34,28 @@ public class AsynHelper {
     @Autowired
     private CopyHelper copyHelper;
 
+    @Autowired
+    private IOpenlistCopyService copyService;
+
     /**
      * 判断openlist的复制任务是否完成 完成就执行strm任务
      *
      * @return
      * @Async
      */
-    public void isCopyDone(String dstDir, String strmDir, Set<OpenlistCopy> copySet) {
+    public void isCopyDone(String dstDir, String strmDir) {
         AsyncManager.me().execute(new TimerTask() {
             @Override
             public void run() {
                 Threads.sleep(30000);
+                OpenlistCopy query = new OpenlistCopy();
+                query.setCopyStatus("1");
+                List<OpenlistCopy> copyList = copyService.selectOpenlistCopyList(query);
                 while (true) {
                     boolean allTasksCompleted = true;
-                    for (OpenlistCopy copy : copySet) {
+                    Iterator<OpenlistCopy> iterator = copyList.iterator();
+                    while (iterator.hasNext()) {
+                        OpenlistCopy copy = iterator.next();
                         String taskId = copy.getCopyTaskId();
                         if (StringUtils.isBlank(taskId)) {
                             continue;
@@ -80,7 +90,7 @@ public class AsynHelper {
                                 copy.setCopyStatus("3");
                                 copyHelper.addCopy(copy);
                             }
-                            copySet.remove(copy);
+                            iterator.remove();
                         }
                     }
                     if (allTasksCompleted) {

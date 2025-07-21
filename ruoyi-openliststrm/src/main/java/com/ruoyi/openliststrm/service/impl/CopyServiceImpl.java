@@ -15,8 +15,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.Collections;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -45,7 +43,7 @@ public class CopyServiceImpl implements ICopyService {
     @Autowired
     private OpenlistConfig config;
 
-    private void syncFilesRecursion(String srcDir, String dstDir, String relativePath, Set<OpenlistCopy> copySet) {
+    private void syncFilesRecursion(String srcDir, String dstDir, String relativePath) {
         if (StringUtils.isAnyBlank(srcDir, dstDir)) {
             return;
         }
@@ -83,10 +81,10 @@ public class CopyServiceImpl implements ICopyService {
                 //判断目标目录是否存在这个文件夹
                 //200就是存在 存在就继续往下级目录找
                 if (200 == jsonObject.getInteger("code")) {
-                    syncFiles(srcDir, dstDir, relativePath + (StringUtils.isBlank(relativePath) ? "" : "/") + name, copySet);
+                    syncFilesRecursion(srcDir, dstDir, relativePath + (StringUtils.isBlank(relativePath) ? "" : "/") + name);
                 } else {
                     openlistApi.mkdir(dstDir + "/" + relativePath + (StringUtils.isBlank(relativePath) ? "" : "/") + name);
-                    syncFiles(srcDir, dstDir, relativePath + (StringUtils.isBlank(relativePath) ? "" : "/") + name, copySet);
+                    syncFilesRecursion(srcDir, dstDir, relativePath + (StringUtils.isBlank(relativePath) ? "" : "/") + name);
                 }
             } else {
                 OpenlistCopy copy = new OpenlistCopy();
@@ -108,7 +106,6 @@ public class CopyServiceImpl implements ICopyService {
                             copy.setCopyTaskId(tasks.getJSONObject(0).getString("id"));
                             copy.setCopyStatus("1");
                             copyHelper.addCopy(copy);
-                            copySet.add(copy);
                         }
                     }
                 } else if (200 == jsonObject.getInteger("code")) {
@@ -176,23 +173,17 @@ public class CopyServiceImpl implements ICopyService {
 
     }
 
-    public void syncFiles(String srcDir, String dstDir, String relativePath, Set<OpenlistCopy> copySet) {
-        syncFilesRecursion(srcDir, dstDir, relativePath, copySet);
-    }
-
     public void syncFiles(String srcDir, String dstDir, String relativePath) {
-        Set<OpenlistCopy> copySet = ConcurrentHashMap.newKeySet();
-        syncFilesRecursion(srcDir, dstDir, relativePath, copySet);
+        syncFilesRecursion(srcDir, dstDir, relativePath);
         if ("1".equals(config.getOpenListCopyStrm())) {
-            asynHelper.isCopyDone(dstDir, relativePath, copySet);
+            asynHelper.isCopyDone(dstDir, relativePath);
         }
     }
 
     public void syncFiles(String srcDir, String dstDir) {
-        Set<OpenlistCopy> copySet = ConcurrentHashMap.newKeySet();
-        syncFilesRecursion(srcDir, dstDir, "", copySet);
+        syncFilesRecursion(srcDir, dstDir, "");
         if ("1".equals(config.getOpenListCopyStrm())) {
-            asynHelper.isCopyDone(dstDir, "", copySet);
+            asynHelper.isCopyDone(dstDir, "");
         }
     }
 
