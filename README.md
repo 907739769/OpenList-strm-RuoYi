@@ -24,6 +24,8 @@
 
 直接可用docker安装，安装完成访问http://192.x.x.x:6895   默认账号密码admin/openliststrm666
 
+登录页面之后，在`系统管理-参数设置`菜单设置参数，如果设置了tg参数，需要重启服务。
+
 ```
 version : '3'
 services:
