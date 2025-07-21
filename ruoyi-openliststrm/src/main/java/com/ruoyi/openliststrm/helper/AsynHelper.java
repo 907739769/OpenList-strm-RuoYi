@@ -12,7 +12,6 @@ import org.springframework.stereotype.Service;
 
 import java.util.Set;
 import java.util.TimerTask;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * 异步线程服务
@@ -33,8 +32,6 @@ public class AsynHelper {
     @Autowired
     private CopyHelper copyHelper;
 
-    private final AtomicBoolean isRun = new AtomicBoolean(false);
-
     /**
      * 判断openlist的复制任务是否完成 完成就执行strm任务
      *
@@ -45,15 +42,16 @@ public class AsynHelper {
         AsyncManager.me().execute(new TimerTask() {
             @Override
             public void run() {
-                if (isRun.get() && StringUtils.isBlank(strmDir)) {
-                    return;
-                }
-                isRun.set(true);
                 Threads.sleep(30000);
                 while (true) {
                     boolean allTasksCompleted = true;
                     for (OpenlistCopy copy : taskIdList) {
                         String taskId = copy.getCopyTaskId();
+                        if (StringUtils.isBlank(taskId)) {
+                            copy.setCopyStatus("4");
+                            copyHelper.addCopy(copy);
+                            continue;
+                        }
                         JSONObject jsonResponse = openlistApi.copyInfo(taskId);
                         if (jsonResponse == null) {
                             copy.setCopyStatus("4");
@@ -88,7 +86,6 @@ public class AsynHelper {
                         }
                     }
                     if (allTasksCompleted) {
-                        isRun.set(false);
                         strmService.strmDir(dstDir + strmDir);// 生成 STRM 文件
                         break;// 任务完成，退出循环
                     } else {
@@ -104,6 +101,9 @@ public class AsynHelper {
         AsyncManager.me().execute(new TimerTask() {
             @Override
             public void run() {
+                if (StringUtils.isBlank(copy.getCopyTaskId())) {
+                    strmService.strmOneFile(path);// 生成 STRM 文件
+                }
                 Threads.sleep(30000);
                 while (true) {
                     JSONObject jsonResponse = openlistApi.copyInfo(copy.getCopyTaskId());
