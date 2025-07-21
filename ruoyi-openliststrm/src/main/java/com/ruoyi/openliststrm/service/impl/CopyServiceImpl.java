@@ -172,6 +172,10 @@ public class CopyServiceImpl implements ICopyService {
                     copyHelper.addCopy(copy);
                 }
             }
+        } else if (200 == jsonObject.getInteger("code")) {
+            flag.set(true);
+            copy.setCopyStatus("3");
+            copyHelper.addCopy(copy);
         }
 
         if (flag.get() && "1".equals(config.getOpenListCopyStrm())) {
