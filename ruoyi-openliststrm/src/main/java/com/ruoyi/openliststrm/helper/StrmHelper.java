@@ -1,13 +1,12 @@
 package com.ruoyi.openliststrm.helper;
 
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.ruoyi.framework.manager.AsyncManager;
-import com.ruoyi.openliststrm.domain.OpenlistStrm;
-import com.ruoyi.openliststrm.service.IOpenlistStrmService;
+import com.ruoyi.openliststrm.mybatisplus.domain.OpenlistStrmPlus;
+import com.ruoyi.openliststrm.mybatisplus.service.IOpenlistStrmPlusService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-import org.springframework.util.CollectionUtils;
 
-import java.util.List;
 import java.util.TimerTask;
 
 /**
@@ -19,7 +18,7 @@ import java.util.TimerTask;
 public class StrmHelper {
 
     @Autowired
-    private IOpenlistStrmService strmService;
+    private IOpenlistStrmPlusService openlistStrmPlusService;
 
     /**
      * 添加strm
@@ -32,19 +31,15 @@ public class StrmHelper {
         AsyncManager.me().execute(new TimerTask() {
             @Override
             public void run() {
-                OpenlistStrm strm = new OpenlistStrm();
+                //保存或者更新
+                OpenlistStrmPlus strm = new OpenlistStrmPlus();
                 strm.setStrmPath(strmPath);
                 strm.setStrmFileName(strmFileName);
-                //存在就更新 不存在就新增
-                List<OpenlistStrm> openlistStrmList = strmService.selectOpenlistStrmList(strm);
-                if (!CollectionUtils.isEmpty(openlistStrmList)) {
-                    strm = openlistStrmList.get(0);
-                    strm.setStrmStatus(status);
-                    strmService.updateOpenlistStrm(strm);
-                } else {
-                    strm.setStrmStatus(status);
-                    strmService.insertOpenlistStrm(strm);
-                }
+                strm.setStrmStatus(status);
+                openlistStrmPlusService.saveOrUpdate(strm,
+                        Wrappers.<OpenlistStrmPlus>lambdaUpdate()
+                                .eq(OpenlistStrmPlus::getStrmPath, strmPath)
+                                .eq(OpenlistStrmPlus::getStrmFileName, strmFileName));
             }
         });
     }
@@ -57,11 +52,10 @@ public class StrmHelper {
      * @return
      */
     public boolean exitStrm(String strmPath, String strmFileName) {
-        OpenlistStrm strm = new OpenlistStrm();
-        strm.setStrmPath(strmPath);
-        strm.setStrmFileName(strmFileName);
-        strm.setStrmStatus("1");
-        return !CollectionUtils.isEmpty(strmService.selectOpenlistStrmList(strm));
+        return openlistStrmPlusService.lambdaQuery().eq(OpenlistStrmPlus::getStrmPath, strmPath)
+                .eq(OpenlistStrmPlus::getStrmFileName, strmFileName)
+                .eq(OpenlistStrmPlus::getStrmStatus, "1")
+                .count() > 0;
     }
 
 

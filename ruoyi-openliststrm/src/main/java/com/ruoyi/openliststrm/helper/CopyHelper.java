@@ -1,14 +1,13 @@
 package com.ruoyi.openliststrm.helper;
 
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.ruoyi.framework.manager.AsyncManager;
-import com.ruoyi.openliststrm.domain.OpenlistCopy;
-import com.ruoyi.openliststrm.service.IOpenlistCopyService;
-import org.springframework.beans.BeanUtils;
+import com.ruoyi.openliststrm.mybatisplus.domain.OpenlistCopyPlus;
+import com.ruoyi.openliststrm.mybatisplus.service.IOpenlistCopyPlusService;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-import org.springframework.util.CollectionUtils;
 
-import java.util.List;
 import java.util.TimerTask;
 
 /**
@@ -20,47 +19,31 @@ import java.util.TimerTask;
 public class CopyHelper {
 
     @Autowired
-    private IOpenlistCopyService copyService;
+    private IOpenlistCopyPlusService openlistCopyPlusService;
 
-    public void addCopy(OpenlistCopy openlistCopy) {
+    public void addCopy(OpenlistCopyPlus openlistCopyPlus) {
         AsyncManager.me().execute(new TimerTask() {
             @Override
             public void run() {
-                OpenlistCopy query = new OpenlistCopy();
-                query.setCopySrcPath(openlistCopy.getCopySrcPath());
-                query.setCopySrcFileName(openlistCopy.getCopySrcFileName());
-                query.setCopyDstPath(openlistCopy.getCopyDstPath());
-                query.setCopyDstFileName(openlistCopy.getCopyDstFileName());
-                List<OpenlistCopy> copyList = copyService.selectOpenlistCopyList(query);
-                if (!CollectionUtils.isEmpty(copyList)) {
-                    OpenlistCopy newCopy = copyList.get(0);
-                    int id = newCopy.getCopyId();
-                    BeanUtils.copyProperties(openlistCopy, newCopy);
-                    newCopy.setCopyId(id);
-                    copyService.updateOpenlistCopy(newCopy);
-                } else {
-                    copyService.insertOpenlistCopy(openlistCopy);
-                }
+                //保存或者更新
+                openlistCopyPlusService.saveOrUpdate(openlistCopyPlus, Wrappers.<OpenlistCopyPlus>lambdaUpdate()
+                        .eq(StringUtils.isNotBlank(openlistCopyPlus.getCopySrcPath()), OpenlistCopyPlus::getCopySrcPath, openlistCopyPlus.getCopySrcPath())
+                        .eq(StringUtils.isNotBlank(openlistCopyPlus.getCopyDstPath()), OpenlistCopyPlus::getCopyDstPath, openlistCopyPlus.getCopyDstPath())
+                        .eq(StringUtils.isNotBlank(openlistCopyPlus.getCopySrcFileName()), OpenlistCopyPlus::getCopySrcFileName, openlistCopyPlus.getCopySrcFileName())
+                        .eq(StringUtils.isNotBlank(openlistCopyPlus.getCopyDstFileName()), OpenlistCopyPlus::getCopyDstFileName, openlistCopyPlus.getCopyDstFileName())
+                );
             }
         });
     }
 
-    public boolean exitCopy(OpenlistCopy openlistCopy) {
-        OpenlistCopy query = new OpenlistCopy();
-        query.setCopySrcPath(openlistCopy.getCopySrcPath());
-        query.setCopySrcFileName(openlistCopy.getCopySrcFileName());
-        query.setCopyDstPath(openlistCopy.getCopyDstPath());
-        query.setCopyDstFileName(openlistCopy.getCopyDstFileName());
-        List<OpenlistCopy> copyList = copyService.selectOpenlistCopyList(query);
-        if (CollectionUtils.isEmpty(copyList)) {
-            return false;
-        }
-        for (OpenlistCopy copy : copyList) {
-            if ("1".equals(copy.getCopyStatus()) || "3".equals(copy.getCopyStatus())) {
-                return true;
-            }
-        }
-        return false;
+    public boolean exitCopy(OpenlistCopyPlus openlistCopyPlus) {
+        return openlistCopyPlusService.lambdaQuery()
+                .eq(StringUtils.isNotBlank(openlistCopyPlus.getCopySrcPath()), OpenlistCopyPlus::getCopySrcPath, openlistCopyPlus.getCopySrcPath())
+                .eq(StringUtils.isNotBlank(openlistCopyPlus.getCopyDstPath()), OpenlistCopyPlus::getCopyDstPath, openlistCopyPlus.getCopyDstPath())
+                .eq(StringUtils.isNotBlank(openlistCopyPlus.getCopySrcFileName()), OpenlistCopyPlus::getCopySrcFileName, openlistCopyPlus.getCopySrcFileName())
+                .eq(StringUtils.isNotBlank(openlistCopyPlus.getCopyDstFileName()), OpenlistCopyPlus::getCopyDstFileName, openlistCopyPlus.getCopyDstFileName())
+                .in(OpenlistCopyPlus::getCopyStatus, "1", "3")
+                .count() > 0;
     }
 
 }

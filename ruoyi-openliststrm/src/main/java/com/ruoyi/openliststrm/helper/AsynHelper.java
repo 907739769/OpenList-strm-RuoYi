@@ -4,8 +4,8 @@ import com.alibaba.fastjson.JSONObject;
 import com.ruoyi.common.utils.Threads;
 import com.ruoyi.framework.manager.AsyncManager;
 import com.ruoyi.openliststrm.api.OpenlistApi;
-import com.ruoyi.openliststrm.domain.OpenlistCopy;
-import com.ruoyi.openliststrm.service.IOpenlistCopyService;
+import com.ruoyi.openliststrm.mybatisplus.domain.OpenlistCopyPlus;
+import com.ruoyi.openliststrm.mybatisplus.service.IOpenlistCopyPlusService;
 import com.ruoyi.openliststrm.service.IStrmService;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,7 +35,7 @@ public class AsynHelper {
     private CopyHelper copyHelper;
 
     @Autowired
-    private IOpenlistCopyService copyService;
+    private IOpenlistCopyPlusService openlistCopyPlusService;
 
     /**
      * 判断openlist的复制任务是否完成 完成就执行strm任务
@@ -48,16 +48,15 @@ public class AsynHelper {
             @Override
             public void run() {
                 Threads.sleep(30000);
-                OpenlistCopy query = new OpenlistCopy();
-                query.setCopyStatus("1");
-                List<OpenlistCopy> copyList = copyService.selectOpenlistCopyList(query);
+                List<OpenlistCopyPlus> copyList = openlistCopyPlusService.lambdaQuery().eq(OpenlistCopyPlus::getCopyStatus,"1").select(OpenlistCopyPlus::getCopyTaskId).list();
                 while (true) {
                     boolean allTasksCompleted = true;
-                    Iterator<OpenlistCopy> iterator = copyList.iterator();
+                    Iterator<OpenlistCopyPlus> iterator = copyList.iterator();
                     while (iterator.hasNext()) {
-                        OpenlistCopy copy = iterator.next();
+                        OpenlistCopyPlus copy = iterator.next();
                         String taskId = copy.getCopyTaskId();
                         if (StringUtils.isBlank(taskId)) {
+                            iterator.remove();
                             continue;
                         }
                         JSONObject jsonResponse = openlistApi.copyInfo(taskId);
@@ -113,7 +112,7 @@ public class AsynHelper {
 
     }
 
-    public void isCopyDoneOneFile(String path, OpenlistCopy copy) {
+    public void isCopyDoneOneFile(String path, OpenlistCopyPlus copy) {
         AsyncManager.me().execute(new TimerTask() {
             @Override
             public void run() {

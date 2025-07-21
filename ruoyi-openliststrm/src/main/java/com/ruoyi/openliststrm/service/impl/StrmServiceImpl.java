@@ -2,6 +2,7 @@ package com.ruoyi.openliststrm.service.impl;
 
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
+import com.ruoyi.framework.manager.AsyncManager;
 import com.ruoyi.openliststrm.api.OpenlistApi;
 import com.ruoyi.openliststrm.config.OpenlistConfig;
 import com.ruoyi.openliststrm.helper.OpenListHelper;
@@ -17,6 +18,7 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.net.URLEncoder;
 import java.time.LocalDateTime;
+import java.util.TimerTask;
 
 /**
  * @Author Jack
@@ -126,18 +128,25 @@ public class StrmServiceImpl implements IStrmService {
                     }
                     //视频文件
                     if (openListHelper.isVideo(name)) {
-                        String fileName = name.substring(0, name.lastIndexOf(".")).replaceAll("[\\\\/:*?\"<>|]", "");
-                        try (FileWriter writer = new FileWriter(localPath + File.separator + (fileName.length() > 255 ? fileName.substring(0, 250) : fileName) + ".strm")) {
-                            String encodePath = path + "/" + name;
-                            if ("1".equals(encode)) {
-                                encodePath = URLEncoder.encode(path + "/" + name, "UTF-8").replace("+", "%20").replace("%2F", "/");
+                        String finalPath = path;
+                        //异步处理 提升效率
+                        AsyncManager.me().execute(new TimerTask() {
+                            @Override
+                            public void run() {
+                                String fileName = name.substring(0, name.lastIndexOf(".")).replaceAll("[\\\\/:*?\"<>|]", "");
+                                try (FileWriter writer = new FileWriter(localPath + File.separator + (fileName.length() > 255 ? fileName.substring(0, 250) : fileName) + ".strm")) {
+                                    String encodePath = finalPath + "/" + name;
+                                    if ("1".equals(encode)) {
+                                        encodePath = URLEncoder.encode(finalPath + "/" + name, "UTF-8").replace("+", "%20").replace("%2F", "/");
+                                    }
+                                    writer.write(config.getOpenListUrl() + "/d" + encodePath);
+                                    strmHelper.addStrm(finalPath, name, "1");
+                                } catch (Exception e) {
+                                    log.error("", e);
+                                    strmHelper.addStrm(finalPath, name, "0");
+                                }
                             }
-                            writer.write(config.getOpenListUrl() + "/d" + encodePath);
-                            strmHelper.addStrm(path, name, "1");
-                        } catch (Exception e) {
-                            log.error("", e);
-                            strmHelper.addStrm(path, name, "0");
-                        }
+                        });
                     }
 
                     //字幕文件
