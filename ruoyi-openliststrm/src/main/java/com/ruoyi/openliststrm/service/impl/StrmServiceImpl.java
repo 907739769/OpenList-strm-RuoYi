@@ -94,6 +94,9 @@ public class StrmServiceImpl implements IStrmService {
     }
 
     public void getData(String path, String localPath) {
+        if (path.endsWith("/")) {
+            path = path.substring(0, path.lastIndexOf("/"));
+        }
 
         File outputDirFile = new File(localPath);
         outputDirFile.mkdirs();
