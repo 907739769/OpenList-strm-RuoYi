@@ -86,7 +86,15 @@ public class AsynHelper {
                         }
                     }
                     if (allTasksCompleted) {
-                        strmService.strmDir(dstDir + strmDir);// 生成 STRM 文件
+                        String newStrmDir = strmDir;
+                        if (strmDir.startsWith("/")) {
+                            newStrmDir = strmDir.replaceFirst("/", "");
+                        }
+                        String newDstDir = dstDir;
+                        if (dstDir.endsWith("/")) {
+                            newDstDir = dstDir.substring(0, dstDir.lastIndexOf("/"));
+                        }
+                        strmService.strmDir(newDstDir + "/" + newStrmDir);// 生成 STRM 文件
                         break;// 任务完成，退出循环
                     } else {
                         Threads.sleep(30000);//继续检查
