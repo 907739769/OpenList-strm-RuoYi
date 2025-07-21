@@ -27,11 +27,6 @@ services:
           '--default-time-zone=+8:00',
           '--lower-case-table-names=1'
         ]
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "--silent"]
-      interval: 3s
-      retries: 5
-      start_period: 30s
     environment:
       MYSQL_DATABASE: osr
       MYSQL_ROOT_PASSWORD: Ty#s9U1@L
@@ -46,8 +41,7 @@ services:
     environment:
       DB_PASSWORD: Ty#s9U1@L
     depends_on:
-      osr_db:
-        condition: service_healthy
+      - osr_db
     links:
       - osr_db
 ```
