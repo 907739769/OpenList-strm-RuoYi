@@ -1,5 +1,6 @@
 package com.ruoyi.openliststrm.helper;
 
+import com.ruoyi.framework.manager.AsyncManager;
 import com.ruoyi.openliststrm.domain.OpenlistStrm;
 import com.ruoyi.openliststrm.service.IOpenlistStrmService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -7,6 +8,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 
 import java.util.List;
+import java.util.TimerTask;
 
 /**
  * @Author Jack
@@ -27,19 +29,24 @@ public class StrmHelper {
      * @param status
      */
     public void addStrm(String strmPath, String strmFileName, String status) {
-        OpenlistStrm strm = new OpenlistStrm();
-        strm.setStrmPath(strmPath);
-        strm.setStrmFileName(strmFileName);
-        //存在就更新 不存在就新增
-        List<OpenlistStrm> openlistStrmList = strmService.selectOpenlistStrmList(strm);
-        if (!CollectionUtils.isEmpty(openlistStrmList)) {
-            strm = openlistStrmList.get(0);
-            strm.setStrmStatus(status);
-            strmService.updateOpenlistStrm(strm);
-        } else {
-            strm.setStrmStatus(status);
-            strmService.insertOpenlistStrm(strm);
-        }
+        AsyncManager.me().execute(new TimerTask() {
+            @Override
+            public void run() {
+                OpenlistStrm strm = new OpenlistStrm();
+                strm.setStrmPath(strmPath);
+                strm.setStrmFileName(strmFileName);
+                //存在就更新 不存在就新增
+                List<OpenlistStrm> openlistStrmList = strmService.selectOpenlistStrmList(strm);
+                if (!CollectionUtils.isEmpty(openlistStrmList)) {
+                    strm = openlistStrmList.get(0);
+                    strm.setStrmStatus(status);
+                    strmService.updateOpenlistStrm(strm);
+                } else {
+                    strm.setStrmStatus(status);
+                    strmService.insertOpenlistStrm(strm);
+                }
+            }
+        });
     }
 
     /**

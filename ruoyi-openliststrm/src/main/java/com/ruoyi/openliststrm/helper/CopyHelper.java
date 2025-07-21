@@ -1,5 +1,6 @@
 package com.ruoyi.openliststrm.helper;
 
+import com.ruoyi.framework.manager.AsyncManager;
 import com.ruoyi.openliststrm.domain.OpenlistCopy;
 import com.ruoyi.openliststrm.service.IOpenlistCopyService;
 import org.springframework.beans.BeanUtils;
@@ -8,6 +9,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 
 import java.util.List;
+import java.util.TimerTask;
 
 /**
  * @Author Jack
@@ -21,21 +23,26 @@ public class CopyHelper {
     private IOpenlistCopyService copyService;
 
     public void addCopy(OpenlistCopy openlistCopy) {
-        OpenlistCopy query = new OpenlistCopy();
-        query.setCopySrcPath(openlistCopy.getCopySrcPath());
-        query.setCopySrcFileName(openlistCopy.getCopySrcFileName());
-        query.setCopyDstPath(openlistCopy.getCopyDstPath());
-        query.setCopyDstFileName(openlistCopy.getCopyDstFileName());
-        List<OpenlistCopy> copyList = copyService.selectOpenlistCopyList(query);
-        if (!CollectionUtils.isEmpty(copyList)) {
-            OpenlistCopy newCopy = copyList.get(0);
-            int id = newCopy.getCopyId();
-            BeanUtils.copyProperties(openlistCopy, newCopy);
-            newCopy.setCopyId(id);
-            copyService.updateOpenlistCopy(newCopy);
-        } else {
-            copyService.insertOpenlistCopy(openlistCopy);
-        }
+        AsyncManager.me().execute(new TimerTask() {
+            @Override
+            public void run() {
+                OpenlistCopy query = new OpenlistCopy();
+                query.setCopySrcPath(openlistCopy.getCopySrcPath());
+                query.setCopySrcFileName(openlistCopy.getCopySrcFileName());
+                query.setCopyDstPath(openlistCopy.getCopyDstPath());
+                query.setCopyDstFileName(openlistCopy.getCopyDstFileName());
+                List<OpenlistCopy> copyList = copyService.selectOpenlistCopyList(query);
+                if (!CollectionUtils.isEmpty(copyList)) {
+                    OpenlistCopy newCopy = copyList.get(0);
+                    int id = newCopy.getCopyId();
+                    BeanUtils.copyProperties(openlistCopy, newCopy);
+                    newCopy.setCopyId(id);
+                    copyService.updateOpenlistCopy(newCopy);
+                } else {
+                    copyService.insertOpenlistCopy(openlistCopy);
+                }
+            }
+        });
     }
 
     public boolean exitCopy(OpenlistCopy openlistCopy) {
