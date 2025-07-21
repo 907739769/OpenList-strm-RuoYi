@@ -68,14 +68,14 @@ public class StrmServiceImpl implements IStrmService {
      */
     public void strmOneFile(String path) {
         String filePath = path.substring(0, path.lastIndexOf("/"));
-        String name = path.substring(path.lastIndexOf("/"));
+        String name = path.substring(path.lastIndexOf("/") + 1);
 
         //判断是否处理过
         if (strmHelper.exitStrm(filePath, name)) {
             log.info("文件已处理过，跳过处理{}", path);
             return;
         }
-        String fileName = path.substring(path.lastIndexOf("/"), path.lastIndexOf(".")).replaceAll("[\\\\/:*?\"<>|]", "");
+        String fileName = path.substring(path.lastIndexOf("/") + 1, path.lastIndexOf(".")).replaceAll("[\\\\/:*?\"<>|]", "");
         File file = new File(outputDir + File.separator + filePath.replace("/", File.separator));
         if (!file.exists()) {
             file.mkdirs();

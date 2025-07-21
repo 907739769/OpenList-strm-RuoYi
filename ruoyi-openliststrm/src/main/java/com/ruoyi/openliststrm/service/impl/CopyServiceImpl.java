@@ -146,7 +146,7 @@ public class CopyServiceImpl implements ICopyService {
         //目标目录
         String copyDstPath = dstDir + "/" + relativePath.substring(0, relativePath.lastIndexOf("/"));
         //文件名
-        String fileName = relativePath.substring(relativePath.lastIndexOf("/"));
+        String fileName = relativePath.substring(relativePath.lastIndexOf("/") + 1);
         OpenlistCopy copy = new OpenlistCopy();
         copy.setCopySrcPath(copySrcPath);
         copy.setCopyDstPath(copyDstPath);
