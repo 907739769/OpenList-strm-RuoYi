@@ -38,14 +38,14 @@ public class AsynHelper {
      * @return
      * @Async
      */
-    public void isCopyDone(String dstDir, String strmDir, Set<OpenlistCopy> taskIdList) {
+    public void isCopyDone(String dstDir, String strmDir, Set<OpenlistCopy> copySet) {
         AsyncManager.me().execute(new TimerTask() {
             @Override
             public void run() {
                 Threads.sleep(30000);
                 while (true) {
                     boolean allTasksCompleted = true;
-                    for (OpenlistCopy copy : taskIdList) {
+                    for (OpenlistCopy copy : copySet) {
                         String taskId = copy.getCopyTaskId();
                         if (StringUtils.isBlank(taskId)) {
                             continue;
@@ -80,7 +80,7 @@ public class AsynHelper {
                                 copy.setCopyStatus("3");
                                 copyHelper.addCopy(copy);
                             }
-                            taskIdList.remove(copy);
+                            copySet.remove(copy);
                         }
                     }
                     if (allTasksCompleted) {

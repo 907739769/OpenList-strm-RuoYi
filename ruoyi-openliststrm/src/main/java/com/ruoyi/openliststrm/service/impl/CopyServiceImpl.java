@@ -45,7 +45,7 @@ public class CopyServiceImpl implements ICopyService {
     @Autowired
     private OpenlistConfig config;
 
-    public void syncFiles(String srcDir, String dstDir, String relativePath, String strmDir, Set<OpenlistCopy> taskIdList) {
+    private void syncFilesRecursion(String srcDir, String dstDir, String relativePath, Set<OpenlistCopy> copySet) {
         if (StringUtils.isAnyBlank(srcDir, dstDir)) {
             return;
         }
@@ -58,7 +58,6 @@ public class CopyServiceImpl implements ICopyService {
         if (dstDir.endsWith("/")) {
             dstDir = dstDir.substring(0, dstDir.lastIndexOf("/"));
         }
-        AtomicBoolean flag = new AtomicBoolean(false);
         //查出所有源目录
         JSONObject object = openlistApi.getOpenlist(srcDir + "/" + relativePath);
         if (object.getJSONObject("data") == null) {
@@ -84,10 +83,10 @@ public class CopyServiceImpl implements ICopyService {
                 //判断目标目录是否存在这个文件夹
                 //200就是存在 存在就继续往下级目录找
                 if (200 == jsonObject.getInteger("code")) {
-                    syncFiles(srcDir, dstDir, relativePath + (StringUtils.isBlank(relativePath) ? "" : "/") + name, taskIdList);
+                    syncFiles(srcDir, dstDir, relativePath + (StringUtils.isBlank(relativePath) ? "" : "/") + name, copySet);
                 } else {
                     openlistApi.mkdir(dstDir + "/" + relativePath + (StringUtils.isBlank(relativePath) ? "" : "/") + name);
-                    syncFiles(srcDir, dstDir, relativePath + (StringUtils.isBlank(relativePath) ? "" : "/") + name, taskIdList);
+                    syncFiles(srcDir, dstDir, relativePath + (StringUtils.isBlank(relativePath) ? "" : "/") + name, copySet);
                 }
             } else {
                 OpenlistCopy copy = new OpenlistCopy();
@@ -104,27 +103,20 @@ public class CopyServiceImpl implements ICopyService {
                     if (contentJson.getLong("size") >= Long.parseLong(config.getOpenListMinFileSize()) * 1024 * 1024) {
                         JSONObject jsonResponse = openlistApi.copyOpenlist(srcDir + "/" + relativePath, dstDir + "/" + relativePath, Collections.singletonList(name));
                         if (jsonResponse != null && 200 == jsonResponse.getInteger("code")) {
-                            flag.set(true);
                             //获取上传文件的任务id
                             JSONArray tasks = jsonResponse.getJSONObject("data").getJSONArray("tasks");
                             copy.setCopyTaskId(tasks.getJSONObject(0).getString("id"));
                             copy.setCopyStatus("1");
                             copyHelper.addCopy(copy);
-                            taskIdList.add(copy);
+                            copySet.add(copy);
                         }
                     }
                 } else if (200 == jsonObject.getInteger("code")) {
-                    flag.set(true);
                     copy.setCopyStatus("3");
                     copyHelper.addCopy(copy);
                 }
             }
         }
-
-        if (flag.get() && "1".equals(config.getOpenListCopyStrm())) {
-            asynHelper.isCopyDone(dstDir, strmDir, taskIdList);
-        }
-
 
     }
 
@@ -184,16 +176,24 @@ public class CopyServiceImpl implements ICopyService {
 
     }
 
-    public void syncFiles(String srcDir, String dstDir, String relativePath, Set<OpenlistCopy> taskIdList) {
-        syncFiles(srcDir, dstDir, relativePath, "", taskIdList);
+    public void syncFiles(String srcDir, String dstDir, String relativePath, Set<OpenlistCopy> copySet) {
+        syncFilesRecursion(srcDir, dstDir, relativePath, copySet);
     }
 
     public void syncFiles(String srcDir, String dstDir, String relativePath) {
-        syncFiles(srcDir, dstDir, relativePath, relativePath, ConcurrentHashMap.newKeySet());
+        Set<OpenlistCopy> copySet = ConcurrentHashMap.newKeySet();
+        syncFilesRecursion(srcDir, dstDir, relativePath, copySet);
+        if ("1".equals(config.getOpenListCopyStrm())) {
+            asynHelper.isCopyDone(dstDir, relativePath, copySet);
+        }
     }
 
     public void syncFiles(String srcDir, String dstDir) {
-        syncFiles(srcDir, dstDir, "", "", ConcurrentHashMap.newKeySet());
+        Set<OpenlistCopy> copySet = ConcurrentHashMap.newKeySet();
+        syncFilesRecursion(srcDir, dstDir, "", copySet);
+        if ("1".equals(config.getOpenListCopyStrm())) {
+            asynHelper.isCopyDone(dstDir, "", copySet);
+        }
     }
 
 
