@@ -48,8 +48,6 @@ public class AsynHelper {
                     for (OpenlistCopy copy : taskIdList) {
                         String taskId = copy.getCopyTaskId();
                         if (StringUtils.isBlank(taskId)) {
-                            copy.setCopyStatus("4");
-                            copyHelper.addCopy(copy);
                             continue;
                         }
                         JSONObject jsonResponse = openlistApi.copyInfo(taskId);
