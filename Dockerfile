@@ -18,6 +18,6 @@ ENV TZ=Asia/Shanghai
 ENV PUID=0
 ENV PGID=0
 ENV UMASK=022
-ENV JAVA_OPTS="-Xms32m -Xmx512m"
+ENV JAVA_OPTS="-Xms512m -Xmx1024m"
 # 启动应用
 ENTRYPOINT ["/entrypoint.sh"]
