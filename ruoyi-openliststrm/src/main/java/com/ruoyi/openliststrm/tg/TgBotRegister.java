@@ -37,7 +37,6 @@ public class TgBotRegister implements CommandLineRunner {
         }
         try {
             StrmBot bot = new StrmBot(config.getOpenListTgToken(), config.getOpenListTgUserId());
-            bot.onRegister();
             telegramBotsApi.registerBot(bot);
         } catch (TelegramApiException e) {
             log.error("" , e);
