@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh" xmlns:th="http://www.thymeleaf.org" >
 <head>
-    <th:block th:include="include :: header('修改openlist的文件同步复制任务')" />
+    <th:block th:include="include :: header('修改同步任务记录')" />
 </head>
 <body class="white-bg">
     <div class="wrapper wrapper-content animated fadeInRight ibox-content">
@@ -49,7 +49,7 @@
             </div>
             <div class="col-xs-12">
                 <div class="form-group">
-                    <label class="col-sm-3 control-label">复制状态1-处理中2-失败3-成功4-未知：</label>
+                    <label class="col-sm-3 control-label">状态：</label>
                     <div class="col-sm-8">
                         <div class="radio-box" th:each="dict : ${@dict.getType('openlist_copy_status')}">
                             <input type="radio" th:id="${'copyStatus_' + dict.dictCode}" name="copyStatus" th:value="${dict.dictValue}" th:field="*{copyStatus}">

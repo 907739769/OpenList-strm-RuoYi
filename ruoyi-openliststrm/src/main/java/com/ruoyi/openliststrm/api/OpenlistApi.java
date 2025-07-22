@@ -409,4 +409,55 @@ public class OpenlistApi {
         return null;
     }
 
+    /**
+     * 删除文件
+     *
+     * @param dir
+     * @param names
+     * @return
+     */
+    public JSONObject fsRemove(String dir, List<String> names) {
+        JSONObject jsonResponse;
+
+        // 设置请求头
+        Headers headers = new Headers.Builder()
+                .add("Content-Type", "application/json")
+                .add("Accept", "application/json")
+                .add("Authorization", config.getOpenListToken())
+                .build();
+
+        // 构建请求体数据
+        JSONObject requestBodyJson = new JSONObject();
+        requestBodyJson.put("dir", dir);
+        requestBodyJson.put("names", names);
+        String requestBodyString = requestBodyJson.toJSONString();
+
+        // 构建请求
+        Request request = new Request.Builder()
+                .url(config.getOpenListUrl() + "/api/fs/remove")
+                .headers(headers)
+                .post(RequestBody.create(MediaType.parse("application/json"), requestBodyString))
+                .build();
+        // 发送请求并处理响应
+        try (Response response = client.newCall(request).execute()) {
+            if (response.isSuccessful()) {
+                // 获取响应体
+                String responseBody = response.body().string();
+
+                // 解析 JSON 响应
+                jsonResponse = JSONObject.parseObject(responseBody);
+                return jsonResponse;
+            } else {
+                log.warn("Request failed with code: {}", response.code());
+                log.error("Request failed with response :{}", response);
+                return null;
+            }
+        } catch (Exception e) {
+            log.error("", e);
+        }
+        return null;
+
+
+    }
+
 }
