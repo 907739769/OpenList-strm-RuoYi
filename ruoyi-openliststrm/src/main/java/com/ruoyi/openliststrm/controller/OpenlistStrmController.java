@@ -1,23 +1,30 @@
 package com.ruoyi.openliststrm.controller;
 
-import java.util.List;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.ruoyi.common.annotation.Log;
+import com.ruoyi.common.core.controller.BaseController;
+import com.ruoyi.common.core.domain.AjaxResult;
+import com.ruoyi.common.core.page.TableDataInfo;
+import com.ruoyi.common.core.text.Convert;
+import com.ruoyi.common.enums.BusinessType;
+import com.ruoyi.common.utils.poi.ExcelUtil;
+import com.ruoyi.openliststrm.api.OpenlistApi;
+import com.ruoyi.openliststrm.domain.OpenlistStrm;
+import com.ruoyi.openliststrm.mybatisplus.domain.OpenlistCopyPlus;
+import com.ruoyi.openliststrm.mybatisplus.domain.OpenlistStrmPlus;
+import com.ruoyi.openliststrm.mybatisplus.service.IOpenlistCopyPlusService;
+import com.ruoyi.openliststrm.mybatisplus.service.IOpenlistStrmPlusService;
+import com.ruoyi.openliststrm.service.IOpenlistStrmService;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseBody;
-import com.ruoyi.common.annotation.Log;
-import com.ruoyi.common.enums.BusinessType;
-import com.ruoyi.openliststrm.domain.OpenlistStrm;
-import com.ruoyi.openliststrm.service.IOpenlistStrmService;
-import com.ruoyi.common.core.controller.BaseController;
-import com.ruoyi.common.core.domain.AjaxResult;
-import com.ruoyi.common.utils.poi.ExcelUtil;
-import com.ruoyi.common.core.page.TableDataInfo;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * strm生成Controller
@@ -33,6 +40,15 @@ public class OpenlistStrmController extends BaseController
 
     @Autowired
     private IOpenlistStrmService openlistStrmService;
+
+    @Autowired
+    private OpenlistApi openlistApi;
+
+    @Autowired
+    private IOpenlistStrmPlusService openlistStrmPlusService;
+
+    @Autowired
+    private IOpenlistCopyPlusService openlistCopyPlusService;
 
     @RequiresPermissions("openliststrm:strm:view")
     @GetMapping()
@@ -125,4 +141,26 @@ public class OpenlistStrmController extends BaseController
     {
         return toAjax(openlistStrmService.deleteOpenlistStrmByStrmIds(ids));
     }
+
+    @RequiresPermissions(value = {"openliststrm:strm:remove"})
+    @Log(title = "strm生成", businessType = BusinessType.DELETE)
+    @PostMapping("/batchRemoveNetDisk")
+    @ResponseBody
+    public AjaxResult batchRemoveNetDisk(String ids) {
+        logger.info("删除网盘数据：{}", ids);
+        List<String> idList = Arrays.stream(Convert.toStrArray(ids)).collect(Collectors.toList());
+        List<OpenlistStrmPlus> openlistStrmPlusList = openlistStrmPlusService.listByIds(idList);
+        //删除网盘数据
+        openlistStrmPlusList.forEach(openlistStrmPlus -> {
+            openlistApi.fsRemove(openlistStrmPlus.getStrmPath(), Collections.singletonList(openlistStrmPlus.getStrmFileName()));
+            openlistCopyPlusService.remove(new LambdaQueryWrapper<OpenlistCopyPlus>()
+                    .eq(OpenlistCopyPlus::getCopyDstFileName, openlistStrmPlus.getStrmFileName())
+                    .eq(OpenlistCopyPlus::getCopyDstPath, openlistStrmPlus.getStrmPath())
+            );
+        });
+        //删除表数据
+        openlistStrmPlusService.removeBatchByIds(idList);
+        return success();
+    }
+
 }
