@@ -41,10 +41,10 @@ public class StrmBot extends AbilityBot {
 
     private void registerCommands() {
         List<BotCommand> commands = new ArrayList<>();
-        commands.add(new BotCommand("/strm", "执行strm任务"));
-        commands.add(new BotCommand("/strmdir", "生成指定路径strm"));
-        commands.add(new BotCommand("/sync", "执行copy任务"));
-        commands.add(new BotCommand("/syncdir", "同步openlist指定目录"));
+        commands.add(new BotCommand("strm", "执行strm任务"));
+        commands.add(new BotCommand("strmdir", "生成指定路径strm"));
+        commands.add(new BotCommand("sync", "执行copy任务"));
+        commands.add(new BotCommand("syncdir", "同步openlist指定目录"));
         try {
             execute(new SetMyCommands(commands, new BotCommandScopeDefault(), null));
         } catch (TelegramApiException e) {
