@@ -4,17 +4,25 @@ import com.ruoyi.common.annotation.Log;
 import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.page.TableDataInfo;
+import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.enums.BusinessType;
 import com.ruoyi.common.utils.poi.ExcelUtil;
+import com.ruoyi.framework.manager.AsyncManager;
 import com.ruoyi.openliststrm.domain.OpenlistStrmTask;
+import com.ruoyi.openliststrm.mybatisplus.domain.OpenlistStrmTaskPlus;
+import com.ruoyi.openliststrm.mybatisplus.service.IOpenlistStrmTaskPlusService;
 import com.ruoyi.openliststrm.service.IOpenlistStrmTaskService;
+import com.ruoyi.openliststrm.service.IStrmService;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Arrays;
 import java.util.List;
+import java.util.TimerTask;
+import java.util.stream.Collectors;
 
 /**
  * strm任务配置Controller
@@ -30,6 +38,13 @@ public class OpenlistStrmTaskController extends BaseController
 
     @Autowired
     private IOpenlistStrmTaskService openlistStrmTaskService;
+
+    @Autowired
+    private IOpenlistStrmTaskPlusService openlistStrmTaskPlusService;
+
+    @Autowired
+    private IStrmService strmService;
+
 
     @RequiresPermissions("openliststrm:strm_task:view")
     @GetMapping()
@@ -132,9 +147,14 @@ public class OpenlistStrmTaskController extends BaseController
     @ResponseBody
     public AjaxResult run(String ids) {
         logger.info("执行的任务：{}", ids);
-
-
-
+        AsyncManager.me().execute(new TimerTask() {
+            @Override
+            public void run() {
+                List<String> idList = Arrays.stream(Convert.toStrArray(ids)).collect(Collectors.toList());
+                List<OpenlistStrmTaskPlus> openlistStrmTaskPluses = openlistStrmTaskPlusService.listByIds(idList);
+                openlistStrmTaskPluses.forEach(task -> strmService.strmDir(task.getStrmTaskPath()));
+            }
+        });
         return success();
     }
 

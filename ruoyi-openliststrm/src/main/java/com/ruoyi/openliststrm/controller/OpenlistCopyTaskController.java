@@ -4,9 +4,14 @@ import com.ruoyi.common.annotation.Log;
 import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.page.TableDataInfo;
+import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.enums.BusinessType;
 import com.ruoyi.common.utils.poi.ExcelUtil;
+import com.ruoyi.framework.manager.AsyncManager;
 import com.ruoyi.openliststrm.domain.OpenlistCopyTask;
+import com.ruoyi.openliststrm.mybatisplus.domain.OpenlistCopyTaskPlus;
+import com.ruoyi.openliststrm.mybatisplus.service.IOpenlistCopyTaskPlusService;
+import com.ruoyi.openliststrm.service.ICopyService;
 import com.ruoyi.openliststrm.service.IOpenlistCopyTaskService;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,7 +19,10 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Arrays;
 import java.util.List;
+import java.util.TimerTask;
+import java.util.stream.Collectors;
 
 /**
  * 文件同步任务Controller
@@ -30,6 +38,12 @@ public class OpenlistCopyTaskController extends BaseController
 
     @Autowired
     private IOpenlistCopyTaskService openlistCopyTaskService;
+
+    @Autowired
+    private IOpenlistCopyTaskPlusService openlistCopyTaskPlusService;
+
+    @Autowired
+    private ICopyService copyService;
 
     @RequiresPermissions("openliststrm:task:view")
     @GetMapping()
@@ -132,9 +146,14 @@ public class OpenlistCopyTaskController extends BaseController
     @ResponseBody
     public AjaxResult run(String ids) {
         logger.info("执行的任务：{}", ids);
-
-
-
+        AsyncManager.me().execute(new TimerTask() {
+            @Override
+            public void run() {
+                List<String> idList = Arrays.stream(Convert.toStrArray(ids)).collect(Collectors.toList());
+                List<OpenlistCopyTaskPlus> openlistCopyTaskPlusList = openlistCopyTaskPlusService.listByIds(idList);
+                openlistCopyTaskPlusList.forEach(task -> copyService.syncFiles(task.getCopyTaskSrc(), task.getCopyTaskDst()));
+            }
+        });
         return success();
     }
 
