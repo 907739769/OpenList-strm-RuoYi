@@ -122,4 +122,20 @@ public class OpenlistStrmTaskController extends BaseController
     {
         return toAjax(openlistStrmTaskService.deleteOpenlistStrmTaskByStrmTaskIds(ids));
     }
+
+    /**
+     * 立即执行
+     */
+    @RequiresPermissions("openliststrm:strm_task:edit")
+    @Log(title = "strm任务配置", businessType = BusinessType.UPDATE)
+    @PostMapping("/run")
+    @ResponseBody
+    public AjaxResult run(String ids) {
+        logger.info("执行的任务：{}", ids);
+
+
+
+        return success();
+    }
+
 }
