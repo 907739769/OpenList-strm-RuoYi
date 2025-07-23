@@ -1,13 +1,15 @@
 package com.ruoyi.common.config.thread;
 
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.concurrent.ThreadPoolExecutor;
+import com.ruoyi.common.utils.ThreadTraceIdUtil;
+import com.ruoyi.common.utils.Threads;
 import org.apache.commons.lang3.concurrent.BasicThreadFactory;
+import org.slf4j.MDC;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
-import com.ruoyi.common.utils.Threads;
+
+import java.util.Map;
+import java.util.concurrent.*;
 
 /**
  * 线程池配置
@@ -50,11 +52,53 @@ public class ThreadPoolConfig
     {
         return new ScheduledThreadPoolExecutor(corePoolSize,
                 new BasicThreadFactory.Builder().namingPattern("schedule-pool-%d").daemon(true).build(),
-                new ThreadPoolExecutor.CallerRunsPolicy())
-        {
+                new ThreadPoolExecutor.CallerRunsPolicy()) {
+
+            // 统一包装Runnable任务
+            private Runnable wrap(Runnable task) {
+                Map<String, String> context = MDC.getCopyOfContextMap();
+                return () -> {
+                    try {
+                        if (context != null) {
+                            MDC.setContextMap(context);
+                            String childTraceId = ThreadTraceIdUtil.createChildTraceId();
+                            MDC.put(ThreadTraceIdUtil.TRACE_ID_KEY, childTraceId);
+                        }
+                        task.run();
+                    } finally {
+                        MDC.clear();
+                    }
+                };
+            }
+
             @Override
-            protected void afterExecute(Runnable r, Throwable t)
-            {
+            public void execute(Runnable command) {
+                super.execute(wrap(command));
+            }
+
+            @Override
+            public ScheduledFuture<?> schedule(Runnable command, long delay, TimeUnit unit) {
+                return super.schedule(wrap(command), delay, unit);
+            }
+
+            @Override
+            public ScheduledFuture<?> scheduleAtFixedRate(Runnable command,
+                                                          long initialDelay,
+                                                          long period,
+                                                          TimeUnit unit) {
+                return super.scheduleAtFixedRate(wrap(command), initialDelay, period, unit);
+            }
+
+            @Override
+            public ScheduledFuture<?> scheduleWithFixedDelay(Runnable command,
+                                                             long initialDelay,
+                                                             long delay,
+                                                             TimeUnit unit) {
+                return super.scheduleWithFixedDelay(wrap(command), initialDelay, delay, unit);
+            }
+
+            @Override
+            protected void afterExecute(Runnable r, Throwable t) {
                 super.afterExecute(r, t);
                 Threads.printException(r, t);
             }
