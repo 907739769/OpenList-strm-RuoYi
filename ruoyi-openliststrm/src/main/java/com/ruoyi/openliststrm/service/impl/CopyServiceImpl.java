@@ -143,11 +143,17 @@ public class CopyServiceImpl implements ICopyService {
             dstDir = dstDir.substring(0, dstDir.lastIndexOf("/"));
         }
         //源目录
-        String copySrcPath = srcDir + "/" + relativePath.substring(0, relativePath.lastIndexOf("/"));
+        String copySrcPath = srcDir;
         //目标目录
-        String copyDstPath = dstDir + "/" + relativePath.substring(0, relativePath.lastIndexOf("/"));
+        String copyDstPath = dstDir;
         //文件名
-        String fileName = relativePath.substring(relativePath.lastIndexOf("/") + 1);
+        String fileName = relativePath;
+        if (relativePath.contains("/")) {
+            copySrcPath = srcDir + "/" + relativePath.substring(0, relativePath.lastIndexOf("/"));
+            copyDstPath = dstDir + "/" + relativePath.substring(0, relativePath.lastIndexOf("/"));
+            fileName = relativePath.substring(relativePath.lastIndexOf("/") + 1);
+        }
+
         OpenlistCopyPlus copy = new OpenlistCopyPlus();
         copy.setCopySrcPath(copySrcPath);
         copy.setCopyDstPath(copyDstPath);
@@ -161,7 +167,7 @@ public class CopyServiceImpl implements ICopyService {
         JSONObject jsonObject = openlistApi.getFile(dstDir + "/" + relativePath);
         if (!(200 == jsonObject.getInteger("code")) && openListHelper.isVideo(relativePath)) {
             JSONObject srcJson = openlistApi.getFile(srcDir + "/" + relativePath);
-            if (srcJson.getJSONObject("data").getLong("size") > Long.parseLong(config.getOpenListMinFileSize()) * 1024 * 1024) {
+            if (srcJson.getJSONObject("data").getLong("size") >= Long.parseLong(config.getOpenListMinFileSize()) * 1024 * 1024) {
                 openlistApi.mkdir(copyDstPath);
                 JSONObject jsonResponse = openlistApi.copyOpenlist(copySrcPath, copyDstPath, Collections.singletonList(fileName));
                 if (jsonResponse != null && 200 == jsonResponse.getInteger("code")) {
@@ -172,6 +178,8 @@ public class CopyServiceImpl implements ICopyService {
                     copy.setCopyStatus("1");
                     copyHelper.addCopy(copy);
                 }
+            }else {
+                log.info("文件{}体积不满足最小同步文件体积条件", fileName);
             }
         } else if (200 == jsonObject.getInteger("code")) {
             flag.set(true);

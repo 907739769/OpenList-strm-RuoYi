@@ -15,6 +15,7 @@ import com.ruoyi.openliststrm.mybatisplus.domain.OpenlistStrmPlus;
 import com.ruoyi.openliststrm.mybatisplus.service.IOpenlistCopyPlusService;
 import com.ruoyi.openliststrm.mybatisplus.service.IOpenlistStrmPlusService;
 import com.ruoyi.openliststrm.service.IOpenlistStrmService;
+import com.ruoyi.openliststrm.service.IStrmService;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
@@ -49,6 +50,9 @@ public class OpenlistStrmController extends BaseController
 
     @Autowired
     private IOpenlistCopyPlusService openlistCopyPlusService;
+
+    @Autowired
+    private IStrmService strmService;
 
     @RequiresPermissions("openliststrm:strm:view")
     @GetMapping()
@@ -160,6 +164,27 @@ public class OpenlistStrmController extends BaseController
         });
         //删除表数据
         openlistStrmPlusService.removeBatchByIds(idList);
+        return success();
+    }
+
+    /**
+     * 重试strm任务
+     */
+    @RequiresPermissions("openliststrm:strm:edit")
+    @Log(title = "strm生成", businessType = BusinessType.UPDATE)
+    @PostMapping("/retry")
+    @ResponseBody
+    public AjaxResult retry(String ids) {
+        logger.info("重试的任务：{}", ids);
+        List<String> idList = Arrays.stream(Convert.toStrArray(ids)).collect(Collectors.toList());
+        List<OpenlistStrmPlus> openlistStrmPlusList = openlistStrmPlusService.listByIds(idList);
+        //更新为失败状态
+        openlistStrmPlusList.forEach(openlistStrmPlus -> openlistStrmPlus.setStrmStatus("0"));
+        openlistStrmPlusService.updateBatchById(openlistStrmPlusList);
+        //重新strm文件
+        openlistStrmPlusList.forEach(openlistStrmPlus -> {
+            strmService.strmOneFile(openlistStrmPlus.getStrmPath() + "/" + openlistStrmPlus.getStrmFileName());
+        });
         return success();
     }
 

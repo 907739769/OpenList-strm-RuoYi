@@ -14,6 +14,7 @@ import com.ruoyi.openliststrm.mybatisplus.domain.OpenlistCopyPlus;
 import com.ruoyi.openliststrm.mybatisplus.domain.OpenlistStrmPlus;
 import com.ruoyi.openliststrm.mybatisplus.service.IOpenlistCopyPlusService;
 import com.ruoyi.openliststrm.mybatisplus.service.IOpenlistStrmPlusService;
+import com.ruoyi.openliststrm.service.ICopyService;
 import com.ruoyi.openliststrm.service.IOpenlistCopyService;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,6 +50,9 @@ public class OpenlistCopyController extends BaseController
 
     @Autowired
     private IOpenlistStrmPlusService openlistStrmPlusService;
+
+    @Autowired
+    private ICopyService copyService;
 
     @RequiresPermissions("openliststrm:copy:view")
     @GetMapping()
@@ -160,6 +164,27 @@ public class OpenlistCopyController extends BaseController
         });
         //删除表数据
         openlistCopyPlusService.removeBatchByIds(idList);
+        return success();
+    }
+
+    /**
+     * 重试文件同步任务
+     */
+    @RequiresPermissions("openliststrm:copy:edit")
+    @Log(title = "openlist的文件同步复制任务", businessType = BusinessType.UPDATE)
+    @PostMapping("/retry")
+    @ResponseBody
+    public AjaxResult retry(String ids) {
+        logger.info("重试的任务：{}", ids);
+        List<String> idList = Arrays.stream(Convert.toStrArray(ids)).collect(Collectors.toList());
+        List<OpenlistCopyPlus> openlistCopyPlusList = openlistCopyPlusService.listByIds(idList);
+        //更新为失败状态
+        openlistCopyPlusList.forEach(openlistCopyPlus -> openlistCopyPlus.setCopyStatus("2"));
+        openlistCopyPlusService.updateBatchById(openlistCopyPlusList);
+        //重新同步文件
+        openlistCopyPlusList.forEach(openlistCopyPlus -> {
+            copyService.syncOneFile(openlistCopyPlus.getCopySrcPath(), openlistCopyPlus.getCopyDstPath(), openlistCopyPlus.getCopySrcFileName());
+        });
         return success();
     }
 

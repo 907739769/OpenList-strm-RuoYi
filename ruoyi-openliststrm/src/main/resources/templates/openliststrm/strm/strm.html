@@ -47,6 +47,9 @@
                 <a class="btn btn-danger multiple disabled" onclick="javascript:batchDelNetDisk()" shiro:hasPermission="openliststrm:strm:remove">
                     <i class="fa fa-remove"></i> 删除网盘数据
                 </a>
+                <a class="btn btn-primary multiple disabled" onclick="javascript:batchRetryStrm()" shiro:hasPermission="openliststrm:strm:edit">
+                    <i class="fa fa-refresh"></i> 重试
+                </a>
                 <a class="btn btn-warning" onclick="$.table.exportExcel()" shiro:hasPermission="openliststrm:strm:export">
                     <i class="fa fa-download"></i> 导出
                 </a>
@@ -108,6 +111,7 @@
                         actions.push('<a class="btn btn-danger btn-xs ' + removeFlag + '" href="javascript:void(0)" onclick="$.operate.remove(\'' + row.strmId + '\')"><i class="fa fa-remove"></i>删除</a>');
                         var more = [];
                         more.push("<a class='btn btn-default btn-xs " + removeFlag + "' href='javascript:void(0)' onclick='delNetDisk(" + row.strmId + ")'><i class='fa fa-remove'></i>删除网盘资源</a> ");
+                        more.push("<a class='btn btn-default btn-xs " + editFlag + "' href='javascript:void(0)' onclick='retryStrm(" + row.strmId + ")'><i class='fa fa-refresh'></i>重试</a> ");
                         actions.push('<a tabindex="0" class="btn btn-info btn-xs" role="button" data-container="body" data-placement="left" data-toggle="popover" data-html="true" data-trigger="hover" data-content="' + more.join('') + '"><i class="fa fa-chevron-circle-right"></i>更多操作</a>');
                         return actions.join('');
                     }
@@ -133,6 +137,28 @@
             }
             $.modal.confirm("确认要删除选中的" + rows.length + "条目标文件网盘数据吗?", function() {
                 var url = prefix + "/batchRemoveNetDisk";
+                var data = { "ids": rows.join() };
+                $.operate.post(url, data);
+            });
+        }
+
+        /* 重试strm */
+        function retryStrm(strmId) {
+            $.modal.confirm("确认要重试选中的数据吗?", function() {
+                var data = { "ids": strmId };
+                $.operate.post(prefix + "/retry", data);
+            });
+        }
+
+        // 批量重试strm
+        function batchRetryStrm() {
+            var rows = $.table.selectColumns("strmId");
+            if (rows.length == 0) {
+                $.modal.alertWarning("请选择要重试的数据");
+                return;
+            }
+            $.modal.confirm("确认要重试选中的" + rows.length + "条数据吗?", function() {
+                var url = prefix + "/retry";
                 var data = { "ids": rows.join() };
                 $.operate.post(url, data);
             });
