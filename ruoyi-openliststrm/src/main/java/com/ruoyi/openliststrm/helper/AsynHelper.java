@@ -48,7 +48,7 @@ public class AsynHelper {
             @Override
             public void run() {
                 Threads.sleep(30000);
-                List<OpenlistCopyPlus> copyList = openlistCopyPlusService.lambdaQuery().eq(OpenlistCopyPlus::getCopyStatus,"1").select(OpenlistCopyPlus::getCopyTaskId).list();
+                List<OpenlistCopyPlus> copyList = openlistCopyPlusService.lambdaQuery().eq(OpenlistCopyPlus::getCopyStatus,"1").list();
                 while (true) {
                     boolean allTasksCompleted = true;
                     Iterator<OpenlistCopyPlus> iterator = copyList.iterator();
