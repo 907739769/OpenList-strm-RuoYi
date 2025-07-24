@@ -38,11 +38,12 @@ services:
       - ./mysql:/var/lib/mysql
     command: [
           'mysqld',
-          '--innodb-buffer-pool-size=80M',
+          '--innodb-buffer-pool-size=256M',
           '--character-set-server=utf8mb4',
           '--collation-server=utf8mb4_unicode_ci',
           '--default-time-zone=+8:00',
           '--lower-case-table-names=1'
+          '--innodb-flush-log-at-trx-commit=2'
         ]
     environment:
       MYSQL_DATABASE: osr

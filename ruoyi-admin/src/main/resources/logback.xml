@@ -75,8 +75,10 @@
 	<logger name="com.ruoyi" level="info" />
 	<!-- Spring日志级别控制  -->
 	<logger name="org.springframework" level="warn" />
+    <logger name="org.apache" level="warn" />
 
-	<root level="info">
+
+    <root level="info">
 		<appender-ref ref="console" />
 	</root>
 	

@@ -20,8 +20,8 @@ public class MysqlDdl extends SimpleDdl {
     @Override
     public List<String> getSqlFiles() {
         return Arrays.asList(
-                // 测试存储过程
-                "sql/init.sql"
+                "sql/init.sql",
+                "sql/20250724.sql"
         );
     }
 }
