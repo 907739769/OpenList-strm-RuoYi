@@ -17,8 +17,7 @@ import java.util.concurrent.*;
  * @author ruoyi
  **/
 @Configuration
-public class ThreadPoolConfig
-{
+public class ThreadPoolConfig {
     // 核心线程池大小
     private int corePoolSize = 50;
 
@@ -32,9 +31,19 @@ public class ThreadPoolConfig
     private int keepAliveSeconds = 300;
 
     @Bean(name = "threadPoolTaskExecutor")
-    public ThreadPoolTaskExecutor threadPoolTaskExecutor()
-    {
-        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+    public ThreadPoolTaskExecutor threadPoolTaskExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor() {
+            @Override
+            public void execute(Runnable task) {
+                super.execute(wrap(task));
+            }
+
+            @Override
+            public Future<?> submit(Runnable task) {
+                return super.submit(wrap(task));
+            }
+
+        };
         executor.setMaxPoolSize(maxPoolSize);
         executor.setCorePoolSize(corePoolSize);
         executor.setQueueCapacity(queueCapacity);
@@ -48,28 +57,11 @@ public class ThreadPoolConfig
      * 执行周期性或定时任务
      */
     @Bean(name = "scheduledExecutorService")
-    protected ScheduledExecutorService scheduledExecutorService()
-    {
+    protected ScheduledExecutorService scheduledExecutorService() {
         return new ScheduledThreadPoolExecutor(corePoolSize,
                 new BasicThreadFactory.Builder().namingPattern("schedule-pool-%d").daemon(true).build(),
                 new ThreadPoolExecutor.CallerRunsPolicy()) {
 
-            // 统一包装Runnable任务
-            private Runnable wrap(Runnable task) {
-                Map<String, String> context = MDC.getCopyOfContextMap();
-                return () -> {
-                    try {
-                        if (context != null) {
-                            MDC.setContextMap(context);
-                            String childTraceId = ThreadTraceIdUtil.createChildTraceId();
-                            MDC.put(ThreadTraceIdUtil.TRACE_ID_KEY, childTraceId);
-                        }
-                        task.run();
-                    } finally {
-                        MDC.clear();
-                    }
-                };
-            }
 
             @Override
             public void execute(Runnable command) {
@@ -104,4 +96,22 @@ public class ThreadPoolConfig
             }
         };
     }
+
+    // 统一包装Runnable任务
+    private Runnable wrap(Runnable task) {
+        Map<String, String> context = MDC.getCopyOfContextMap();
+        return () -> {
+            try {
+                if (context != null) {
+                    MDC.setContextMap(context);
+                    String childTraceId = ThreadTraceIdUtil.createChildTraceId();
+                    MDC.put(ThreadTraceIdUtil.TRACE_ID_KEY, childTraceId);
+                }
+                task.run();
+            } finally {
+                MDC.clear();
+            }
+        };
+    }
+
 }
