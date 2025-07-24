@@ -142,8 +142,8 @@ public class AsynHelper {
                         if (state == 2) {
                             copy.setCopyStatus("3");
                             copyHelper.addCopy(copy);
+                            strmService.strmOneFile(path);// 生成 STRM 文件
                         }
-                        strmService.strmOneFile(path);// 生成 STRM 文件
                         break;// 任务完成，退出循环
                     } else if (state == 7) {
                         //失败就重试
