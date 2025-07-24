@@ -76,6 +76,7 @@
 	<!-- Spring日志级别控制  -->
 	<logger name="org.springframework" level="warn" />
     <logger name="org.apache" level="warn" />
+    <logger name="com.ruoyi.framework.shiro.web.session" level="warn" />
 
 
     <root level="info">
