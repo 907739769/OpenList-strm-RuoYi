@@ -12,6 +12,7 @@ import javax.servlet.*;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -21,7 +22,6 @@ import java.util.stream.Collectors;
  * @Date 2025/7/23 21:23
  * @Version 1.0.0
  */
-
 @Component
 @Slf4j
 @Order(1) // 确保最先执行
@@ -29,6 +29,7 @@ public class RequestLogFilter implements Filter {
 
     private static final List<String> EXCLUDE_PARAMS = Arrays.asList("password");
     private static final int MAX_PARAM_LENGTH = 200;
+    private static final int MAX_BODY_LENGTH = 1000; // 限制body最大打印长度
     // 静态资源路径排除列表
     private static final List<String> EXCLUDE_PATHS = Arrays.asList(
             "/static/", "/ajax/libs/", "/fonts/", "/css/", "/js/", "/file/", "/html/", "/i18n/", "/img/",
@@ -78,18 +79,57 @@ public class RequestLogFilter implements Filter {
         MDC.put("traceId", traceId);
     }
 
-    private void logRequestInfo(HttpServletRequest request) {
+    private void logRequestInfo(ContentCachingRequestWrapper request) {
         try {
             Map<String, String> safeParams = getSafeParameters(request);
+            String requestBody = getRequestBody(request);
 
-            log.info("Request => {} {} [Params: {}]",
+            log.info("Request => {} {} [Params: {}] [Body: {}]",
                     request.getMethod(),
                     getRequestUrl(request),
-                    formatParameters(safeParams));
+                    formatParameters(safeParams),
+                    requestBody);
 
         } catch (Exception e) {
             log.warn("记录请求日志出错", e);
         }
+    }
+
+    private String getRequestBody(ContentCachingRequestWrapper request) {
+        // 只处理POST/PUT/PATCH等可能有body的请求
+        if (!Arrays.asList("POST", "PUT", "PATCH", "DELETE").contains(request.getMethod())) {
+            return "None";
+        }
+
+        // 如果是文件上传请求，不记录body
+        if (isFileUpload(request)) {
+            return "[FILE_UPLOAD]";
+        }
+
+        // 检查是否是JSON请求
+        String contentType = request.getContentType();
+        if (contentType == null || !contentType.contains("application/json")) {
+            return "None";
+        }
+
+        // 获取缓存的内容
+        byte[] buf = request.getContentAsByteArray();
+        if (buf == null || buf.length == 0) {
+            return "Empty";
+        }
+
+        // 转换为字符串并截断
+        String body = null;
+        try {
+            body = new String(buf, 0, Math.min(buf.length, MAX_BODY_LENGTH), request.getCharacterEncoding());
+        } catch (UnsupportedEncodingException e) {
+            log.error("", e);
+        }
+        if (buf.length > MAX_BODY_LENGTH) {
+            body += "...[truncated]";
+        }
+
+        return body;
     }
 
     private String getRequestUrl(HttpServletRequest request) {
@@ -176,6 +216,5 @@ public class RequestLogFilter implements Filter {
         } catch (Exception e) {
             return "[FILE_PARSE_ERROR]";
         }
-
     }
 }
