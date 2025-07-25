@@ -266,6 +266,46 @@
                     <encoding>${project.build.sourceEncoding}</encoding>
                 </configuration>
             </plugin>
+            <!-- YUI Compressor (CSS/JS压缩) -->
+            <plugin>
+                <groupId>net.alchim31.maven</groupId>
+                <artifactId>yuicompressor-maven-plugin</artifactId>
+                <version>1.5.1</version>
+                <executions>
+                    <execution>
+                        <phase>prepare-package</phase>
+                        <goals>
+                            <goal>compress</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <!-- 读取js,css文件采用UTF-8编码 -->
+                    <encoding>UTF-8</encoding>
+                    <!-- 是否忽略警告 -->
+                    <jswarn>false</jswarn>
+                    <!-- 是否添加.min后缀 -->
+                    <nosuffix>true</nosuffix>
+                    <!-- 压缩多少字节换行 -->
+                    <linebreakpos>50000</linebreakpos>
+                    <!-- 源目录，即需压缩的根目录 -->
+                    <sourceDirectory>src/main/resources/static</sourceDirectory>
+                    <!-- 若存在已压缩的文件，会先对比源文件是否有改动。有改动便压缩，无改动就不压缩 -->
+                    <force>true</force>
+                    <includes>
+                        <include>**/*.js</include>
+                        <include>**/*.css</include>
+                    </includes>
+                    <excludes>
+                        <exclude>**/*.min.js</exclude>
+                        <exclude>**/*.min.css</exclude>
+                        <exclude>**/fileinput.js</exclude>
+                        <exclude>**/bootstrap-treetable.js</exclude>
+                        <exclude>**/jquery.validate.extend.js</exclude>
+                        <exclude>**/bootstrap-table-*.js</exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 
