@@ -20,7 +20,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     <select id="selectOpenlistStrmList" parameterType="OpenlistStrm" resultMap="OpenlistStrmResult">
         <include refid="selectOpenlistStrmVo"/>
         <where>  
-            <if test="strmPath != null  and strmPath != ''"> and strm_path = #{strmPath}</if>
+            <if test="strmPath != null  and strmPath != ''"> and strm_path like concat(#{strmPath}, '%')</if>
             <if test="strmFileName != null  and strmFileName != ''"> and strm_file_name like concat('%', #{strmFileName}, '%')</if>
             <if test="strmStatus != null  and strmStatus != ''"> and strm_status = #{strmStatus}</if>
         </where>

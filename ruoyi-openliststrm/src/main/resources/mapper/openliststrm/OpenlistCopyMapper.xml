@@ -23,8 +23,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     <select id="selectOpenlistCopyList" parameterType="OpenlistCopy" resultMap="OpenlistCopyResult">
         <include refid="selectOpenlistCopyVo"/>
         <where>  
-            <if test="copySrcPath != null  and copySrcPath != ''"> and copy_src_path = #{copySrcPath}</if>
-            <if test="copyDstPath != null  and copyDstPath != ''"> and copy_dst_path = #{copyDstPath}</if>
+            <if test="copySrcPath != null  and copySrcPath != ''"> and copy_src_path like concat(#{copySrcPath}, '%')</if>
+            <if test="copyDstPath != null  and copyDstPath != ''"> and copy_dst_path like concat(#{copyDstPath}, '%')</if>
             <if test="copySrcFileName != null  and copySrcFileName != ''"> and copy_src_file_name like concat('%', #{copySrcFileName}, '%')</if>
             <if test="copyDstFileName != null  and copyDstFileName != ''"> and copy_dst_file_name like concat('%', #{copyDstFileName}, '%')</if>
             <if test="copyTaskId != null  and copyTaskId != ''"> and copy_task_id = #{copyTaskId}</if>
