@@ -1,19 +1,21 @@
 package com.ruoyi.framework.shiro.web.filter.online;
 
-import java.io.IOException;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
-import org.apache.shiro.session.Session;
-import org.apache.shiro.subject.Subject;
-import org.apache.shiro.web.filter.AccessControlFilter;
-import org.apache.shiro.web.util.WebUtils;
-import org.springframework.beans.factory.annotation.Value;
 import com.ruoyi.common.constant.ShiroConstants;
 import com.ruoyi.common.core.domain.entity.SysUser;
 import com.ruoyi.common.enums.OnlineStatus;
 import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.framework.shiro.session.OnlineSession;
 import com.ruoyi.framework.shiro.session.OnlineSessionDAO;
+import org.apache.shiro.session.Session;
+import org.apache.shiro.subject.Subject;
+import org.apache.shiro.web.filter.AccessControlFilter;
+import org.apache.shiro.web.util.WebUtils;
+import org.springframework.beans.factory.annotation.Value;
+
+import javax.servlet.ServletRequest;
+import javax.servlet.ServletResponse;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
 
 /**
  * 自定义访问控制
@@ -89,6 +91,11 @@ public class OnlineSessionFilter extends AccessControlFilter
     @Override
     protected void redirectToLogin(ServletRequest request, ServletResponse response) throws IOException
     {
+        HttpServletResponse res = (HttpServletResponse) response;
+        // 强制禁用缓存
+        res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+        res.setHeader("Pragma", "no-cache");
+        res.setHeader("Expires", "0");
         WebUtils.issueRedirect(request, response, loginUrl);
     }
 
