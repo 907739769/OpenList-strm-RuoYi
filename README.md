@@ -42,7 +42,7 @@ services:
           '--character-set-server=utf8mb4',
           '--collation-server=utf8mb4_unicode_ci',
           '--default-time-zone=+8:00',
-          '--lower-case-table-names=1'
+          '--lower-case-table-names=1',
           '--innodb-flush-log-at-trx-commit=2'
         ]
     environment:
