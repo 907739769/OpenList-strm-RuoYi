@@ -1,148 +1,63 @@
 <!DOCTYPE html>
 <html lang="zh" xmlns:th="http://www.thymeleaf.org">
 <head>
-	<meta charset="utf-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-		<title>OSR主页</title>
-	<link rel="shortcut icon" href="favicon.ico">
-	<link href="../static/css/bootstrap.min.css" th:href="@{/css/bootstrap.min.css}" rel="stylesheet"/>
-	<link href="../static/css/font-awesome.min.css" th:href="@{/css/font-awesome.min.css}" rel="stylesheet"/>
-	<link href="../static/css/animate.min.css" th:href="@{/css/animate.min.css}" rel="stylesheet"/>
-	<link href="../static/css/style.min.css" th:href="@{/css/style.min.css}" rel="stylesheet"/>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OSR主页</title>
+    <link rel="shortcut icon" href="favicon.ico">
+    <link th:href="@{/css/bootstrap.min.css}" rel="stylesheet"/>
+    <link th:href="@{/css/font-awesome.min.css}" rel="stylesheet"/>
+    <link th:href="@{/css/animate.min.css}" rel="stylesheet"/>
+    <link th:href="@{/css/style.min.css}" rel="stylesheet"/>
+    <style>
+        .chart-container {
+            background-color: #fff;
+            border-radius: 5px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            padding: 15px;
+            margin-bottom: 20px;
+            height: 100%;
+        }
+
+        .echarts {
+            width: 100%;
+            height: 400px;
+            border-radius: 5px;
+        }
+
+        .chart-wrapper {
+            position: relative;
+            height: 100%;
+        }
+    </style>
 </head>
 
 <body class="gray-bg">
-<style>
-	/* 外层容器设为白色背景 */
-	.row {
-		background-color: #fff;
-		border-radius: 5px;
-		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-		padding: 15px;
-	}
-	.echarts {
-		border-radius: 10px;
-		background-color: #fff;
-		padding: 10px;
-		margin-bottom: 15px;
-		height: 400px; /* 确保图表容器有固定高度 */
-	}
-</style>
 <div class="wrapper wrapper-content">
-
-	<div class="row">
-		<div class="col-md-6">
-			<div class="echarts" id="copy-pie-chart"></div>
-		</div>
-		<div class="col-md-6">
-			<div class="echarts" id="strm-pie-chart"></div>
-		</div>
-	</div>
-
+    <div class="row">
+        <div class="col-md-6">
+            <div class="chart-container">
+                <div class="chart-wrapper">
+                    <div class="echarts" id="copy-pie-chart"></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="chart-container">
+                <div class="chart-wrapper">
+                    <div class="echarts" id="strm-pie-chart"></div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
-</div>
 
-<th:block th:include="include :: echarts-js" />
-<th:block th:include="include :: footer" />
-<script th:src="@{/js/bootstrap.min.js}"></script>
+<th:block th:include="include :: echarts-js"/>
+<th:block th:include="include :: footer"/>
 <script th:src="@{/js/jquery.min.js}"></script>
+<script th:src="@{/ajax/libs/validate/jquery.validate.min.js}"></script>
+<script th:src="@{/js/bootstrap.min.js}"></script>
 <script th:src="@{/ruoyi/js/ry-ui.js}"></script>
-<script type="text/javascript">
-
-	var copyPieChart = echarts.init(document.getElementById('copy-pie-chart'));
-	$.ajax({
-		url: ctx + 'openliststrm/copy/stats',
-		type: "post",
-		dataType: "json",
-		success: function(data) {
-			if (data.code == 0) {
-				var chartData = [];
-				$.each(data.data, function(name, value) {
-					chartData.push({value: value, name: name});
-				});
-
-				var option = {
-					title: {
-						text: 'COPY任务',
-						subtext: '今日数据',
-						left: 'center'
-					},
-					tooltip: { trigger: 'item' },
-					legend: { orient: 'vertical', left: 'left' },
-					series: [{
-						name: 'COPY任务',
-						type: 'pie',
-						radius: '50%',
-						emphasis: {
-							itemStyle: {
-								shadowBlur: 10,
-								shadowOffsetX: 0,
-								shadowColor: 'rgba(0, 0, 0, 0.5)'
-							}
-						},
-						data: chartData
-					}]
-				};
-				copyPieChart.setOption(option);
-			} else {
-				$.modal.msgError(data.msg);
-			}
-		},
-		error: function() {
-			$.modal.msgError("获取数据失败");
-		}
-	});
-
-	var strmPieChart = echarts.init(document.getElementById('strm-pie-chart'));
-	$.ajax({
-		url: ctx + 'openliststrm/strm/stats',
-		type: "post",
-		dataType: "json",
-		success: function(data) {
-			if (data.code == 0) {
-				var chartData = [];
-				$.each(data.data, function(name, value) {
-					chartData.push({value: value, name: name});
-				});
-
-				var option = {
-					title: {
-						text: 'STRM任务',
-						subtext: '今日数据',
-						left: 'center'
-					},
-					tooltip: { trigger: 'item' },
-					legend: { orient: 'vertical', left: 'left' },
-					series: [{
-						name: 'STRM任务',
-						type: 'pie',
-						radius: '50%',
-						emphasis: {
-							itemStyle: {
-								shadowBlur: 10,
-								shadowOffsetX: 0,
-								shadowColor: 'rgba(0, 0, 0, 0.5)'
-							}
-						},
-						data: chartData
-					}]
-				};
-				strmPieChart.setOption(option);
-			} else {
-				$.modal.msgError(data.msg);
-			}
-		},
-		error: function() {
-			$.modal.msgError("获取数据失败");
-		}
-	});
-
-	// 窗口大小变化时重绘图表
-	$(window).resize(function() {
-		copyPieChart.resize();
-		strmPieChart.resize();
-	});
-
-</script>
+<script th:src="@{/js/charts.js}"></script>
 </body>
 </html>
