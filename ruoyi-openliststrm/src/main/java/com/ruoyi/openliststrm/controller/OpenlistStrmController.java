@@ -1,6 +1,7 @@
 package com.ruoyi.openliststrm.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.ruoyi.common.annotation.Log;
 import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
@@ -10,6 +11,7 @@ import com.ruoyi.common.enums.BusinessType;
 import com.ruoyi.common.utils.poi.ExcelUtil;
 import com.ruoyi.openliststrm.api.OpenlistApi;
 import com.ruoyi.openliststrm.domain.OpenlistStrm;
+import com.ruoyi.openliststrm.enums.StrmStatusEnum;
 import com.ruoyi.openliststrm.mybatisplus.domain.OpenlistCopyPlus;
 import com.ruoyi.openliststrm.mybatisplus.domain.OpenlistStrmPlus;
 import com.ruoyi.openliststrm.mybatisplus.service.IOpenlistCopyPlusService;
@@ -22,9 +24,8 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
+import java.time.LocalDate;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -186,6 +187,33 @@ public class OpenlistStrmController extends BaseController
             strmService.strmOneFile(openlistStrmPlus.getStrmPath() + "/" + openlistStrmPlus.getStrmFileName());
         });
         return success();
+    }
+
+
+    /**
+     * 统计信息
+     */
+    @RequiresPermissions("openliststrm:strm:list")
+    @PostMapping("/stats")
+    @ResponseBody
+    public AjaxResult stats() {
+        LocalDate today = LocalDate.now();
+        // 这里替换为实际业务数据，可以从service层获取
+        QueryWrapper<OpenlistStrmPlus> wrapper = new QueryWrapper<>();
+        wrapper.select("strm_status as status, count(*) as count")
+                .between("create_time", today.atStartOfDay(), today.plusDays(1).atStartOfDay())
+                .groupBy("strm_status");
+
+        List<Map<String, Object>> maps = openlistStrmPlusService.listMaps(wrapper);
+        Map<String, Long> result = new LinkedHashMap<>();
+        for (Map<String, Object> map : maps) {
+            String status = String.valueOf(map.get("status"));
+            Long count = Long.parseLong(map.get("count").toString());
+
+            String statusChinese = StrmStatusEnum.getDescByCode(status);
+            result.put(statusChinese, count);
+        }
+        return success(result);
     }
 
 }
