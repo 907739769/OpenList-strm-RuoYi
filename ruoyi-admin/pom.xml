@@ -136,7 +136,6 @@
                         <exclude>**/fileinput.js</exclude>
                         <exclude>**/validate/**</exclude>
                         <exclude>**/bootstrap-table/**</exclude>
-                        <exclude>**/js/charts.js</exclude>
                     </excludes>
                 </configuration>
             </plugin> -->
