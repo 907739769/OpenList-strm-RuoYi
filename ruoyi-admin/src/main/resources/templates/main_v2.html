@@ -53,7 +53,7 @@
 </div>
 
 <th:block th:include="include :: echarts-js"/>
-<th:block th:include="include :: footer"/>
+<script th:inline="javascript"> var ctx = [[@{/}]]</script>
 <script th:src="@{/js/jquery.min.js}"></script>
 <script th:src="@{/ajax/libs/validate/jquery.validate.min.js}"></script>
 <script th:src="@{/js/bootstrap.min.js}"></script>
