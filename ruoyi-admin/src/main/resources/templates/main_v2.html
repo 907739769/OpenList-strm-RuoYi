@@ -14,14 +14,14 @@
             background-color: #fff;
             border-radius: 5px;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            padding: 15px;
-            margin-bottom: 20px;
+            padding: 10px;
+            margin-bottom: 10px;
             height: 100%;
         }
 
         .echarts {
             width: 100%;
-            height: 400px;
+            height: 250px;
             border-radius: 5px;
         }
 
@@ -35,14 +35,14 @@
 <body class="gray-bg">
 <div class="wrapper wrapper-content">
     <div class="row">
-        <div class="col-md-6">
+        <div class="col-md-3">
             <div class="chart-container">
                 <div class="chart-wrapper">
                     <div class="echarts" id="copy-pie-chart"></div>
                 </div>
             </div>
         </div>
-        <div class="col-md-6">
+        <div class="col-md-3">
             <div class="chart-container">
                 <div class="chart-wrapper">
                     <div class="echarts" id="strm-pie-chart"></div>
@@ -137,7 +137,7 @@
                         title: {
                             text: title,
                             subtext: '今日数据',
-                            left: 'center',
+                            left: 'left',
                             textStyle: {
                                 fontSize: 16,
                                 fontWeight: 'bold'
@@ -149,14 +149,8 @@
                         },
                         legend: {
                             orient: 'vertical',
-                            left: 'left',
-                            formatter: function (name) {
-// 在legend中显示名称和笔数
-                                const item = chartData.find(d => d.name === name);
-                                const color = item ? item.itemStyle.color : '#999';
-                                const count = item ? item.value : 0;
-                                return `${name}: {count|${count}}`;
-                            },
+                            left: 'right',
+                            align: 'left',
                             textStyle: {
                                 rich: {
                                     count: {
@@ -170,7 +164,7 @@
                         series: [{
                             name: title,
                             type: 'pie',
-                            radius: ['50%', '70%'],
+                            radius: ['40%', '70%'],
                             avoidLabelOverlap: false,
                             itemStyle: {
                                 borderRadius: 5,
@@ -178,8 +172,9 @@
                                 borderWidth: 2
                             },
                             label: {
-                                show: false,
-                                position: 'center'
+                                show: true,
+                                formatter: '{c}',
+                                position: 'inside'
                             },
                             emphasis: {
                                 label: {
@@ -191,6 +186,7 @@
                             labelLine: {
                                 show: false
                             },
+                            minAngle: 5,
                             data: chartData
                         }],
                         animationEasing: 'elasticOut'
