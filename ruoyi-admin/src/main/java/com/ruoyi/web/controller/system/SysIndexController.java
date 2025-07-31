@@ -55,8 +55,8 @@ public class SysIndexController extends BaseController
         List<SysMenu> menus = menuService.selectMenusByUser(user);
         mmap.put("menus", menus);
         mmap.put("user", user);
-        mmap.put("sideTheme", configService.selectConfigByKey("sys.index.sideTheme"));
-        mmap.put("skinName", configService.selectConfigByKey("sys.index.skinName"));
+        mmap.put("sideTheme", StringUtils.isNotEmpty(configService.selectConfigByKey("sys.index.sideTheme")) ? configService.selectConfigByKey("sys.index.sideTheme") : "theme-light");
+        mmap.put("skinName", StringUtils.isNotEmpty(configService.selectConfigByKey("sys.index.skinName")) ? configService.selectConfigByKey("sys.index.skinName") : "skin-purple");
         Boolean footer = Convert.toBool(configService.selectConfigByKey("sys.index.footer"), false);
         Boolean tagsView = Convert.toBool(configService.selectConfigByKey("sys.index.tagsView"), true);
         mmap.put("footer", footer);
