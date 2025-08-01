@@ -8,6 +8,7 @@ import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.enums.BusinessType;
+import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.common.utils.poi.ExcelUtil;
 import com.ruoyi.openliststrm.api.OpenlistApi;
 import com.ruoyi.openliststrm.domain.OpenlistCopy;
@@ -36,8 +37,7 @@ import java.util.stream.Collectors;
  */
 @Controller
 @RequestMapping("/openliststrm/copy")
-public class OpenlistCopyController extends BaseController
-{
+public class OpenlistCopyController extends BaseController {
     private String prefix = "openliststrm/copy";
 
     @Autowired
@@ -57,8 +57,7 @@ public class OpenlistCopyController extends BaseController
 
     @RequiresPermissions("openliststrm:copy:view")
     @GetMapping()
-    public String copy()
-    {
+    public String copy() {
         return prefix + "/copy";
     }
 
@@ -68,8 +67,7 @@ public class OpenlistCopyController extends BaseController
     @RequiresPermissions("openliststrm:copy:list")
     @PostMapping("/list")
     @ResponseBody
-    public TableDataInfo list(OpenlistCopy openlistCopy)
-    {
+    public TableDataInfo list(OpenlistCopy openlistCopy) {
         startPage();
         List<OpenlistCopy> list = openlistCopyService.selectOpenlistCopyList(openlistCopy);
         return getDataTable(list);
@@ -82,8 +80,7 @@ public class OpenlistCopyController extends BaseController
     @Log(title = "openlist的文件同步复制任务", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
     @ResponseBody
-    public AjaxResult export(OpenlistCopy openlistCopy)
-    {
+    public AjaxResult export(OpenlistCopy openlistCopy) {
         List<OpenlistCopy> list = openlistCopyService.selectOpenlistCopyList(openlistCopy);
         ExcelUtil<OpenlistCopy> util = new ExcelUtil<OpenlistCopy>(OpenlistCopy.class);
         return util.exportExcel(list, "openlist的文件同步复制任务数据");
@@ -94,8 +91,7 @@ public class OpenlistCopyController extends BaseController
      */
     @RequiresPermissions("openliststrm:copy:add")
     @GetMapping("/add")
-    public String add()
-    {
+    public String add() {
         return prefix + "/add";
     }
 
@@ -106,8 +102,7 @@ public class OpenlistCopyController extends BaseController
     @Log(title = "openlist的文件同步复制任务", businessType = BusinessType.INSERT)
     @PostMapping("/add")
     @ResponseBody
-    public AjaxResult addSave(OpenlistCopy openlistCopy)
-    {
+    public AjaxResult addSave(OpenlistCopy openlistCopy) {
         return toAjax(openlistCopyService.insertOpenlistCopy(openlistCopy));
     }
 
@@ -116,8 +111,7 @@ public class OpenlistCopyController extends BaseController
      */
     @RequiresPermissions("openliststrm:copy:edit")
     @GetMapping("/edit/{copyId}")
-    public String edit(@PathVariable("copyId") Integer copyId, ModelMap mmap)
-    {
+    public String edit(@PathVariable("copyId") Integer copyId, ModelMap mmap) {
         OpenlistCopy openlistCopy = openlistCopyService.selectOpenlistCopyByCopyId(copyId);
         mmap.put("openlistCopy", openlistCopy);
         return prefix + "/edit";
@@ -130,8 +124,7 @@ public class OpenlistCopyController extends BaseController
     @Log(title = "openlist的文件同步复制任务", businessType = BusinessType.UPDATE)
     @PostMapping("/edit")
     @ResponseBody
-    public AjaxResult editSave(OpenlistCopy openlistCopy)
-    {
+    public AjaxResult editSave(OpenlistCopy openlistCopy) {
         return toAjax(openlistCopyService.updateOpenlistCopy(openlistCopy));
     }
 
@@ -140,10 +133,9 @@ public class OpenlistCopyController extends BaseController
      */
     @RequiresPermissions("openliststrm:copy:remove")
     @Log(title = "openlist的文件同步复制任务", businessType = BusinessType.DELETE)
-    @PostMapping( "/remove")
+    @PostMapping("/remove")
     @ResponseBody
-    public AjaxResult remove(String ids)
-    {
+    public AjaxResult remove(String ids) {
         return toAjax(openlistCopyService.deleteOpenlistCopyByCopyIds(ids));
     }
 
@@ -195,12 +187,13 @@ public class OpenlistCopyController extends BaseController
     @RequiresPermissions("openliststrm:copy:list")
     @PostMapping("/stats")
     @ResponseBody
-    public AjaxResult stats() {
+    public AjaxResult stats(String range) {
         LocalDate today = LocalDate.now();
         // 这里替换为实际业务数据，可以从service层获取
         QueryWrapper<OpenlistCopyPlus> wrapper = new QueryWrapper<>();
         wrapper.select("copy_status as status, count(*) as count")
-                .between("create_time", today.atStartOfDay(), today.plusDays(1).atStartOfDay())
+                .between(StringUtils.isEmpty(range) || "today".equals(range), "create_time", today.atStartOfDay(), today.plusDays(1).atStartOfDay())
+                .between("yesterday".equals(range), "create_time", today.minusDays(1).atStartOfDay(), today.atStartOfDay())
                 .groupBy("copy_status");
 
         List<Map<String, Object>> maps = openlistCopyPlusService.listMaps(wrapper);

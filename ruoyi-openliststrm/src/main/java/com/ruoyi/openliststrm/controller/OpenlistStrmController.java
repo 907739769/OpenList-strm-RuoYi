@@ -8,6 +8,7 @@ import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.enums.BusinessType;
+import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.common.utils.poi.ExcelUtil;
 import com.ruoyi.openliststrm.api.OpenlistApi;
 import com.ruoyi.openliststrm.domain.OpenlistStrm;
@@ -196,12 +197,13 @@ public class OpenlistStrmController extends BaseController
     @RequiresPermissions("openliststrm:strm:list")
     @PostMapping("/stats")
     @ResponseBody
-    public AjaxResult stats() {
+    public AjaxResult stats(String range) {
         LocalDate today = LocalDate.now();
         // 这里替换为实际业务数据，可以从service层获取
         QueryWrapper<OpenlistStrmPlus> wrapper = new QueryWrapper<>();
         wrapper.select("strm_status as status, count(*) as count")
-                .between("create_time", today.atStartOfDay(), today.plusDays(1).atStartOfDay())
+                .between(StringUtils.isEmpty(range) || "today".equals(range), "create_time", today.atStartOfDay(), today.plusDays(1).atStartOfDay())
+                .between("yesterday".equals(range), "create_time", today.minusDays(1).atStartOfDay(), today.atStartOfDay())
                 .groupBy("strm_status");
 
         List<Map<String, Object>> maps = openlistStrmPlusService.listMaps(wrapper);

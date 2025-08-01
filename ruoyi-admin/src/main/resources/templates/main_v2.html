@@ -29,21 +29,60 @@
             position: relative;
             height: 100%;
         }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .chart-container select {
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background-color: #fff;
+            font-size: 12px;
+            padding: 2px 6px;
+        }
+
+        .chart-container strong {
+            font-size: 14px;
+            color: #333;
+        }
     </style>
 </head>
 
 <body class="gray-bg">
 <div class="wrapper wrapper-content">
     <div class="row">
+        <!-- COPY 图表 -->
         <div class="col-md-3">
             <div class="chart-container">
+                <div class="chart-header">
+                    <strong id="title-copy">COPY任务</strong>
+                    <select onchange="updateChart('copy-pie-chart', 'openliststrm/copy/stats', this.value, 'copy')">
+                        <option value="today" selected>今日</option>
+                        <option value="yesterday">昨日</option>
+                        <option value="all">全部</option>
+                    </select>
+                </div>
                 <div class="chart-wrapper">
                     <div class="echarts" id="copy-pie-chart"></div>
                 </div>
             </div>
         </div>
+
+        <!-- STRM 图表 -->
         <div class="col-md-3">
             <div class="chart-container">
+                <div class="chart-header">
+                    <strong id="title-strm">STRM任务</strong>
+                    <select onchange="updateChart('strm-pie-chart', 'openliststrm/strm/stats', this.value, 'strm')">
+                        <option value="today" selected>今日</option>
+                        <option value="yesterday">昨日</option>
+                        <option value="all">全部</option>
+                    </select>
+                </div>
                 <div class="chart-wrapper">
                     <div class="echarts" id="strm-pie-chart"></div>
                 </div>
@@ -60,88 +99,70 @@
 <script th:src="@{/ruoyi/js/ry-ui.js}"></script>
 
 <script type="text/javascript">
-    /**
-     * 初始化图表
-     */
     $(function () {
-// 初始化COPY任务图表
-        initPieChart('copy-pie-chart', ctx + 'openliststrm/copy/stats', 'COPY任务');
+        updateChart('copy-pie-chart', 'openliststrm/copy/stats', 'today', 'copy');
+        updateChart('strm-pie-chart', 'openliststrm/strm/stats', 'today', 'strm');
 
-// 初始化STRM任务图表
-        initPieChart('strm-pie-chart', ctx + 'openliststrm/strm/stats', 'STRM任务');
-
-// 窗口大小变化时重绘图表
         $(window).on('resize', function () {
             echarts.getInstanceByDom(document.getElementById('copy-pie-chart'))?.resize();
             echarts.getInstanceByDom(document.getElementById('strm-pie-chart'))?.resize();
         });
     });
 
-    /**
-     * 初始化饼图
-     * @param {string} elementId 图表容器ID
-     * @param {string} url 数据请求URL
-     * @param {string} title 图表标题
-     */
-    function initPieChart(elementId, url, title) {
+    function updateChart(elementId, url, range, type) {
         const chartDom = document.getElementById(elementId);
-        const chart = echarts.init(chartDom);
+        let chart = echarts.getInstanceByDom(chartDom);
+        if (!chart) {
+            chart = echarts.init(chartDom);
+        }
 
-// 预定义颜色映射表（可根据实际数据类型调整）
         const colorMap = {
-// 状态类数据
             '成功': '#4BC0C0',
             '失败': '#FF6384',
             '未知': '#FFCE56',
             '处理中': '#36A2EB',
-// 默认颜色序列（当类型未匹配时使用）
             '_default': ['#466dbd', '#50c295', '#b98f15', '#b44e36', '#6DC8EC', '#9270CA', '#FF9D4D', '#269A99']
         };
 
-// 获取颜色的函数
         function getColorForData(name) {
-// 首先检查是否有精确匹配
-            if (colorMap[name]) {
-                return colorMap[name];
-            }
-
-// 检查是否有包含关键词的匹配（不区分大小写）
-            const lowerName = name.toLowerCase();
+            if (colorMap[name]) return colorMap[name];
+            const lower = name.toLowerCase();
             for (const key in colorMap) {
-                if (key !== '_default' && lowerName.includes(key.toLowerCase())) {
+                if (key !== '_default' && lower.includes(key.toLowerCase())) {
                     return colorMap[key];
                 }
             }
-
-// 使用默认颜色序列，按数据索引循环使用
-            const defaultColors = colorMap._default;
-            const index = Object.keys(colorMap).filter(k => k !== '_default').length;
-            return defaultColors[index % defaultColors.length];
+            const idx = Object.keys(colorMap).filter(k => k !== '_default').length;
+            return colorMap._default[idx % colorMap._default.length];
         }
 
+        const rangeTextMap = {
+            today: '今日数据',
+            yesterday: '昨日数据',
+            all: '全部数据'
+        };
+
+        const fullTitle = rangeTextMap[range];
+
         $.ajax({
-            url: url,
+            url: ctx + url,
             type: "POST",
+            data: {range: range},
             dataType: "json",
-            success: function (data) {
-                if (data.code === 0 && Object.keys(data.data).length > 0) {
-                    const chartData = Object.entries(data.data).map(([name, value]) => ({
+            success: function (res) {
+                chart.clear();
+                if (res.code === 0 && Object.keys(res.data).length > 0) {
+                    const chartData = Object.entries(res.data).map(([name, value]) => ({
                         value: value,
                         name: name,
-                        itemStyle: {
-                            color: getColorForData(name)
-                        }
+                        itemStyle: {color: getColorForData(name)}
                     }));
 
-                    const option = {
+                    chart.setOption({
                         title: {
-                            text: title,
-                            subtext: '今日数据',
+                            text: fullTitle,
                             left: 'left',
-                            textStyle: {
-                                fontSize: 16,
-                                fontWeight: 'bold'
-                            }
+                            textStyle: {fontSize: 12}
                         },
                         tooltip: {
                             trigger: 'item',
@@ -150,19 +171,9 @@
                         legend: {
                             orient: 'vertical',
                             left: 'right',
-                            align: 'left',
-                            textStyle: {
-                                rich: {
-                                    count: {
-                                        fontWeight: 'bold',
-                                        color: '#333'
-                                    }
-                                }
-                            },
                             data: chartData.map(item => item.name)
                         },
                         series: [{
-                            name: title,
                             type: 'pie',
                             radius: ['40%', '70%'],
                             avoidLabelOverlap: false,
@@ -178,52 +189,57 @@
                             },
                             emphasis: {
                                 label: {
-                                    show: true,
-                                    fontSize: '18',
-                                    fontWeight: 'bold'
+                                    show: false
                                 }
                             },
-                            labelLine: {
-                                show: false
-                            },
+                            labelLine: {show: false},
                             minAngle: 5,
                             data: chartData
-                        }],
-                        animationEasing: 'elasticOut'
-                    };
-
-                    chart.setOption(option);
+                        }]
+                    });
                 } else {
-// 无数据时的展示
                     chart.setOption({
                         title: {
-                            text: title,
-                            subtext: '暂无数据',
+                            text: fullTitle,
+                            left: 'left',
+                            textStyle: {fontSize: 12}
+                        },
+                        graphic: {
+                            type: 'text',
                             left: 'center',
-                            textStyle: {
-                                fontSize: 16,
-                                fontWeight: 'bold'
+                            top: 'middle',
+                            style: {
+                                text: '暂无数据',
+                                fontSize: 14,
+                                fill: '#888'
                             }
                         },
-                        series: [] // 空系列
+                        series: []
                     });
                 }
             },
             error: function (xhr, status, error) {
                 $.modal.msgError("获取数据失败: " + (error || status));
-// 显示空状态
                 chart.setOption({
                     title: {
-                        text: title,
-                        subtext: '数据加载失败',
+                        text: fullTitle,
+                        left: 'left',
+                        textStyle: {fontSize: 12}
+                    },
+                    graphic: {
+                        type: 'text',
                         left: 'center',
-                        top: 'center'
-                    }
+                        top: 'middle',
+                        style: {
+                            text: '获取数据失败',
+                            fontSize: 14,
+                            fill: '#888'
+                        }
+                    },
+                    series: []
                 });
             }
         });
-
-        return chart;
     }
 </script>
 
