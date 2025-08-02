@@ -1,5 +1,5 @@
 const CACHE_NAME = 'OSR';
-const urlsToCache = ['/ruoyi/index.js', '/css/bootstrap.min.css', '/css/style.min.css'];
+const urlsToCache = [];
 
 self.addEventListener('install', event => {
     event.waitUntil(
