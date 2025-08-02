@@ -1,15 +1,7 @@
-const CACHE_NAME = 'OSR';
-const urlsToCache = [];
-
 self.addEventListener('install', event => {
-    event.waitUntil(
-        caches.open(CACHE_NAME)
-            .then(cache => cache.addAll(urlsToCache))
-    );
+    self.skipWaiting(); // 立即激活新 worker
 });
 
-self.addEventListener('fetch', event => {
-    event.respondWith(
-        caches.match(event.request).then(response => response || fetch(event.request))
-    );
+self.addEventListener('activate', event => {
+    clients.claim(); // 立即接管页面
 });
