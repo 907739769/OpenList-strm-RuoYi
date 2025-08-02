@@ -32,9 +32,12 @@ $(function() {
         }
 
     });
-    $('#side-menu>li li a:not(:has(span))').click(function() {
-        if ($(window).width() < 769) {
-            NavToggle();
+    $('#side-menu>li a.menuItem').click(function (e) {
+        // 如果该菜单项后面没有 ul（二级菜单），说明是“末级菜单”
+        if (!$(this).next('ul').length) {
+            if ($(window).width() < 769) {
+                NavToggle();
+            }
         }
     });
 
