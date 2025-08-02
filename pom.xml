@@ -303,6 +303,7 @@
                         <exclude>**/bootstrap-treetable.js</exclude>
                         <exclude>**/jquery.validate.extend.js</exclude>
                         <exclude>**/bootstrap-table-*.js</exclude>
+                        <exclude>**/service-worker.js</exclude>
                     </excludes>
                 </configuration>
             </plugin>
