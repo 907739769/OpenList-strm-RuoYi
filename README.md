@@ -23,69 +23,7 @@
 
 ## 安装配置
 
-直接可用docker安装，安装完成访问http://192.x.x.x:6895   默认账号密码admin/openliststrm666
-
-登录页面之后，在`系统管理-参数设置`菜单设置参数，如果设置了tg参数，需要重启服务。
-
-```
-version : '3'
-services:
-  osr_db:
-    container_name: osr_db
-    restart: on-failure:3
-    image: mysql:5.7
-    volumes:
-      - ./mysql:/var/lib/mysql
-    command: [
-          'mysqld',
-          '--innodb-buffer-pool-size=256M',
-          '--character-set-server=utf8mb4',
-          '--collation-server=utf8mb4_unicode_ci',
-          '--default-time-zone=+8:00',
-          '--lower-case-table-names=1',
-          '--innodb-flush-log-at-trx-commit=2'
-        ]
-    environment:
-      MYSQL_DATABASE: osr
-      MYSQL_ROOT_PASSWORD: Ty#s9U1@L
-  osr-server:
-    container_name: osr-server
-    restart: on-failure:3
-    image: jacksaoding/openlist-strm-ruoyi:latest
-    ports:
-      - "6895:6895"
-    volumes:
-      - ./data:/data
-    environment:
-      DB_PASSWORD: Ty#s9U1@L
-    depends_on:
-      - osr_db
-    links:
-      - osr_db
-```
-
-## qb脚本参考
-`sh /config/notify.sh "%G" "%F"`
-
-以下脚本需要修改三个参数及ip端口
-
-```
-#!/bin/bash
-
-# 获取传递的标签
-TAG=$1
-qbDlFilePath=$2
-MOVIEPILOT="MOVIEPILOT"
-# 下面三个参数根据实际情况调整
-srcDir=/download/pt
-srcDst=/115网盘/影视/pt
-qbDlRootPath=/data/downloads/pt
-
-if [[ "$TAG" =~ "$MOVIEPILOT" ]]; then
-# 调用 notify 接口  ip及端口需要调整
-curl -X POST -H "Content-Type: application/json" -H "X-API-KEY: xxx" -d "{\"qbDlFilePath\": \"$qbDlFilePath\",\"srcDir\": \"$srcDir\",\"srcDst\": \"$srcDst\",\"qbDlRootPath\": \"$qbDlRootPath\"}" http://192.168.31.66:6895/api/v1/notifyByDir &>/dev/null &
-fi
-```
+安装配置请查看[WIKI](https://github.com/907739769/OpenList-strm-RuoYi/wiki)
 
 ## 演示图
 
@@ -104,3 +42,4 @@ fi
         <td><img src="https://github.com/user-attachments/assets/e210e93a-fc34-4e9d-a935-3526ecc6daa3"/></td>
     </tr>
 </table>
+
