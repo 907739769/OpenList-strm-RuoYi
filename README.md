@@ -23,14 +23,15 @@
 
 ## 安装配置
 
-安装配置请查看[WIKI](https://github.com/907739769/OpenList-strm-RuoYi/wiki)
+安装配置请查看[wiki](https://github.com/907739769/OpenList-strm-RuoYi/wiki)
 
 ## 演示图
 
+### PC端
 
 <table>
     <tr>
-        <td><img src="https://github.com/user-attachments/assets/160a16eb-c36f-4597-8ed5-1be6cf74f656"/></td>
+        <td><img src="https://github.com/user-attachments/assets/b373b65f-4bd2-4af4-a5a6-9c77d8266fa0"/></td>
         <td><img src="https://github.com/user-attachments/assets/4ce3623e-fcd8-47ae-98c7-82fb92cafd90"/></td>
     </tr>
     <tr>
@@ -41,5 +42,16 @@
         <td><img src="https://github.com/user-attachments/assets/ac16de9d-eab0-4bae-a40c-449078336770"/></td>
         <td><img src="https://github.com/user-attachments/assets/e210e93a-fc34-4e9d-a935-3526ecc6daa3"/></td>
     </tr>
+
 </table>
 
+### 移动端
+
+
+<table>
+    <tr>
+        <td><img src="https://github.com/user-attachments/assets/b99de7cd-d5e3-4c03-b9c4-5316f6b1a239"/></td>
+        <td><img src="https://github.com/user-attachments/assets/26b4b12d-63ea-4d09-8740-1144044e756c"/></td>
+        <td><img src="https://github.com/user-attachments/assets/0cfb0efa-f5fe-4cfd-a6e8-296cd7102de0"/></td>
+    </tr>
+</table>
