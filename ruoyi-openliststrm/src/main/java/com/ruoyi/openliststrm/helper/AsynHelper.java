@@ -37,6 +37,9 @@ public class AsynHelper {
     @Autowired
     private IOpenlistCopyPlusService openlistCopyPlusService;
 
+    @Autowired
+    private TgHelper tgHelper;
+
     /**
      * 判断openlist的复制任务是否完成 完成就执行strm任务
      *
@@ -48,7 +51,7 @@ public class AsynHelper {
             @Override
             public void run() {
                 Threads.sleep(30000);
-                List<OpenlistCopyPlus> copyList = openlistCopyPlusService.lambdaQuery().eq(OpenlistCopyPlus::getCopyStatus,"1").list();
+                List<OpenlistCopyPlus> copyList = openlistCopyPlusService.lambdaQuery().eq(OpenlistCopyPlus::getCopyStatus, "1").list();
                 while (true) {
                     boolean allTasksCompleted = true;
                     Iterator<OpenlistCopyPlus> iterator = copyList.iterator();
@@ -82,6 +85,7 @@ public class AsynHelper {
                                 copy.setCopyStatus("2");
                                 copyHelper.addCopy(copy);
                                 iterator.remove();
+                                tgHelper.sendMsg("复制任务失败" + copy.getCopySrcPath() + "/" + copy.getCopySrcFileName());
                             }
                             allTasksCompleted = false;
                         } else if (404 == code || state == 2) {
@@ -155,6 +159,7 @@ public class AsynHelper {
                         //失败不重试了
                         copy.setCopyStatus("3");
                         copyHelper.addCopy(copy);
+                        tgHelper.sendMsg("复制任务失败" + copy.getCopySrcPath() + "/" + copy.getCopySrcFileName());
                         break;
                     }
                     Threads.sleep(30000);//继续检查
