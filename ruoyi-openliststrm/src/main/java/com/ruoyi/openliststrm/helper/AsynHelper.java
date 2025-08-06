@@ -77,7 +77,11 @@ public class AsynHelper {
                         if (200 == code && state != 2) {
                             //失败状态了  就重试 状态1是运行中  状态8是等待重试
                             if (state == 7) {
-                                openlistApi.copyRetry(taskId);
+                                //openlistApi.copyRetry(taskId);
+                                //失败不重试了
+                                copy.setCopyStatus("2");
+                                copyHelper.addCopy(copy);
+                                iterator.remove();
                             }
                             allTasksCompleted = false;
                         } else if (404 == code || state == 2) {
@@ -147,7 +151,11 @@ public class AsynHelper {
                         break;// 任务完成，退出循环
                     } else if (state == 7) {
                         //失败就重试
-                        openlistApi.copyRetry(copy.getCopyTaskId());
+                        //openlistApi.copyRetry(copy.getCopyTaskId());
+                        //失败不重试了
+                        copy.setCopyStatus("3");
+                        copyHelper.addCopy(copy);
+                        break;
                     }
                     Threads.sleep(30000);//继续检查
                 }
