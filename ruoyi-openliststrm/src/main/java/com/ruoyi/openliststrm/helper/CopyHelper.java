@@ -18,6 +18,8 @@ import java.util.TimerTask;
 @Component
 public class CopyHelper {
 
+    private static final Object LOCK = new Object();
+
     @Autowired
     private IOpenlistCopyPlusService openlistCopyPlusService;
 
@@ -25,13 +27,16 @@ public class CopyHelper {
         AsyncManager.me().execute(new TimerTask() {
             @Override
             public void run() {
-                //保存或者更新
-                openlistCopyPlusService.saveOrUpdate(openlistCopyPlus, Wrappers.<OpenlistCopyPlus>lambdaUpdate()
-                        .eq(StringUtils.isNotBlank(openlistCopyPlus.getCopySrcPath()), OpenlistCopyPlus::getCopySrcPath, openlistCopyPlus.getCopySrcPath())
-                        .eq(StringUtils.isNotBlank(openlistCopyPlus.getCopyDstPath()), OpenlistCopyPlus::getCopyDstPath, openlistCopyPlus.getCopyDstPath())
-                        .eq(StringUtils.isNotBlank(openlistCopyPlus.getCopySrcFileName()), OpenlistCopyPlus::getCopySrcFileName, openlistCopyPlus.getCopySrcFileName())
-                        .eq(StringUtils.isNotBlank(openlistCopyPlus.getCopyDstFileName()), OpenlistCopyPlus::getCopyDstFileName, openlistCopyPlus.getCopyDstFileName())
-                );
+                //加锁 简单解决并发情况插入重复数据
+                synchronized (LOCK) {
+                    //保存或者更新
+                    openlistCopyPlusService.saveOrUpdate(openlistCopyPlus, Wrappers.<OpenlistCopyPlus>lambdaUpdate()
+                            .eq(StringUtils.isNotBlank(openlistCopyPlus.getCopySrcPath()), OpenlistCopyPlus::getCopySrcPath, openlistCopyPlus.getCopySrcPath())
+                            .eq(StringUtils.isNotBlank(openlistCopyPlus.getCopyDstPath()), OpenlistCopyPlus::getCopyDstPath, openlistCopyPlus.getCopyDstPath())
+                            .eq(StringUtils.isNotBlank(openlistCopyPlus.getCopySrcFileName()), OpenlistCopyPlus::getCopySrcFileName, openlistCopyPlus.getCopySrcFileName())
+                            .eq(StringUtils.isNotBlank(openlistCopyPlus.getCopyDstFileName()), OpenlistCopyPlus::getCopyDstFileName, openlistCopyPlus.getCopyDstFileName())
+                    );
+                }
             }
         });
     }

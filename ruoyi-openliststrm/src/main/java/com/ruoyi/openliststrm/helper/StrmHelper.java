@@ -17,6 +17,8 @@ import java.util.TimerTask;
 @Component
 public class StrmHelper {
 
+    private static final Object LOCK = new Object();
+
     @Autowired
     private IOpenlistStrmPlusService openlistStrmPlusService;
 
@@ -31,15 +33,18 @@ public class StrmHelper {
         AsyncManager.me().execute(new TimerTask() {
             @Override
             public void run() {
-                //保存或者更新
-                OpenlistStrmPlus strm = new OpenlistStrmPlus();
-                strm.setStrmPath(strmPath);
-                strm.setStrmFileName(strmFileName);
-                strm.setStrmStatus(status);
-                openlistStrmPlusService.saveOrUpdate(strm,
-                        Wrappers.<OpenlistStrmPlus>lambdaUpdate()
-                                .eq(OpenlistStrmPlus::getStrmPath, strmPath)
-                                .eq(OpenlistStrmPlus::getStrmFileName, strmFileName));
+                //加锁 简单解决并发情况插入重复数据
+                synchronized (LOCK) {
+                    //保存或者更新
+                    OpenlistStrmPlus strm = new OpenlistStrmPlus();
+                    strm.setStrmPath(strmPath);
+                    strm.setStrmFileName(strmFileName);
+                    strm.setStrmStatus(status);
+                    openlistStrmPlusService.saveOrUpdate(strm,
+                            Wrappers.<OpenlistStrmPlus>lambdaUpdate()
+                                    .eq(OpenlistStrmPlus::getStrmPath, strmPath)
+                                    .eq(OpenlistStrmPlus::getStrmFileName, strmFileName));
+                }
             }
         });
     }
