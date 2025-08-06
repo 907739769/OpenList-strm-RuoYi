@@ -95,12 +95,8 @@
     </div>
 </div>
 
+<th:block th:include="include :: footer" />
 <th:block th:include="include :: echarts-js"/>
-<script th:inline="javascript"> var ctx = [[@{/}]]</script>
-<script th:src="@{/js/jquery.min.js}"></script>
-<script th:src="@{/ajax/libs/validate/jquery.validate.min.js}"></script>
-<script th:src="@{/js/bootstrap.min.js}"></script>
-<script th:src="@{/ruoyi/js/ry-ui.js}"></script>
 
 <script type="text/javascript">
     $(function () {
