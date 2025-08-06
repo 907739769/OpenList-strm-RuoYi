@@ -172,7 +172,10 @@ public class OpenlistCopyController extends BaseController {
         List<String> idList = Arrays.stream(Convert.toStrArray(ids)).collect(Collectors.toList());
         List<OpenlistCopyPlus> openlistCopyPlusList = openlistCopyPlusService.listByIds(idList);
         //更新为失败状态
-        openlistCopyPlusList.forEach(openlistCopyPlus -> openlistCopyPlus.setCopyStatus("2"));
+        openlistCopyPlusList.forEach(openlistCopyPlus -> {
+            openlistCopyPlus.setCopyStatus("2");
+            openlistCopyPlus.setCopyTaskId("");
+        });
         openlistCopyPlusService.updateBatchById(openlistCopyPlusList);
         //重新同步文件
         openlistCopyPlusList.forEach(openlistCopyPlus -> {
