@@ -157,7 +157,7 @@ public class AsynHelper {
                         //失败就重试
                         //openlistApi.copyRetry(copy.getCopyTaskId());
                         //失败不重试了
-                        copy.setCopyStatus("3");
+                        copy.setCopyStatus("2");
                         copyHelper.addCopy(copy);
                         tgHelper.sendMsg("复制任务失败" + copy.getCopySrcPath() + "/" + copy.getCopySrcFileName());
                         break;
