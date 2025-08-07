@@ -49,8 +49,8 @@ spring:
   thymeleaf:
     mode: HTML
     encoding: utf-8
-    # 禁用缓存
-    cache: false
+    # 生产启用缓存
+    cache: true
   # 资源信息
   messages:
     # 国际化资源文件路径
