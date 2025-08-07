@@ -1,20 +1,23 @@
 package com.ruoyi.system.service.impl;
 
+import com.ruoyi.common.constant.ShiroConstants;
+import com.ruoyi.common.utils.DateUtils;
+import com.ruoyi.common.utils.StringUtils;
+import com.ruoyi.common.utils.spring.SpringUtils;
+import com.ruoyi.system.domain.SysUserOnline;
+import com.ruoyi.system.mapper.SysUserOnlineMapper;
+import com.ruoyi.system.service.ISysUserOnlineService;
+import org.apache.shiro.cache.Cache;
+import org.apache.shiro.cache.ehcache.EhCacheManager;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.stereotype.Service;
+
 import java.io.Serializable;
 import java.util.Date;
 import java.util.Deque;
 import java.util.List;
-import com.ruoyi.common.utils.spring.SpringUtils;
-import org.apache.shiro.cache.Cache;
-import org.apache.shiro.cache.ehcache.EhCacheManager;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-import com.ruoyi.common.constant.ShiroConstants;
-import com.ruoyi.common.utils.DateUtils;
-import com.ruoyi.common.utils.StringUtils;
-import com.ruoyi.system.domain.SysUserOnline;
-import com.ruoyi.system.mapper.SysUserOnlineMapper;
-import com.ruoyi.system.service.ISysUserOnlineService;
 
 /**
  * 在线用户 服务层处理
@@ -34,6 +37,7 @@ public class SysUserOnlineServiceImpl implements ISysUserOnlineService
      * @return 在线用户信息
      */
     @Override
+    @Cacheable(value = "onlineUser", key = "#sessionId")
     public SysUserOnline selectOnlineById(String sessionId)
     {
         return userOnlineDao.selectOnlineById(sessionId);
@@ -46,6 +50,7 @@ public class SysUserOnlineServiceImpl implements ISysUserOnlineService
      * @return 在线用户信息
      */
     @Override
+    @CacheEvict(value = "onlineUser", key = "#sessionId")
     public void deleteOnlineById(String sessionId)
     {
         SysUserOnline userOnline = selectOnlineById(sessionId);
@@ -102,6 +107,7 @@ public class SysUserOnlineServiceImpl implements ISysUserOnlineService
      * @param sessionId 会话ID
      */
     @Override
+    @CacheEvict(value = "onlineUser", key = "#sessionId")
     public void forceLogout(String sessionId)
     {
         userOnlineDao.deleteOnlineById(sessionId);

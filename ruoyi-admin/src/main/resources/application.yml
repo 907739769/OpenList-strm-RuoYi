@@ -77,15 +77,10 @@ spring:
       mode: always
       schema-locations: classpath*:sql/schema.sql
       data-locations: classpath*:sql/data.sql
-
-# MyBatis
-# mybatis:
-  # 搜索指定包别名
- #  typeAliasesPackage: com.ruoyi.**.domain
-  # 配置mapper的扫描，找到所有的mapper.xml映射文件
- # mapperLocations: classpath*:mapper/**/*Mapper.xml
-  # 加载全局的配置文件
- # configLocation: classpath:mybatis/mybatis-config.xml
+  cache:
+    type: ehcache
+    ehcache:
+      config: classpath:ehcache/ehcache.xml
 
 # MyBatis Plus配置
 mybatis-plus:

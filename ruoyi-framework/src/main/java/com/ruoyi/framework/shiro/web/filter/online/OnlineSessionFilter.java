@@ -14,7 +14,6 @@ import org.springframework.beans.factory.annotation.Value;
 
 import javax.servlet.ServletRequest;
 import javax.servlet.ServletResponse;
-import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
 /**
@@ -91,11 +90,6 @@ public class OnlineSessionFilter extends AccessControlFilter
     @Override
     protected void redirectToLogin(ServletRequest request, ServletResponse response) throws IOException
     {
-        HttpServletResponse res = (HttpServletResponse) response;
-        // 强制禁用缓存
-        res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
-        res.setHeader("Pragma", "no-cache");
-        res.setHeader("Expires", "0");
         WebUtils.issueRedirect(request, response, loginUrl);
     }
 

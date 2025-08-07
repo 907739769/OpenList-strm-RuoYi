@@ -136,12 +136,6 @@ public class KickoutSessionFilter extends AccessControlFilter
     {
         HttpServletRequest req = (HttpServletRequest) request;
         HttpServletResponse res = (HttpServletResponse) response;
-
-        // 强制禁用缓存
-        res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
-        res.setHeader("Pragma", "no-cache");
-        res.setHeader("Expires", "0");
-
         if (ServletUtils.isAjaxRequest(req))
         {
             AjaxResult ajaxResult = AjaxResult.error("您已在别处登录，请您修改密码或重新登录");

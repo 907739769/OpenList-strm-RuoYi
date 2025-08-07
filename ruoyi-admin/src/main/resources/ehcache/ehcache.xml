@@ -1,0 +1,10 @@
+<ehcache>
+    <!-- 磁盘缓存位置 -->
+    <diskStore path="java.io.tmpdir"/>
+
+    <cache name="onlineUser"
+           maxEntriesLocalHeap="100"
+           timeToLiveSeconds="30"
+           timeToIdleSeconds="10"
+           memoryStoreEvictionPolicy="LRU"/>
+</ehcache>
