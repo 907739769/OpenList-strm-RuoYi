@@ -65,6 +65,8 @@ public class RequestLogFilter implements Filter {
             logRequestInfo(wrappedRequest);
 
             chain.doFilter(wrappedRequest, response);
+            // 记录请求信息
+            logRequestInfo(wrappedRequest);
 
         } finally {
             // 记录耗时
