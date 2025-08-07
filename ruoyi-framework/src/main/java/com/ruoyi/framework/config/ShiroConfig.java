@@ -304,6 +304,7 @@ public class ShiroConfig
         // Shiro连接约束配置，即过滤链的定义
         LinkedHashMap<String, String> filterChainDefinitionMap = new LinkedHashMap<>();
         // 对静态资源设置匿名访问
+        filterChainDefinitionMap.put("/service-worker.js**", "anon");
         filterChainDefinitionMap.put("/apple-touch-icon.png**", "anon");
         filterChainDefinitionMap.put("/favicon.svg**", "anon");
         filterChainDefinitionMap.put("/favicon-96x96.png**", "anon");
