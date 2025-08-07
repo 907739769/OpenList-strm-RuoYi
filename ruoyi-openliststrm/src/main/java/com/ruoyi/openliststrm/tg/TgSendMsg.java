@@ -30,6 +30,7 @@ public class TgSendMsg extends TelegramLongPollingBot {
         SendMessage message = new SendMessage();
         message.setChatId(adminUserId);
         message.setText(msg);
+        message.setParseMode("MarkdownV2");// 设置为MarkdownV2解析模式
 
         try {
             execute(message);
