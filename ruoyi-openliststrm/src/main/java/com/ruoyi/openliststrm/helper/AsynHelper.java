@@ -85,7 +85,7 @@ public class AsynHelper {
                                 copy.setCopyStatus("2");
                                 copyHelper.addCopy(copy);
                                 iterator.remove();
-                                tgHelper.sendMsg("复制任务失败" + copy.getCopySrcPath() + "/" + copy.getCopySrcFileName());
+                                tgHelper.sendMsg("**复制任务失败**\n" + "源目录：" + copy.getCopySrcPath() + "\n" + "源文件名：" + copy.getCopySrcFileName());
                             }
                             allTasksCompleted = false;
                         } else if (404 == code || state == 2) {
@@ -159,7 +159,7 @@ public class AsynHelper {
                         //失败不重试了
                         copy.setCopyStatus("2");
                         copyHelper.addCopy(copy);
-                        tgHelper.sendMsg("复制任务失败" + copy.getCopySrcPath() + "/" + copy.getCopySrcFileName());
+                        tgHelper.sendMsg("**复制任务失败**\n" + "源目录：" + copy.getCopySrcPath() + "\n" + "源文件名：" + copy.getCopySrcFileName());
                         break;
                     }
                     Threads.sleep(30000);//继续检查
