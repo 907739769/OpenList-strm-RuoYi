@@ -1,4 +1,4 @@
-const CACHE_NAME = 'osr-cache-v1';
+const CACHE_NAME = 'osr-cache-v2';
 const PRECACHE_URLS = [];
 
 self.addEventListener('install', event => {
