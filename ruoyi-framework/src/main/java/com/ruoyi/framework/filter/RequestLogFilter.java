@@ -85,12 +85,18 @@ public class RequestLogFilter implements Filter {
         try {
             Map<String, String> safeParams = getSafeParameters(request);
             String requestBody = getRequestBody(request);
+            StringBuilder logMessage = new StringBuilder();
+            logMessage.append("Request => ").append(request.getMethod()).append(" ").append(getRequestUrl(request));
 
-            log.info("Request => {} {} [Params: {}] [Body: {}]",
-                    request.getMethod(),
-                    getRequestUrl(request),
-                    formatParameters(safeParams),
-                    requestBody);
+            if (!safeParams.isEmpty()) {
+                logMessage.append(" [Params: ").append(formatParameters(safeParams)).append("]");
+            }
+
+            if (requestBody != null && !requestBody.isEmpty()) {
+                logMessage.append(" [Body: ").append(requestBody).append("]");
+            }
+
+            log.info(logMessage.toString());
 
         } catch (Exception e) {
             log.warn("记录请求日志出错", e);
@@ -100,7 +106,7 @@ public class RequestLogFilter implements Filter {
     private String getRequestBody(ContentCachingRequestWrapper request) {
         // 只处理POST/PUT/PATCH等可能有body的请求
         if (!Arrays.asList("POST", "PUT", "PATCH", "DELETE").contains(request.getMethod())) {
-            return "None";
+            return null;
         }
 
         // 如果是文件上传请求，不记录body
@@ -111,13 +117,13 @@ public class RequestLogFilter implements Filter {
         // 检查是否是JSON请求
         String contentType = request.getContentType();
         if (contentType == null || !contentType.contains("application/json")) {
-            return "None";
+            return null;
         }
 
         // 获取缓存的内容
         byte[] buf = request.getContentAsByteArray();
         if (buf == null || buf.length == 0) {
-            return "Empty";
+            return null;
         }
 
         // 转换为字符串并截断
