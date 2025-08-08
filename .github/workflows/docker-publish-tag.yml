@@ -56,3 +56,4 @@ jobs:
           push: true
           tags: |
             ${{ secrets.DOCKER_USERNAME }}/openlist-strm-ruoyi:${{ steps.extract_version.outputs.version }}
+            ${{ secrets.DOCKER_USERNAME }}/openlist-strm-ruoyi:latest
