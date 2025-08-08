@@ -6,7 +6,6 @@ import org.slf4j.MDC;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartHttpServletRequest;
-import org.springframework.web.util.ContentCachingRequestWrapper;
 
 import javax.servlet.*;
 import javax.servlet.http.HttpServletRequest;
@@ -24,7 +23,7 @@ import java.util.stream.Collectors;
  */
 @Component
 @Slf4j
-@Order(1) // 确保最先执行
+@Order(1) // 在 RequestWrapperFilter 后执行，拿到缓存请求体
 public class RequestLogFilter implements Filter {
 
     private static final List<String> EXCLUDE_PARAMS = Arrays.asList("password");
@@ -42,6 +41,7 @@ public class RequestLogFilter implements Filter {
                          FilterChain chain) throws IOException, ServletException {
 
         HttpServletRequest httpRequest = (HttpServletRequest) request;
+
         // 过滤静态资源请求
         if (isStaticResource(httpRequest.getRequestURI())) {
             if (!"GET".equalsIgnoreCase(httpRequest.getMethod())) {
@@ -54,19 +54,23 @@ public class RequestLogFilter implements Filter {
 
         long startTime = System.nanoTime();
 
-        // 包装请求以便重复读取body
-        ContentCachingRequestWrapper wrappedRequest = new ContentCachingRequestWrapper(httpRequest);
+        // 这里的request已经是CachedBodyHttpServletRequest了，可以直接强转
+        RequestWrapperFilter.CachedBodyHttpServletRequest wrappedRequest;
+        if (httpRequest instanceof RequestWrapperFilter.CachedBodyHttpServletRequest) {
+            wrappedRequest = (RequestWrapperFilter.CachedBodyHttpServletRequest) httpRequest;
+        } else {
+            wrappedRequest = new RequestWrapperFilter.CachedBodyHttpServletRequest(httpRequest);
+        }
 
         try {
             // 初始化traceId
             initTraceId(httpRequest);
 
-            // 记录请求信息
+            // 先打印请求日志（此时请求体已经被包装缓存，可以读取）
             logRequestInfo(wrappedRequest);
 
+            // 继续调用业务链
             chain.doFilter(wrappedRequest, response);
-            // 记录请求信息
-            logRequestInfo(wrappedRequest);
 
         } finally {
             // 记录耗时
@@ -81,7 +85,7 @@ public class RequestLogFilter implements Filter {
         MDC.put("traceId", traceId);
     }
 
-    private void logRequestInfo(ContentCachingRequestWrapper request) {
+    private void logRequestInfo(RequestWrapperFilter.CachedBodyHttpServletRequest request) {
         try {
             Map<String, String> safeParams = getSafeParameters(request);
             String requestBody = getRequestBody(request);
@@ -103,7 +107,7 @@ public class RequestLogFilter implements Filter {
         }
     }
 
-    private String getRequestBody(ContentCachingRequestWrapper request) {
+    private String getRequestBody(RequestWrapperFilter.CachedBodyHttpServletRequest request) {
         // 只处理POST/PUT/PATCH等可能有body的请求
         if (!Arrays.asList("POST", "PUT", "PATCH", "DELETE").contains(request.getMethod())) {
             return null;
@@ -195,14 +199,6 @@ public class RequestLogFilter implements Filter {
                 elapsedTime);
     }
 
-    @Override
-    public void init(FilterConfig filterConfig) {
-    }
-
-    @Override
-    public void destroy() {
-    }
-
     private boolean isStaticResource(String path) {
         return EXCLUDE_PATHS.stream()
                 .anyMatch(exclude -> path.contains(exclude) || path.endsWith(exclude));
@@ -217,12 +213,11 @@ public class RequestLogFilter implements Filter {
         try {
             if (request instanceof MultipartHttpServletRequest) {
                 MultipartHttpServletRequest multipartRequest = (MultipartHttpServletRequest) request;
-                return multipartRequest.getFileMap().keySet().stream()
-                        .collect(Collectors.joining(",", "[FILES: ", "]"));
+                return multipartRequest.getFileMap().keySet().toString();
             }
-            return "[FILE_UPLOAD]";
         } catch (Exception e) {
-            return "[FILE_PARSE_ERROR]";
+            // ignore
         }
+        return "[FILE_UPLOAD]";
     }
 }
