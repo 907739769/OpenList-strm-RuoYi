@@ -213,14 +213,6 @@
 								<a onclick="resetPwd()">
 								<i class="fa fa-key"></i> 修改密码</a>
 							</li>
-							<li>
-								<a onclick="switchSkin()">
-								<i class="fa fa-dashboard"></i> 切换主题</a>
-							</li>
-							<li>
-								<a onclick="toggleMenu()">
-								<i class="fa fa-toggle-off"></i> 横向菜单</a>
-							</li>
 							<li class="divider"></li>
 							<li>
 								<a th:href="@{logout}">
@@ -287,14 +279,10 @@ var isLinkage = true;
 // 是否页签切换滚动到顶部
 var isScrollToTop = true;
 
-// 本地主题优先，未设置取系统配置
-if($.common.isNotEmpty(skin)){
-	$("body").addClass(skin.split('|')[0]);
-	$("body").addClass(skin.split('|')[1]);
-} else {
-	$("body").addClass([[${sideTheme}]]);
-	$("body").addClass([[${skinName}]]);
-}
+
+$("body").addClass([[${sideTheme}]]);
+$("body").addClass([[${skinName}]]);
+
 
 /* 用户管理-重置密码 */
 function resetPwd() {

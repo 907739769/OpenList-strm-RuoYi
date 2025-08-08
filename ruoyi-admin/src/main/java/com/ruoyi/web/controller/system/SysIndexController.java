@@ -22,7 +22,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 
-import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.util.Date;
@@ -55,35 +54,19 @@ public class SysIndexController extends BaseController
         List<SysMenu> menus = menuService.selectMenusByUser(user);
         mmap.put("menus", menus);
         mmap.put("user", user);
-        mmap.put("sideTheme", StringUtils.isNotEmpty(configService.selectConfigByKey("sys.index.sideTheme")) ? configService.selectConfigByKey("sys.index.sideTheme") : "theme-light");
-        mmap.put("skinName", StringUtils.isNotEmpty(configService.selectConfigByKey("sys.index.skinName")) ? configService.selectConfigByKey("sys.index.skinName") : "skin-purple");
-        Boolean footer = Convert.toBool(configService.selectConfigByKey("sys.index.footer"), false);
-        Boolean tagsView = Convert.toBool(configService.selectConfigByKey("sys.index.tagsView"), true);
-        mmap.put("footer", footer);
-        mmap.put("tagsView", tagsView);
-        mmap.put("mainClass", contentMainClass(footer, tagsView));
+        mmap.put("sideTheme","theme-light");
+        mmap.put("skinName", "skin-purple");
+        mmap.put("footer", false);
+        mmap.put("tagsView", true);
+        mmap.put("mainClass", contentMainClass(false, true));
         mmap.put("copyrightYear", RuoYiConfig.getCopyrightYear());
         mmap.put("demoEnabled", RuoYiConfig.isDemoEnabled());
-        mmap.put("isDefaultModifyPwd", initPasswordIsModify(user.getPwdUpdateDate()));
-        mmap.put("isPasswordExpired", passwordIsExpiration(user.getPwdUpdateDate()));
+        mmap.put("isDefaultModifyPwd", false);
+        mmap.put("isPasswordExpired", false);
         mmap.put("isMobile", ServletUtils.checkAgentIsMobile(ServletUtils.getRequest().getHeader("User-Agent")));
 
-        // 菜单导航显示风格
-        String menuStyle = configService.selectConfigByKey("sys.index.menuStyle");
-        // 移动端，默认使左侧导航菜单，否则取默认配置
-        String indexStyle = ServletUtils.checkAgentIsMobile(ServletUtils.getRequest().getHeader("User-Agent")) ? "index" : menuStyle;
-
-        // 优先Cookie配置导航菜单
-        Cookie[] cookies = ServletUtils.getRequest().getCookies();
-        for (Cookie cookie : cookies)
-        {
-            if (StringUtils.isNotEmpty(cookie.getName()) && "nav-style".equalsIgnoreCase(cookie.getName()))
-            {
-                indexStyle = cookie.getValue();
-                break;
-            }
-        }
-        String webIndex = "topnav".equalsIgnoreCase(indexStyle) ? "index-topnav" : "index";
+        // 左侧导航菜单
+        String webIndex = "index";
         // CSRF Token
         request.getSession().setAttribute(ShiroConstants.CSRF_TOKEN, ServletUtils.generateToken());
         return webIndex;

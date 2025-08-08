@@ -32,14 +32,6 @@
                     </div>
                     <div class="m-b"></div>
                     <h4>欢迎使用 <strong>OpenListStrm后台管理系统</strong></h4>
-<!--                    <ul class="m-b">-->
-<!--                        <li><i class="fa fa-arrow-circle-o-right m-r-xs"></i> SpringBoot</li>-->
-<!--                        <li><i class="fa fa-arrow-circle-o-right m-r-xs"></i> Mybatis</li>-->
-<!--                        <li><i class="fa fa-arrow-circle-o-right m-r-xs"></i> Shiro</li>-->
-<!--                        <li><i class="fa fa-arrow-circle-o-right m-r-xs"></i> Thymeleaf</li>-->
-<!--                        <li><i class="fa fa-arrow-circle-o-right m-r-xs"></i> Bootstrap</li>-->
-<!--                    </ul>-->
-                    <strong th:if="${isAllowRegister}">还没有账号？ <a th:href="@{/register}">立即注册&raquo;</a></strong>
                 </div>
             </div>
             <div class="col-sm-5">
@@ -58,7 +50,7 @@
 							</a>
 						</div>
 					</div>
-                    <div class="checkbox-custom" th:if="${isRemembered}" th:classappend="${captchaEnabled==false} ? 'm-t'" style="display: none;">
+                    <div class="checkbox-custom" th:classappend="${captchaEnabled==false} ? 'm-t'" style="display: none;">
                         <input type="checkbox" id="rememberme" name="rememberme" checked>
                         <label for="rememberme">记住我</label>
                     </div>
