@@ -96,19 +96,21 @@ public class CopyServiceImpl implements ICopyService {
                 AsyncManager.me().execute(new TimerTask() {
                     @Override
                     public void run() {
+                        String copySrcPath=finalSrcDir + (StringUtils.isBlank(finalRelativePath) ? "" : "/") + finalRelativePath;
+                        String copyDstPath=finalDstDir + (StringUtils.isBlank(finalRelativePath) ? "" : "/") + finalRelativePath;
                         OpenlistCopyPlus copy = new OpenlistCopyPlus();
-                        copy.setCopySrcPath(finalSrcDir + "/" + finalRelativePath);
-                        copy.setCopyDstPath(finalDstDir + "/" + finalRelativePath);
+                        copy.setCopySrcPath(copySrcPath);
+                        copy.setCopyDstPath(copyDstPath);
                         copy.setCopySrcFileName(name);
                         copy.setCopyDstFileName(name);
                         if (copyHelper.exitCopy(copy)) {
-                            log.info("文件已处理过，跳过处理" + finalDstDir + "/" + finalRelativePath + (StringUtils.isBlank(finalRelativePath) ? "" : "/") + name);
+                            log.info("文件已处理过，跳过处理" + copyDstPath + "/" + name);
                             return;
                         }
                         //是视频文件才复制 并且不存在
                         if (!(200 == jsonObject.getInteger("code")) && openListHelper.isVideo(name)) {
                             if (contentJson.getLong("size") >= Long.parseLong(config.getOpenListMinFileSize()) * 1024 * 1024) {
-                                JSONObject jsonResponse = openlistApi.copyOpenlist(finalSrcDir + "/" + finalRelativePath, finalDstDir + "/" + finalRelativePath, Collections.singletonList(name));
+                                JSONObject jsonResponse = openlistApi.copyOpenlist(copySrcPath, copyDstPath, Collections.singletonList(name));
                                 if (jsonResponse != null && 200 == jsonResponse.getInteger("code")) {
                                     //获取上传文件的任务id
                                     JSONArray tasks = jsonResponse.getJSONObject("data").getJSONArray("tasks");
