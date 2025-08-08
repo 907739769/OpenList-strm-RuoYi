@@ -6,6 +6,7 @@ import org.slf4j.MDC;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartHttpServletRequest;
+import org.springframework.web.util.ContentCachingRequestWrapper;
 
 import javax.servlet.*;
 import javax.servlet.http.HttpServletRequest;
@@ -55,11 +56,11 @@ public class RequestLogFilter implements Filter {
         long startTime = System.nanoTime();
 
         // 这里的request已经是CachedBodyHttpServletRequest了，可以直接强转
-        RequestWrapperFilter.CachedBodyHttpServletRequest wrappedRequest;
-        if (httpRequest instanceof RequestWrapperFilter.CachedBodyHttpServletRequest) {
-            wrappedRequest = (RequestWrapperFilter.CachedBodyHttpServletRequest) httpRequest;
+        ContentCachingRequestWrapper wrappedRequest;
+        if (httpRequest instanceof ContentCachingRequestWrapper) {
+            wrappedRequest = (ContentCachingRequestWrapper) httpRequest;
         } else {
-            wrappedRequest = new RequestWrapperFilter.CachedBodyHttpServletRequest(httpRequest);
+            wrappedRequest = new ContentCachingRequestWrapper(httpRequest);
         }
 
         try {
@@ -85,7 +86,7 @@ public class RequestLogFilter implements Filter {
         MDC.put("traceId", traceId);
     }
 
-    private void logRequestInfo(RequestWrapperFilter.CachedBodyHttpServletRequest request) {
+    private void logRequestInfo(ContentCachingRequestWrapper request) {
         try {
             Map<String, String> safeParams = getSafeParameters(request);
             String requestBody = getRequestBody(request);
@@ -107,7 +108,7 @@ public class RequestLogFilter implements Filter {
         }
     }
 
-    private String getRequestBody(RequestWrapperFilter.CachedBodyHttpServletRequest request) {
+    private String getRequestBody(ContentCachingRequestWrapper request) {
         // 只处理POST/PUT/PATCH等可能有body的请求
         if (!Arrays.asList("POST", "PUT", "PATCH", "DELETE").contains(request.getMethod())) {
             return null;
