@@ -40,17 +40,17 @@
 <!--                    <p class="m-t-md">你若不离不弃，我必生死相依</p>-->
                     <input type="text"     name="username" class="form-control uname"     placeholder="用户名"     />
                     <input type="password" name="password" class="form-control pword"     placeholder="密码"    />
-					<div class="row m-t" th:if="${captchaEnabled==true}">
+					<div class="row m-t" th:if="false">
 						<div class="col-xs-6">
 						    <input type="text" name="validateCode" class="form-control code" placeholder="验证码" maxlength="5" />
 						</div>
 						<div class="col-xs-6">
 							<a href="javascript:void(0);" title="点击更换验证码">
-								<img th:src="@{/captcha/captchaImage(type=${captchaType})}" class="imgcode" width="85%"/>
+								<img th:src="@{/captcha/captchaImage(type='char')}" class="imgcode" width="85%"/>
 							</a>
 						</div>
 					</div>
-                    <div class="checkbox-custom" th:classappend="${captchaEnabled==false} ? 'm-t'" style="display: none;">
+                    <div class="checkbox-custom" th:classappend="'m-t'" style="display: none;">
                         <input type="checkbox" id="rememberme" name="rememberme" checked>
                         <label for="rememberme">记住我</label>
                     </div>
@@ -58,13 +58,8 @@
                 </form>
             </div>
         </div>
-<!--        <div class="signup-footer">-->
-<!--            <div class="pull-left">-->
-<!--                Copyright © 2018-2025 ruoyi.vip All Rights Reserved. <br>-->
-<!--            </div>-->
-<!--        </div>-->
     </div>
-<script th:inline="javascript"> var ctx = [[@{/}]]; var captchaType = [[${captchaType}]]; var captchaEnabled = [[${captchaEnabled}]];</script>
+<script th:inline="javascript"> var ctx = [[@{/}]];</script>
 <!--[if lte IE 8]><script>window.location.href=ctx+'html/ie.html';</script><![endif]-->
 <!-- 全局js -->
 <script src="../static/js/jquery.min.js" th:src="@{/js/jquery.min.js}"></script>
