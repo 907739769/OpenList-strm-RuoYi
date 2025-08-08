@@ -3,6 +3,7 @@ package com.ruoyi.openliststrm.tg;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
+import org.telegram.telegrambots.meta.api.methods.ParseMode;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
@@ -29,19 +30,19 @@ public class TgSendMsg extends TelegramLongPollingBot {
         }
         SendMessage message = new SendMessage();
         message.setChatId(adminUserId);
-        message.setText(msg);
-        message.setParseMode("MarkdownV2");// 设置为MarkdownV2解析模式
+        message.setText(com.ruoyi.common.utils.StringUtils.escapeMarkdownV2(msg));
+        message.setParseMode(ParseMode.MARKDOWNV2);// 设置为MarkdownV2解析模式
 
         try {
             execute(message);
         } catch (TelegramApiException e) {
-            log.error("" , e);
+            log.error("", e);
         }
     }
 
     @Override
     public String getBotUsername() {
-        return "" ;
+        return "";
     }
 
     @Override
