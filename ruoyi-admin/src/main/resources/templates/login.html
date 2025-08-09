@@ -1,6 +1,16 @@
 <!DOCTYPE html>
 <html lang="zh" xmlns:th="http://www.thymeleaf.org">
 <head>
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('service-worker.js')
+                .then(function(registration) {
+                    console.log('Service Worker 注册成功:', registration.scope);
+                }).catch(function(error) {
+                console.log('Service Worker 注册失败:', error);
+            });
+        }
+    </script>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>登录OpenListStrm系统</title>
@@ -9,8 +19,6 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg"/>
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"/>
     <meta name="apple-mobile-web-app-title" content="OSR"/>
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link href="../static/css/bootstrap.min.css" th:href="@{/css/bootstrap.min.css}" rel="stylesheet"/>
     <link href="../static/css/font-awesome.min.css" th:href="@{/css/font-awesome.min.css}" rel="stylesheet"/>
     <link href="../static/css/style.min.css" th:href="@{/css/style.min.css}" rel="stylesheet"/>
@@ -21,7 +29,7 @@
     <!-- 避免IE使用兼容模式 -->
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="transparent">
+    <meta name="theme-color" content="#605ca8">
     <link rel="shortcut icon" href="../static/favicon.ico" th:href="@{favicon.ico}"/>
     <style type="text/css">label.error { position:inherit;  }</style>
     <script>
@@ -79,13 +87,4 @@
 </body>
 </html>
 
-<script>
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('service-worker.js')
-            .then(function(registration) {
-                console.log('Service Worker 注册成功:', registration.scope);
-            }).catch(function(error) {
-            console.log('Service Worker 注册失败:', error);
-        });
-    }
-</script>
+
