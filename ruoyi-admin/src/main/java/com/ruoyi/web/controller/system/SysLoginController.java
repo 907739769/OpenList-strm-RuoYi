@@ -3,6 +3,7 @@ package com.ruoyi.web.controller.system;
 import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.utils.ServletUtils;
+import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.framework.web.service.ConfigService;
 import org.apache.shiro.SecurityUtils;
@@ -40,6 +41,11 @@ public class SysLoginController extends BaseController
     @GetMapping("/login")
     public String login(HttpServletRequest request, HttpServletResponse response, ModelMap mmap)
     {
+        // 1. 判断是否已登录
+        if (ShiroUtils.getSubject().isAuthenticated()) {
+            // 已登录，直接去首页
+            return "redirect:/index";
+        }
         // 如果是Ajax请求，返回Json字符串。
         if (ServletUtils.isAjaxRequest(request))
         {
