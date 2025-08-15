@@ -10,7 +10,10 @@ import okhttp3.Request;
 import okhttp3.Response;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * @Author Jack
@@ -62,39 +65,67 @@ public class TMDbClient {
     }
 
     /**
-     * 通用搜索
+     * 通用搜索（重构版）
      */
     private String search(String type, MediaInfo info) throws IOException {
-        HttpUrl.Builder b = HttpUrl.parse(BASE + "/search/" + type).newBuilder()
-                .addQueryParameter("api_key", apiKey)
-                .addQueryParameter("query", guessQuery(info))
-                .addQueryParameter("language", LANGUAGE);
+        if (StringUtils.isBlank(type) || info == null) return null;
 
-        if (StringUtils.isNotEmpty(info.getYear())) {
-            String yearKey = type.equals("movie") ? "year" : "first_air_date_year";
-            b.addQueryParameter(yearKey, info.getYear());
+        // 构建候选查询：优先 guessQuery，必要时回退 originalTitle
+        List<String> candidates = new ArrayList<>();
+        candidates.add(guessQuery(info));
+        Object englishTitle = (info.getExtra() != null) ? info.getExtra().get("englishTitle") : null;
+        if (englishTitle != null && StringUtils.isNotBlank(info.getOriginalTitle())) {
+            candidates.add(info.getOriginalTitle());
         }
 
-        Request req = new Request.Builder().url(b.build()).get().build();
-        try (Response resp = http.newCall(req).execute()) {
-            if (!resp.isSuccessful()) return null;
+        // 逐一尝试（去重 + 过滤空串）
+        for (String q : candidates.stream()
+                .filter(StringUtils::isNotBlank)
+                .distinct()
+                .collect(Collectors.toList())) {
 
-            JsonNode root = mapper.readTree(resp.body().byteStream());
-            System.out.println("search" + root);
-            JsonNode results = root.get("results");
-            if (results != null && !results.isEmpty()) {
-                JsonNode r = results.get(0);
-
-                // 写回年份
-                if (StringUtils.isEmpty(info.getYear())) {
-                    info.setYear(getYearSafe(r, type));
-                }
-
-                int id = r.get("id").asInt();
-                return getBestTitle(type, r, id);
-            }
+            HttpUrl url = buildSearchUrl(type, q, info.getYear());
+            String title = doSearchOnce(type, info, url);
+            if (title != null) return title;
         }
         return null;
+    }
+
+    private HttpUrl buildSearchUrl(String type, String query, String year) {
+        HttpUrl.Builder b = HttpUrl.parse(BASE + "/search/" + type).newBuilder()
+                .addQueryParameter("api_key", apiKey)
+                .addQueryParameter("query", query)
+                .addQueryParameter("language", LANGUAGE);
+
+        if (StringUtils.isNotBlank(year)) {
+            String yearKey = "movie".equals(type) ? "year" : "first_air_date_year";
+            b.addQueryParameter(yearKey, year);
+        }
+        return b.build();
+    }
+
+    /**
+     * 执行一次请求并解析首个结果；若 info.year 为空则回填
+     */
+    private String doSearchOnce(String type, MediaInfo info, HttpUrl url) throws IOException {
+        Request req = new Request.Builder().url(url).get().build();
+        try (Response resp = http.newCall(req).execute()) {
+            if (!resp.isSuccessful() || resp.body() == null) return null;
+
+            JsonNode root = mapper.readTree(resp.body().byteStream());
+            JsonNode results = root.path("results");
+            if (!results.isArray() || results.isEmpty()) return null;
+
+            JsonNode first = results.get(0);
+
+            // 回填年份
+            if (StringUtils.isBlank(info.getYear())) {
+                info.setYear(getYearSafe(first, type));
+            }
+
+            int id = first.path("id").asInt(-1);
+            return (id > 0) ? getBestTitle(type, first, id) : null;
+        }
     }
 
     private String getBestTitle(String type, JsonNode result, int id) throws IOException {
