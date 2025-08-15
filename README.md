@@ -19,6 +19,7 @@
 - [X] STRM生成记录页面支持重新处理单条或多条任务记录
 - [X] 同步任务配置页面支持单个或多个任务执行
 - [X] strm任务配置页面支持单个或多个任务执行
+- [ ] strm文件重命名功能
 
 
 ## 安装配置
@@ -55,3 +56,4 @@
         <td><img src="https://github.com/user-attachments/assets/0cfb0efa-f5fe-4cfd-a6e8-296cd7102de0"/></td>
     </tr>
 </table>
+
