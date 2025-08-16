@@ -122,6 +122,7 @@ public class TMDbClient {
             if (StringUtils.isBlank(info.getYear())) {
                 info.setYear(getYearSafe(first, type));
             }
+            info.setTmdbId(first.path("id").asText());
 
             int id = first.path("id").asInt(-1);
             return (id > 0) ? getBestTitle(type, first, id) : null;

@@ -26,14 +26,14 @@ public class SourceAndGroupExtractor implements Extractor {
 
         Matcher t = TAGS.matcher(name);
         while (t.find()) {
-            info.getTags().add(t.group(1));
+            info.getTags().add(t.group(1).toUpperCase());
             name = name.substring(0, t.start()) + name.substring(t.end());
             t = TAGS.matcher(name);
         }
 
         Matcher g = GROUP.matcher(name);
         if (g.find()) {
-            info.setReleaseGroup(g.group(1));
+            info.setReleaseGroup(g.group(1).toUpperCase());
             name = name.substring(0, g.start()).trim();
         }
         return name.trim();

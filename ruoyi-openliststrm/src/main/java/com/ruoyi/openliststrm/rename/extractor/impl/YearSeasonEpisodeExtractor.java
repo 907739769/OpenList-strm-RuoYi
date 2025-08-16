@@ -48,7 +48,7 @@ public class YearSeasonEpisodeExtractor implements Extractor {
             ieo = eo.start();
             info.setEpisode(String.format("%02d", Integer.parseInt(eo.group(1))));
         }
-        if (iy==Integer.MAX_VALUE){
+        if (iy == Integer.MAX_VALUE && iso == Integer.MAX_VALUE && ieo == Integer.MAX_VALUE) {
             return name.trim();
         }
         name = name.substring(0, Math.min(Math.min(iy, iso), ieo));

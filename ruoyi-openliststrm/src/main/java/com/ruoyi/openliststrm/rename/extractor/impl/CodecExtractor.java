@@ -12,7 +12,7 @@ import java.util.regex.Pattern;
  * @Version 1.0.0
  */
 public class CodecExtractor implements Extractor {
-    private static final Pattern VIDEO = Pattern.compile("\\b(x264|h264|h\\s264|x265|h265|hevc|h\\s265|avc)\\b", Pattern.CASE_INSENSITIVE);
+    private static final Pattern VIDEO = Pattern.compile("\\b(x264|h264|h\\s264|x265|h265|hevc|h\\s265|avc|av1|vp9|vp8)\\b", Pattern.CASE_INSENSITIVE);
     private static final Pattern AUDIO = Pattern.compile("\\b(aac2\\s0|aac|ddp5\\s1|ddp2\\s0|ddp|dd5\\s1|dd\\+?5\\s1|dts|ac3|dts5\\s1|opus|e-?ac3|flac|truehd)\\b", Pattern.CASE_INSENSITIVE);
 
     @Override
@@ -39,7 +39,10 @@ public class CodecExtractor implements Extractor {
 
     private String normalizeAudio(String raw) {
         String r = raw.toLowerCase();
-        if (r.contains("e-ac3")) return "EAC3";
+        if (r.contains("e-ac3") || r.contains("ddp") || r.contains("dd+")) return "EAC3";
+        if (r.contains("dts")) return "DTS";
+        if (r.contains("aac")) return "AAC";
+        if (r.contains("dd")) return "AC3";
         return raw.replace(" ", ".").toUpperCase();
     }
 }

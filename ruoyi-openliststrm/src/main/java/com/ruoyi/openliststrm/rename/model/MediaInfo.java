@@ -20,6 +20,7 @@ public class MediaInfo {
     private String year;
     private String season; // S
     private String episode; // E or episode number
+    private String tmdbId;
 
     private String resolution; // e.g., 2160p, 1080p, 1080i
     private String videoCodec; // H264, H265, x264, HEVC
