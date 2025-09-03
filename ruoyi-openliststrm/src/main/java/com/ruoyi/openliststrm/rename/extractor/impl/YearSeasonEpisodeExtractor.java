@@ -2,6 +2,7 @@ package com.ruoyi.openliststrm.rename.extractor.impl;
 
 import com.ruoyi.openliststrm.rename.extractor.Extractor;
 import com.ruoyi.openliststrm.rename.model.MediaInfo;
+import org.apache.commons.lang3.StringUtils;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -46,6 +47,9 @@ public class YearSeasonEpisodeExtractor implements Extractor {
         int ieo = Integer.MAX_VALUE;
         if (eo.find() && info.getEpisode() == null) {
             ieo = eo.start();
+            if (StringUtils.isBlank(info.getSeason())) {
+                info.setSeason("01");
+            }
             info.setEpisode(String.format("%02d", Integer.parseInt(eo.group(1))));
         }
         if (iy == Integer.MAX_VALUE && iso == Integer.MAX_VALUE && ieo == Integer.MAX_VALUE) {
