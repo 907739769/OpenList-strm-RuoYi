@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.openliststrm.rename.model.MediaInfo;
+import lombok.extern.slf4j.Slf4j;
 import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -20,6 +21,7 @@ import java.util.stream.Collectors;
  * @Date 2025/8/12 16:53
  * @Version 1.1.0
  */
+@Slf4j
 public class TMDbClient {
     private static final String BASE = "https://api.tmdb.org/3";
     private static final String LANGUAGE = "zh-CN";
@@ -37,18 +39,17 @@ public class TMDbClient {
         if (StringUtils.isEmpty(query)) return;
 
         try {
-            String tmdbTitle = null;
+            String tmdbTitle;
             if (maybeTV(info)) {
                 tmdbTitle = search("tv", info);
-            }
-            if (StringUtils.isEmpty(tmdbTitle)) {
+            } else {
                 tmdbTitle = search("movie", info);
             }
             if (StringUtils.isNotEmpty(tmdbTitle)) {
                 info.setTitle(tmdbTitle);
             }
         } catch (Exception e) {
-            // ignore network errors, keep original title
+            log.error("", e);
         }
     }
 
@@ -108,12 +109,14 @@ public class TMDbClient {
      * 执行一次请求并解析首个结果；若 info.year 为空则回填
      */
     private String doSearchOnce(String type, MediaInfo info, HttpUrl url) throws IOException {
+        log.debug("doSearchOnce url: {}", url);
         Request req = new Request.Builder().url(url).get().build();
         try (Response resp = http.newCall(req).execute()) {
             if (!resp.isSuccessful() || resp.body() == null) return null;
 
             JsonNode root = mapper.readTree(resp.body().byteStream());
             JsonNode results = root.path("results");
+            log.debug("doSearchOnce results: {}", results);
             if (!results.isArray() || results.isEmpty()) return null;
 
             JsonNode first = results.get(0);
@@ -155,7 +158,7 @@ public class TMDbClient {
             if (!resp.isSuccessful()) return null;
 
             JsonNode root = mapper.readTree(resp.body().byteStream());
-            System.out.println("fetchChineseAlias" + root);
+            log.debug("fetchChineseAlias: {}", root);
 
             JsonNode titles = type.equals("movie") ? root.get("titles") : root.get("results");
             if (titles != null) {
