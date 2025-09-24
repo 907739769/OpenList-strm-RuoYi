@@ -76,7 +76,7 @@ public class MediaParser {
             }
         }
 
-        log.debug("文件名称{}识别结果info: {}", filename, info);
+        log.debug("文件名称: {} 识别结果info: {}", filename, info);
         return info;
     }
 
@@ -118,7 +118,10 @@ public class MediaParser {
         List<String> samples = Arrays.asList(
 //                "芭芭拉.Barbara.2012.FRA.BDRip.1080p.x265.10bit.DDP5.1-DGB.mkv",
 //                "The Legend of Lu Xiao Feng 2007 E06 WEB-DL 2160p H265 AAC-Dave.mp4"
-                "Hao.Tuan.Yuan.S01E31.1080p.TX.WEB-DL.AAC2.0.H.264-MWeb.strm"
+//                "Hao.Tuan.Yuan.S01E31.1080p.TX.WEB-DL.AAC2.0.H.264-MWeb.strm"
+//                "斗破苍穹年番.Fights.Break.Sphere.S05E165.2022.2160p.WEB-DL.H265.AAC-HHWEB.strm"
+//                "The.The.Legendary.Swordsman.2001.E40.2160p.WEB-DL.H264.AAC-HDPTWeb.strm"
+                "Bakusou.Kyoudai.Let's.&.Go.MAX.EP01.1998.1080p.BluRay.x265.10bit.FLAC.2.0.3Audio-ADE.strm"
 //                "Lie.to.Me.S01E12.Blinded.1080p.DSNP.WEB-DL.DDP5.1.H264-HHWEB.mkv",
 //                "凡人修仙传.A.Record.Of.Mortals.Journey.To.Immortality.S01E155.2020.2160p.WEB-DL.H264.AAC-ADWeb.mp4"
 //                "Bitch.x.Rich.Season.2.S02E08.2025.1080p.friDay.WEB-DL.H264.AAC-ADWeb.mkv",
@@ -140,7 +143,7 @@ public class MediaParser {
             String out = parser.render(info, template);
             System.out.println("IN:  " + s);
             System.out.println("OUT: " + out);
-            System.out.println("---- raw fields: " + info.getOriginalTitle() + " | year=" + info.getYear() + " | tags=" + info.getTags());
+            System.out.println("---- raw fields: " + info.getTitle() + " | year=" + info.getYear() + " | tags=" + info.getTags());
             System.out.println(info);
             System.out.println();
         }
