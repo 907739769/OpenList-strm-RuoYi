@@ -1,5 +1,6 @@
 package com.ruoyi.openliststrm.rename.render;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ruoyi.openliststrm.rename.model.MediaInfo;
 import io.pebbletemplates.pebble.PebbleEngine;
 import io.pebbletemplates.pebble.loader.StringLoader;
@@ -17,6 +18,7 @@ import java.util.Map;
  */
 public class PebbleRenderer {
     private final PebbleEngine engine;
+    private final ObjectMapper mapper = new ObjectMapper();
 
     public PebbleRenderer() {
         this.engine = new PebbleEngine.Builder().loader(new StringLoader()).cacheActive(true).build();
@@ -25,8 +27,7 @@ public class PebbleRenderer {
     public String render(MediaInfo info, String templateString) {
         try {
             PebbleTemplate tmpl = engine.getTemplate(templateString);
-            Map<String, Object> ctx = new HashMap<>();
-            ctx.put("m", info);
+            Map<String, Object> ctx = mapper.convertValue(info, Map.class);
             Writer w = new StringWriter();
             tmpl.evaluate(w, ctx);
             return w.toString().replaceAll("\\s+", " ").trim();

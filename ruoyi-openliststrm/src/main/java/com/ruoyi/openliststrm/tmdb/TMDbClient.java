@@ -35,8 +35,6 @@ public class TMDbClient {
 
     public void enrich(MediaInfo info) {
         if (StringUtils.isEmpty(apiKey)) return;
-        String query = guessQuery(info);
-        if (StringUtils.isEmpty(query)) return;
 
         try {
             String tmdbTitle;
@@ -53,12 +51,12 @@ public class TMDbClient {
         }
     }
 
-    private String guessQuery(MediaInfo info) {
-        if (info.getOriginalTitle() == null) return null;
-        Object eng = info.getExtra().get("englishTitle");
-        if (eng != null) return eng.toString();
-        return info.getOriginalTitle();
-    }
+//    private String guessQuery(MediaInfo info) {
+//        if (info.getOriginalTitle() == null) return null;
+//        Object eng = info.getExtra().get("englishTitle");
+//        if (eng != null) return eng.toString();
+//        return info.getOriginalTitle();
+//    }
 
     private boolean maybeTV(MediaInfo info) {
         return info.getSeason() != null ||
@@ -71,14 +69,12 @@ public class TMDbClient {
     private String search(String type, MediaInfo info) throws IOException {
         if (StringUtils.isBlank(type) || info == null) return null;
 
-        // 构建候选查询：优先 guessQuery，必要时回退 originalTitle
         List<String> candidates = new ArrayList<>();
-        candidates.add(guessQuery(info));
-        Object englishTitle = (info.getExtra() != null) ? info.getExtra().get("englishTitle") : null;
-        if (englishTitle != null && StringUtils.isNotBlank(info.getOriginalTitle())) {
-            candidates.add(info.getOriginalTitle());
-        }
-
+        String englishTitle = (info.getExtra() != null && info.getExtra().get("englishTitle") != null) ? info.getExtra().get("englishTitle").toString() : null;
+        candidates.add(englishTitle);
+        candidates.add(info.getOriginalTitle());
+        candidates.add(info.getTitle());
+        String title;
         // 逐一尝试（去重 + 过滤空串）
         for (String q : candidates.stream()
                 .filter(StringUtils::isNotBlank)
@@ -86,9 +82,20 @@ public class TMDbClient {
                 .collect(Collectors.toList())) {
 
             HttpUrl url = buildSearchUrl(type, q, info.getYear());
-            String title = doSearchOnce(type, info, url);
+            title = doSearchOnce(type, info, url);
             if (title != null) return title;
         }
+        log.info("尝试只根据标题查询TMDB，不限定年份");
+        for (String q : candidates.stream()
+                .filter(StringUtils::isNotBlank)
+                .distinct()
+                .collect(Collectors.toList())) {
+
+            HttpUrl url = buildSearchUrl(type, q, null);
+            title = doSearchOnce(type, info, url);
+            if (title != null) return title;
+        }
+
         return null;
     }
 
@@ -109,22 +116,18 @@ public class TMDbClient {
      * 执行一次请求并解析首个结果；若 info.year 为空则回填
      */
     private String doSearchOnce(String type, MediaInfo info, HttpUrl url) throws IOException {
-        log.debug("doSearchOnce url: {}", url);
         Request req = new Request.Builder().url(url).get().build();
         try (Response resp = http.newCall(req).execute()) {
             if (!resp.isSuccessful() || resp.body() == null) return null;
 
             JsonNode root = mapper.readTree(resp.body().byteStream());
             JsonNode results = root.path("results");
-            log.debug("doSearchOnce results: {}", results);
+            log.debug("doSearchOnce: {} results: {}", url.queryParameter("query"), results);
             if (!results.isArray() || results.isEmpty()) return null;
 
             JsonNode first = results.get(0);
 
-            // 回填年份
-            if (StringUtils.isBlank(info.getYear())) {
-                info.setYear(getYearSafe(first, type));
-            }
+            info.setYear(getYearSafe(first, type));
             info.setTmdbId(first.path("id").asText());
 
             int id = first.path("id").asInt(-1);

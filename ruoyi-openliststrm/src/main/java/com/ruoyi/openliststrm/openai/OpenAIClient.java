@@ -38,7 +38,7 @@ public class OpenAIClient {
      * Returns true if any field was updated.
      */
     public boolean enrich(MediaInfo info, String filename) {
-        if (apiKey == null || apiKey.isEmpty() || info == null) return false;
+        if (apiKey == null || apiKey.isEmpty()) return false;
         try {
             String prompt = buildPrompt(info, filename);
             RequestBody body = RequestBody.create(mapper.writeValueAsBytes(buildRequestPayload(prompt)), MediaType.parse("application/json; charset=utf-8"));
@@ -106,8 +106,17 @@ public class OpenAIClient {
     private String buildPrompt(MediaInfo info, String filename) {
         StringBuilder sb = new StringBuilder();
         sb.append("You are a metadata extraction assistant.\n");
-        sb.append("Given the filename and any partially extracted fields, return a JSON object only (no explanation) with the following keys: originalTitle, title, year, season, episode. Use null for unknown fields. Titles should be concise. Season and episode should be numeric strings (e.g. \"01\", \"10\"). Year should be a 4-digit string.\n\n");
-        sb.append("Respond with a strict JSON object only. Example: {\"originalTitle\": \"One Piece\", \"title\": \"One Piece\", \"year\": \"2023\", \"season\": \"01\", \"episode\": \"01\"}\n\n");
+        sb.append("Given the filename and any partially extracted fields, return a JSON object only (no explanation) with the following keys: originalTitle, title, year, season, episode.\n");
+        sb.append("Use null for unknown fields.\n\n");
+
+        sb.append("IMPORTANT RULES FOR TITLES / 拼音处理：\n");
+        sb.append("1) Titles should be concise. If the filename or existing fields are in pinyin, convert the pinyin tokens into Chinese characters by mapping each pinyin token in-order. **Do NOT reorder tokens for grammatical fluency**; preserve the original token sequence as the likely original title. Example: 'Xi Huan Ni Wo Ye Shi' -> '喜欢你我也是' (NOT '我也喜欢你').\n");
+        sb.append("2) If the pinyin forms a known/standard title, prefer the standard Chinese title (still keep original token order unless the standard title clearly differs and is more established).\n");
+        sb.append("3) When ambiguous, produce the most literal Chinese candidate preserving token order; do not invent or paraphrase.\n");
+        sb.append("4) Season and episode should be numeric strings (e.g. \"01\", \"10\"). Year should be a 4-digit string.\n\n");
+
+        sb.append("Respond with a strict JSON object only. Example: {\"originalTitle\": \"Xi.Huan.Ni.Wo.Ye.Shi.S05E07.2024.2160p.WEB-DL.H265.EDR.AAC-HHWEB.strm\", \"title\": \"喜欢你我也是\", \"year\": \"2024\", \"season\": \"05\", \"episode\": \"07\"}\n\n");
+
         sb.append("Filename: \"").append(filename).append("\"\n");
         sb.append("Current extracted fields: \n");
         sb.append("originalTitle: ").append(info.getOriginalTitle()).append("\n");

@@ -1,5 +1,6 @@
 package com.ruoyi.openliststrm.rename;
 
+import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.openliststrm.openai.OpenAIClient;
 import com.ruoyi.openliststrm.rename.extractor.Extractor;
 import com.ruoyi.openliststrm.rename.extractor.impl.*;
@@ -41,6 +42,7 @@ public class MediaParser {
     }
 
     public MediaInfo parse(String filename) {
+        log.info("开始重命名文件名: {}", filename);
         String extension = "";
         String baseName = filename;
         if (filename.lastIndexOf('.') != -1) {
@@ -62,16 +64,19 @@ public class MediaParser {
         // Only call OpenAI when still missing key/accurate fields
         if (openAIClient != null && needsAI(info)) {
             try {
+                log.info("使用AI识别: {}", filename);
                 boolean updated = openAIClient.enrich(info, filename);
                 // If updated, and tmdb client exists, we could re-run tmdb lookup with new titles
-                if (updated && tmdbClient != null && (info.getTmdbId() == null || info.getTmdbId().isEmpty())) {
+                if (updated && tmdbClient != null) {
                     tmdbClient.enrich(info);
                 }
             } catch (Exception e) {
+                log.info("使用AI识别失败: {}", filename);
                 log.error("", e);
             }
         }
 
+        log.debug("文件名称{}识别结果info: {}", filename, info);
         return info;
     }
 
@@ -93,32 +98,7 @@ public class MediaParser {
      * If TMDb already provided tmdbId and title/year/season+episode are present, we don't call AI.
      */
     private boolean needsAI(MediaInfo info) {
-        if (info == null) return false;
-        boolean hasTitle = info.getTitle() != null && !info.getTitle().trim().isEmpty();
-        boolean hasOriginalTitle = info.getOriginalTitle() != null && !info.getOriginalTitle().trim().isEmpty();
-        boolean hasYear = info.getYear() != null && !info.getYear().trim().isEmpty();
-        boolean hasSeason = info.getSeason() != null && !info.getSeason().trim().isEmpty();
-        boolean hasEpisode = info.getEpisode() != null && !info.getEpisode().trim().isEmpty();
-
-        // If TMDb already matched and provided tmdbId with title, assume good
-        if (info.getTmdbId() != null && !info.getTmdbId().trim().isEmpty() && hasTitle) {
-            // For TV, ensure season/episode as well
-            if ((hasSeason && hasEpisode) || (!maybeTVLike(info))) {
-                return false;
-            }
-        }
-
-        // If no title at all, use AI
-        if (!hasTitle && !hasOriginalTitle) return true;
-
-        // If it looks like a TV episode but missing season/episode, use AI
-        if (maybeTVLike(info) && (!hasSeason || !hasEpisode)) return true;
-
-        // If movie without year, AI might help
-//        if (!maybeTVLike(info) && !hasYear) return true;
-        if (!hasYear) return true;
-
-        return false;
+        return StringUtils.isBlank(info.getTmdbId());
     }
 
     private boolean maybeTVLike(MediaInfo info) {
@@ -138,7 +118,7 @@ public class MediaParser {
         List<String> samples = Arrays.asList(
 //                "芭芭拉.Barbara.2012.FRA.BDRip.1080p.x265.10bit.DDP5.1-DGB.mkv",
 //                "The Legend of Lu Xiao Feng 2007 E06 WEB-DL 2160p H265 AAC-Dave.mp4"
-                "Kuang.Ye.Xing.Qiu.S01E01.2160p.TX.WEB-DL.AAC2.0.H.265-MWeb.strm"
+                "Hao.Tuan.Yuan.S01E31.1080p.TX.WEB-DL.AAC2.0.H.264-MWeb.strm"
 //                "Lie.to.Me.S01E12.Blinded.1080p.DSNP.WEB-DL.DDP5.1.H264-HHWEB.mkv",
 //                "凡人修仙传.A.Record.Of.Mortals.Journey.To.Immortality.S01E155.2020.2160p.WEB-DL.H264.AAC-ADWeb.mp4"
 //                "Bitch.x.Rich.Season.2.S02E08.2025.1080p.friDay.WEB-DL.H264.AAC-ADWeb.mkv",
@@ -153,7 +133,7 @@ public class MediaParser {
 //                "[仙剑奇侠传三].Chinese.Paladin.3.2009.S03E22.2160p.V2.60fps.WEB-DL.HEVC.10bit.AAC-QHstudIo.strm"
         );
 
-        String template = "{{ m.title }} {% if m.year %} ({{m.year }}) {% endif %}/{% if m.season %}Season {{ m.season }}/{% endif %}{{ m.title }} {% if m.year and not m.season %} ({{m.year }}) {% endif %}{% if m.season %}S{{ m.season }}{% endif %}{% if m.episode %}E{{ m.episode }}{% endif %}{% if m.resolution %} - {{ m.resolution }}{% endif %}{% if m.source %}.{{ m.source }}{% endif %}{% if m.videoCodec %}.{{ m.videoCodec }}{% endif %}{% if m.audioCodec %}.{{ m.audioCodec }}{% endif %}{% if m.tags is not empty %}.{{ m.tags|join('.') }}{% endif %}{% if m.releaseGroup %}-{{ m.releaseGroup }}{% endif %}.{{ m.extension }}";
+        String template = "{{ title }} {% if year %} ({{ year }}) {% endif %}/{% if season %}Season {{ season }}/{% endif %}{{ title }} {% if year and not season %} ({{ year }}) {% endif %}{% if season %}S{{ season }}{% endif %}{% if episode %}E{{ episode }}{% endif %}{% if resolution %} - {{ resolution }}{% endif %}{% if source %}.{{ source }}{% endif %}{% if videoCodec %}.{{ videoCodec }}{% endif %}{% if audioCodec %}.{{ audioCodec }}{% endif %}{% if tags is not empty %}.{{ tags|join('.') }}{% endif %}{% if releaseGroup %}-{{ releaseGroup }}{% endif %}.{{ extension }}";
 
         for (String s : samples) {
             MediaInfo info = parser.parse(s);
