@@ -40,7 +40,7 @@ public class TitleProcessor {
         if (info.getOriginalTitle() == null && !eng.isEmpty()) {
             info.setOriginalTitle(eng);
         } else if (info.getOriginalTitle() != null && !eng.isEmpty()) {
-            info.getExtra().put("englishTitle", eng);
+            info.setEnglishTitle(eng);
         }
 
 //        if (info.getTitle() == null) {
@@ -49,6 +49,6 @@ public class TitleProcessor {
     }
 
     private String removeRange(String s, int a, int b) {
-        return (s.substring(0,a) + s.substring(b)).trim();
+        return (s.substring(0, a) + s.substring(b)).trim();
     }
 }

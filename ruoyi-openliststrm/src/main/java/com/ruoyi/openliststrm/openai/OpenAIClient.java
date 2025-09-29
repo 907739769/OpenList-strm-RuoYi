@@ -63,12 +63,6 @@ public class OpenAIClient {
                 updated |= setIfMissing(info::getYear, info::setYear, root, "year");
                 updated |= setIfMissing(info::getSeason, info::setSeason, root, "season");
                 updated |= setIfMissing(info::getEpisode, info::setEpisode, root, "episode");
-
-                // Attach whole AI response for audit
-                Map<String, Object> ai = new HashMap<>();
-                ai.put("raw", content);
-                info.getExtra().put("ai", ai);
-
                 return updated;
             }
         } catch (IOException e) {

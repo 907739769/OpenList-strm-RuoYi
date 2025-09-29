@@ -16,7 +16,8 @@ import java.util.Map;
 public class MediaInfo {
     private String originalName;
     private String title; // 最终确定的标题（优先中文TMDb，否则原始处理结果）
-    private String originalTitle; // 从文件名抽取的原始标题
+    private String originalTitle; // 从文件名抽取的原始标题，优先中文
+    private String englishTitle; // 从文件名抽取的英文标题
     private String year;
     private String season; // S
     private String episode; // E or episode number
@@ -29,7 +30,6 @@ public class MediaInfo {
     private List<String> tags = new ArrayList<>(); // 特效、标签、HDR,10bit,60fps etc
     private String releaseGroup; // 发布组 HHWEB, MWeb
     private String extension;//文件后缀
-    private Map<String, Object> extra = new HashMap<>(); // 备用扩展字段
 
     public MediaInfo(String originalName) {
         this.originalName = originalName;

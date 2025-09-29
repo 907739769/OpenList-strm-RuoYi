@@ -70,8 +70,7 @@ public class TMDbClient {
         if (StringUtils.isBlank(type) || info == null) return null;
 
         List<String> candidates = new ArrayList<>();
-        String englishTitle = (info.getExtra() != null && info.getExtra().get("englishTitle") != null) ? info.getExtra().get("englishTitle").toString() : null;
-        candidates.add(englishTitle);
+        candidates.add(info.getEnglishTitle());
         candidates.add(info.getOriginalTitle());
         candidates.add(info.getTitle());
         String title;
