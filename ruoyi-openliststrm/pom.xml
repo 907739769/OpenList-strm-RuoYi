@@ -69,7 +69,7 @@
 
         <dependency>
             <groupId>io.pebbletemplates</groupId>
-            <artifactId>pebble-legacy-spring-boot-starter</artifactId>
+            <artifactId>pebble</artifactId>
             <version>3.2.4</version>
         </dependency>
 
