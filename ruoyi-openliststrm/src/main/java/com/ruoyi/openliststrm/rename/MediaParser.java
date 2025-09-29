@@ -41,6 +41,11 @@ public class MediaParser {
         extractors.add(new YearSeasonEpisodeExtractor());
     }
 
+    public String rename(String filename, String template) {
+        MediaInfo info = parse(filename);
+        return render(info, template);
+    }
+
     public MediaInfo parse(String filename) {
         log.info("开始重命名文件名: {}", filename);
         String extension = "";
@@ -99,11 +104,6 @@ public class MediaParser {
      */
     private boolean needsAI(MediaInfo info) {
         return StringUtils.isBlank(info.getTmdbId());
-    }
-
-    private boolean maybeTVLike(MediaInfo info) {
-        return info.getSeason() != null || info.getEpisode() != null ||
-                (info.getOriginalTitle() != null && info.getOriginalTitle().matches("(?i).*S\\d{1,2}.*"));
     }
 
     public static void main(String[] args) {
