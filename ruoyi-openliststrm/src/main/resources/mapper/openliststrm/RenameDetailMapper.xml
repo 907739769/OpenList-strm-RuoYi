@@ -33,9 +33,9 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     <select id="selectRenameDetailList" parameterType="RenameDetail" resultMap="RenameDetailResult">
         <include refid="selectRenameDetailVo"/>
         <where>  
-            <if test="originalPath != null  and originalPath != ''"> and originalPath like concat('%', #{originalPath}, '%')</if>
+            <if test="originalPath != null  and originalPath != ''"> and originalPath like concat(#{originalPath}, '%')</if>
             <if test="originalName != null  and originalName != ''"> and originalName like concat('%', #{originalName}, '%')</if>
-            <if test="newPath != null  and newPath != ''"> and newPath like concat('%', #{newPath}, '%')</if>
+            <if test="newPath != null  and newPath != ''"> and newPath like concat(#{newPath}, '%')</if>
             <if test="newName != null  and newName != ''"> and newName like concat('%', #{newName}, '%')</if>
             <if test="status != null  and status != ''"> and status = #{status}</if>
         </where>
