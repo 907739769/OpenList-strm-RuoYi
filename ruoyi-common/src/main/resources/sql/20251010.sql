@@ -1,0 +1,61 @@
+INSERT INTO `rytest`.`sys_dict_type`(`dict_id`, `dict_name`, `dict_type`, `status`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1000, '重命名分辨率', 'rename_resolution', '0', 'admin', '2025-09-30 10:57:27', '', NULL, NULL);
+INSERT INTO `rytest`.`sys_dict_type`(`dict_id`, `dict_name`, `dict_type`, `status`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1001, '重命名状态', 'rename_status', '0', 'admin', '2025-09-30 11:02:53', '', NULL, NULL);
+INSERT INTO `rytest`.`sys_dict_type`(`dict_id`, `dict_name`, `dict_type`, `status`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1002, '媒体类型', 'media_type', '0', 'admin', '2025-09-30 11:05:54', '', NULL, NULL);
+
+INSERT INTO `rytest`.`sys_dict_data`(`dict_code`, `dict_sort`, `dict_label`, `dict_value`, `dict_type`, `css_class`, `list_class`, `is_default`, `status`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1000, 1, '2160p', '2160p', 'rename_resolution', NULL, NULL, 'Y', '0', 'admin', '2025-09-30 10:57:56', '', NULL, NULL);
+INSERT INTO `rytest`.`sys_dict_data`(`dict_code`, `dict_sort`, `dict_label`, `dict_value`, `dict_type`, `css_class`, `list_class`, `is_default`, `status`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1001, 2, '1080p', '1080p', 'rename_resolution', '', '', 'N', '0', 'admin', '2025-09-30 10:58:10', 'admin', '2025-09-30 11:40:01', '');
+INSERT INTO `rytest`.`sys_dict_data`(`dict_code`, `dict_sort`, `dict_label`, `dict_value`, `dict_type`, `css_class`, `list_class`, `is_default`, `status`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1002, 3, '1080i', '1080i', 'rename_resolution', '', '', 'N', '0', 'admin', '2025-09-30 10:58:19', 'admin', '2025-09-30 11:39:56', '');
+INSERT INTO `rytest`.`sys_dict_data`(`dict_code`, `dict_sort`, `dict_label`, `dict_value`, `dict_type`, `css_class`, `list_class`, `is_default`, `status`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1003, 4, '720p', '720p', 'rename_resolution', '', '', 'N', '0', 'admin', '2025-09-30 10:58:29', 'admin', '2025-09-30 11:39:50', '');
+INSERT INTO `rytest`.`sys_dict_data`(`dict_code`, `dict_sort`, `dict_label`, `dict_value`, `dict_type`, `css_class`, `list_class`, `is_default`, `status`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1004, 5, '480p', '480p', 'rename_resolution', '', '', 'N', '0', 'admin', '2025-09-30 10:58:41', 'admin', '2025-09-30 11:39:46', '');
+INSERT INTO `rytest`.`sys_dict_data`(`dict_code`, `dict_sort`, `dict_label`, `dict_value`, `dict_type`, `css_class`, `list_class`, `is_default`, `status`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1005, 1, '成功', '1', 'rename_status', '', 'success', 'Y', '0', 'admin', '2025-09-30 11:03:16', 'admin', '2025-09-30 11:03:41', '');
+INSERT INTO `rytest`.`sys_dict_data`(`dict_code`, `dict_sort`, `dict_label`, `dict_value`, `dict_type`, `css_class`, `list_class`, `is_default`, `status`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1006, 2, '失败', '0', 'rename_status', '', 'danger', 'N', '0', 'admin', '2025-09-30 11:03:31', 'admin', '2025-09-30 11:39:38', '');
+INSERT INTO `rytest`.`sys_dict_data`(`dict_code`, `dict_sort`, `dict_label`, `dict_value`, `dict_type`, `css_class`, `list_class`, `is_default`, `status`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1007, 1, '电影', 'movie', 'media_type', NULL, NULL, 'Y', '0', 'admin', '2025-09-30 11:06:27', '', NULL, NULL);
+INSERT INTO `rytest`.`sys_dict_data`(`dict_code`, `dict_sort`, `dict_label`, `dict_value`, `dict_type`, `css_class`, `list_class`, `is_default`, `status`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1008, 2, '电视剧', 'tv', 'media_type', '', '', 'N', '0', 'admin', '2025-09-30 11:06:42', 'admin', '2025-09-30 11:39:23', '');
+
+INSERT INTO `rytest`.`sys_menu`(`menu_id`, `menu_name`, `parent_id`, `order_num`, `url`, `target`, `menu_type`, `visible`, `is_refresh`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (2043, '重命名明细', 2006, 1, '/openliststrm/renameDetail', '', 'C', '0', '1', 'openliststrm:renameDetail:view', '#', 'admin', '2025-09-30 11:14:57', '', NULL, '重命名明细菜单');
+INSERT INTO `rytest`.`sys_menu`(`menu_id`, `menu_name`, `parent_id`, `order_num`, `url`, `target`, `menu_type`, `visible`, `is_refresh`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (2044, '重命名明细查询', 2043, 1, '#', '', 'F', '0', '1', 'openliststrm:renameDetail:list', '#', 'admin', '2025-09-30 11:14:58', '', NULL, '');
+INSERT INTO `rytest`.`sys_menu`(`menu_id`, `menu_name`, `parent_id`, `order_num`, `url`, `target`, `menu_type`, `visible`, `is_refresh`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (2045, '重命名明细新增', 2043, 2, '#', '', 'F', '0', '1', 'openliststrm:renameDetail:add', '#', 'admin', '2025-09-30 11:14:58', '', NULL, '');
+INSERT INTO `rytest`.`sys_menu`(`menu_id`, `menu_name`, `parent_id`, `order_num`, `url`, `target`, `menu_type`, `visible`, `is_refresh`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (2046, '重命名明细修改', 2043, 3, '#', '', 'F', '0', '1', 'openliststrm:renameDetail:edit', '#', 'admin', '2025-09-30 11:14:58', '', NULL, '');
+INSERT INTO `rytest`.`sys_menu`(`menu_id`, `menu_name`, `parent_id`, `order_num`, `url`, `target`, `menu_type`, `visible`, `is_refresh`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (2047, '重命名明细删除', 2043, 4, '#', '', 'F', '0', '1', 'openliststrm:renameDetail:remove', '#', 'admin', '2025-09-30 11:14:58', '', NULL, '');
+INSERT INTO `rytest`.`sys_menu`(`menu_id`, `menu_name`, `parent_id`, `order_num`, `url`, `target`, `menu_type`, `visible`, `is_refresh`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (2048, '重命名明细导出', 2043, 5, '#', '', 'F', '0', '1', 'openliststrm:renameDetail:export', '#', 'admin', '2025-09-30 11:14:58', '', NULL, '');
+INSERT INTO `rytest`.`sys_menu`(`menu_id`, `menu_name`, `parent_id`, `order_num`, `url`, `target`, `menu_type`, `visible`, `is_refresh`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (2049, '重命名任务配置', 2006, 1, '/openliststrm/renameTask', '', 'C', '0', '1', 'openliststrm:renameTask:view', '#', 'admin', '2025-09-30 16:00:37', '', NULL, '重命名任务配置菜单');
+INSERT INTO `rytest`.`sys_menu`(`menu_id`, `menu_name`, `parent_id`, `order_num`, `url`, `target`, `menu_type`, `visible`, `is_refresh`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (2050, '重命名任务配置查询', 2049, 1, '#', '', 'F', '0', '1', 'openliststrm:renameTask:list', '#', 'admin', '2025-09-30 16:00:37', '', NULL, '');
+INSERT INTO `rytest`.`sys_menu`(`menu_id`, `menu_name`, `parent_id`, `order_num`, `url`, `target`, `menu_type`, `visible`, `is_refresh`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (2051, '重命名任务配置新增', 2049, 2, '#', '', 'F', '0', '1', 'openliststrm:renameTask:add', '#', 'admin', '2025-09-30 16:00:38', '', NULL, '');
+INSERT INTO `rytest`.`sys_menu`(`menu_id`, `menu_name`, `parent_id`, `order_num`, `url`, `target`, `menu_type`, `visible`, `is_refresh`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (2052, '重命名任务配置修改', 2049, 3, '#', '', 'F', '0', '1', 'openliststrm:renameTask:edit', '#', 'admin', '2025-09-30 16:00:38', '', NULL, '');
+INSERT INTO `rytest`.`sys_menu`(`menu_id`, `menu_name`, `parent_id`, `order_num`, `url`, `target`, `menu_type`, `visible`, `is_refresh`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (2053, '重命名任务配置删除', 2049, 4, '#', '', 'F', '0', '1', 'openliststrm:renameTask:remove', '#', 'admin', '2025-09-30 16:00:38', '', NULL, '');
+INSERT INTO `rytest`.`sys_menu`(`menu_id`, `menu_name`, `parent_id`, `order_num`, `url`, `target`, `menu_type`, `visible`, `is_refresh`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (2054, '重命名任务配置导出', 2049, 5, '#', '', 'F', '0', '1', 'openliststrm:renameTask:export', '#', 'admin', '2025-09-30 16:00:38', '', NULL, '');
+
+CREATE TABLE `rename_task`  (
+                                `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '自增主键',
+                                `source_folder` varchar(500) NULL DEFAULT NULL COMMENT '源目录',
+                                `target_root` varchar(500) NULL DEFAULT NULL COMMENT '目标目录',
+                                `status` varchar(2) NULL DEFAULT NULL COMMENT '状态',
+                                `create_time` datetime(0) NULL DEFAULT NULL COMMENT '创建时间',
+                                `update_time` datetime(0) NULL DEFAULT NULL COMMENT '更新时间',
+                                PRIMARY KEY (`id`) USING BTREE
+)COMMENT = '重命名任务配置';
+
+CREATE TABLE `rename_detail`  (
+                                  `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '自增主键',
+                                  `originalPath` varchar(1024)NULL DEFAULT NULL COMMENT '原文件路径',
+                                  `originalName` varchar(255) NULL DEFAULT NULL COMMENT '原文件名称',
+                                  `newPath` varchar(1024) NULL DEFAULT NULL COMMENT '新文件路径',
+                                  `newName` varchar(255) NULL DEFAULT NULL COMMENT '新文件名称',
+                                  `media_type` varchar(8) NULL DEFAULT NULL COMMENT '媒体类型',
+                                  `title` varchar(32) NULL DEFAULT NULL COMMENT '标题',
+                                  `year` varchar(4) NULL DEFAULT NULL COMMENT '年份',
+                                  `season` varchar(4) NULL DEFAULT NULL COMMENT '季',
+                                  `episode` varchar(6) NULL DEFAULT NULL COMMENT '集',
+                                  `tmdbId` varchar(10) NULL DEFAULT NULL COMMENT 'tmdbId',
+                                  `resolution` varchar(10) NULL DEFAULT NULL COMMENT '分辨率',
+                                  `videoCodec` varchar(10) NULL DEFAULT NULL COMMENT '视频编码',
+                                  `audioCodec` varchar(10) NULL DEFAULT NULL COMMENT '音频编码',
+                                  `source` varchar(10) NULL DEFAULT NULL COMMENT '来源',
+                                  `releaseGroup` varchar(10) NULL DEFAULT NULL COMMENT '发布组',
+                                  `status` varchar(2) NULL DEFAULT NULL COMMENT '状态',
+                                  `create_time` datetime(0) NULL DEFAULT NULL COMMENT '创建时间',
+                                  `update_time` datetime(0) NULL DEFAULT NULL COMMENT '更新时间',
+                                  PRIMARY KEY (`id`) USING BTREE,
+                                  INDEX `idx_orig_path`(`originalPath`(255)) USING BTREE,
+                                  INDEX `idx_new_path`(`newPath`(255)) USING BTREE
+) COMMENT = '重命名明细' ;

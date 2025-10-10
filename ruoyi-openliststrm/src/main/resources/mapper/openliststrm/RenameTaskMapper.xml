@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.openliststrm.mapper.RenameTaskMapper">
+    
+    <resultMap type="RenameTask" id="RenameTaskResult">
+        <result property="id"    column="id"    />
+        <result property="sourceFolder"    column="source_folder"    />
+        <result property="targetRoot"    column="target_root"    />
+        <result property="status"    column="status"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateTime"    column="update_time"    />
+    </resultMap>
+
+    <sql id="selectRenameTaskVo">
+        select id, source_folder, target_root, status, create_time, update_time from rename_task
+    </sql>
+
+    <select id="selectRenameTaskList" parameterType="RenameTask" resultMap="RenameTaskResult">
+        <include refid="selectRenameTaskVo"/>
+        <where>  
+            <if test="sourceFolder != null  and sourceFolder != ''"> and source_folder = #{sourceFolder}</if>
+            <if test="targetRoot != null  and targetRoot != ''"> and target_root = #{targetRoot}</if>
+            <if test="status != null  and status != ''"> and status = #{status}</if>
+        </where>
+    </select>
+    
+    <select id="selectRenameTaskById" parameterType="Integer" resultMap="RenameTaskResult">
+        <include refid="selectRenameTaskVo"/>
+        where id = #{id}
+    </select>
+
+    <insert id="insertRenameTask" parameterType="RenameTask" useGeneratedKeys="true" keyProperty="id">
+        insert into rename_task
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="sourceFolder != null">source_folder,</if>
+            <if test="targetRoot != null">target_root,</if>
+            <if test="status != null">status,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateTime != null">update_time,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="sourceFolder != null">#{sourceFolder},</if>
+            <if test="targetRoot != null">#{targetRoot},</if>
+            <if test="status != null">#{status},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+         </trim>
+    </insert>
+
+    <update id="updateRenameTask" parameterType="RenameTask">
+        update rename_task
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="sourceFolder != null">source_folder = #{sourceFolder},</if>
+            <if test="targetRoot != null">target_root = #{targetRoot},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteRenameTaskById" parameterType="Integer">
+        delete from rename_task where id = #{id}
+    </delete>
+
+    <delete id="deleteRenameTaskByIds" parameterType="String">
+        delete from rename_task where id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+</mapper>

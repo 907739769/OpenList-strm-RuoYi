@@ -21,7 +21,8 @@ public class MysqlDdl extends SimpleDdl {
     public List<String> getSqlFiles() {
         return Arrays.asList(
                 "sql/init.sql",
-                "sql/20250724.sql"
+                "sql/20250724.sql",
+                "sql/20251010.sql"
         );
     }
 }
