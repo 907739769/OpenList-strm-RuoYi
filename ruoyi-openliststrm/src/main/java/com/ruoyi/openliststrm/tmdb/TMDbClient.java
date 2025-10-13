@@ -70,8 +70,8 @@ public class TMDbClient {
         if (StringUtils.isBlank(type) || info == null) return null;
 
         List<String> candidates = new ArrayList<>();
-        candidates.add(info.getEnglishTitle());
         candidates.add(info.getOriginalTitle());
+        candidates.add(info.getEnglishTitle());
         candidates.add(info.getTitle());
         String title;
         // 逐一尝试（去重 + 过滤空串）
