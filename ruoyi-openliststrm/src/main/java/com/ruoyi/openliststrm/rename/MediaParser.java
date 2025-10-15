@@ -121,7 +121,8 @@ public class MediaParser {
 //                "Hao.Tuan.Yuan.S01E31.1080p.TX.WEB-DL.AAC2.0.H.264-MWeb.strm"
 //                "斗破苍穹年番.Fights.Break.Sphere.S05E165.2022.2160p.WEB-DL.H265.AAC-HHWEB.strm"
 //                "The.The.Legendary.Swordsman.2001.E40.2160p.WEB-DL.H264.AAC-HDPTWeb.strm"
-                "Bakusou.Kyoudai.Let's.&.Go.MAX.EP01.1998.1080p.BluRay.x265.10bit.FLAC.2.0.3Audio-ADE.strm"
+//                "Bakusou.Kyoudai.Let's.&.Go.MAX.EP01.1998.1080p.BluRay.x265.10bit.FLAC.2.0.3Audio-ADE.strm"
+                "命悬一生.The.Hunt.S01E10.2025.2160p.WEB-DL.H265.HDR.DDP5.1-HHWEB.strm"
 //                "Lie.to.Me.S01E12.Blinded.1080p.DSNP.WEB-DL.DDP5.1.H264-HHWEB.mkv",
 //                "凡人修仙传.A.Record.Of.Mortals.Journey.To.Immortality.S01E155.2020.2160p.WEB-DL.H264.AAC-ADWeb.mp4"
 //                "Bitch.x.Rich.Season.2.S02E08.2025.1080p.friDay.WEB-DL.H264.AAC-ADWeb.mkv",
