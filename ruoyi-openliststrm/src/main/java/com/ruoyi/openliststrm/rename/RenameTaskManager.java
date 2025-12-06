@@ -321,37 +321,65 @@ public class RenameTaskManager {
             @Override
             public void onRename(java.nio.file.Path original, java.nio.file.Path dest, com.ruoyi.openliststrm.rename.model.MediaInfo info, String mediaType) {
                 try {
-                    RenameDetailPlus d = new RenameDetailPlus();
-                    // store the folder containing the original file (fallback to full path if parent missing)
+                    // compute original folder and name
                     String originalDir = null;
+                    String originalName = null;
                     if (original != null) {
                         java.nio.file.Path parent = original.toAbsolutePath().getParent();
                         originalDir = parent != null ? parent.toString() : original.toAbsolutePath().toString();
+                        originalName = original.getFileName() != null ? original.getFileName().toString() : null;
                     }
-                    d.setOriginalPath(originalDir);
-                    d.setOriginalName(original != null && original.getFileName() != null ? original.getFileName().toString() : null);
-                    // store the destination folder (parent of dest); keep filename separately
+
+                    // compute destination folder and name
                     String destDir = null;
+                    String destName = null;
                     if (dest != null) {
                         java.nio.file.Path parent = dest.toAbsolutePath().getParent();
                         destDir = parent != null ? parent.toString() : dest.toAbsolutePath().toString();
+                        destName = dest.getFileName() != null ? dest.getFileName().toString() : null;
                     }
-                    d.setNewPath(destDir);
-                    d.setNewName(dest != null && dest.getFileName() != null ? dest.getFileName().toString() : null);
-                    d.setMediaType(mediaType);
-                    d.setTitle(info.getTitle());
-                    d.setYear(info.getYear());
-                    d.setSeason(info.getSeason());
-                    d.setEpisode(info.getEpisode());
-                    d.setTmdbId(info.getTmdbId());
-                    d.setResolution(info.getResolution());
-                    d.setVideoCodec(info.getVideoCodec());
-                    d.setAudioCodec(info.getAudioCodec());
-                    d.setSource(info.getSource());
-                    d.setReleaseGroup(info.getReleaseGroup());
-                    d.setStatus("1");
-                    renameDetailService.save(d);
-                    log.info("Saved rename detail for task {} : {} -> {}", taskId, original, dest);
+
+                    // Try to find existing record by original path + original name (if available)
+                    RenameDetailPlus record = null;
+                    if (originalDir != null && originalName != null) {
+                        QueryWrapper<RenameDetailPlus> qw = new QueryWrapper<>();
+                        qw.eq("original_path", originalDir).eq("original_name", originalName);
+                        java.util.List<RenameDetailPlus> found = renameDetailService.list(qw);
+                        if (found != null && !found.isEmpty()) {
+                            record = found.get(0);
+                        }
+                    }
+
+                    if (record == null) {
+                        // insert new
+                        record = new RenameDetailPlus();
+                        record.setOriginalPath(originalDir);
+                        record.setOriginalName(originalName);
+                    }
+
+                    // update fields (for both insert and update cases)
+                    record.setNewPath(destDir);
+                    record.setNewName(destName);
+                    record.setMediaType(mediaType);
+                    record.setTitle(info != null ? info.getTitle() : null);
+                    record.setYear(info != null ? info.getYear() : null);
+                    record.setSeason(info != null ? info.getSeason() : null);
+                    record.setEpisode(info != null ? info.getEpisode() : null);
+                    record.setTmdbId(info != null ? info.getTmdbId() : null);
+                    record.setResolution(info != null ? info.getResolution() : null);
+                    record.setVideoCodec(info != null ? info.getVideoCodec() : null);
+                    record.setAudioCodec(info != null ? info.getAudioCodec() : null);
+                    record.setSource(info != null ? info.getSource() : null);
+                    record.setReleaseGroup(info != null ? info.getReleaseGroup() : null);
+                    record.setStatus("1");
+
+                    if (record.getId() == null) {
+                        renameDetailService.save(record);
+                        log.info("Saved rename detail for task {} : {} -> {}", taskId, original, dest);
+                    } else {
+                        renameDetailService.updateById(record);
+                        log.info("Updated rename detail for task {} : {} -> {} (id={})", taskId, original, dest, record.getId());
+                    }
                 } catch (Exception e) {
                     log.warn("Failed to persist rename detail: {}", e.getMessage());
                 }
@@ -360,31 +388,54 @@ public class RenameTaskManager {
             @Override
             public void onRenameFailed(java.nio.file.Path original, com.ruoyi.openliststrm.rename.model.MediaInfo info, String mediaType, String reason) {
                 try {
-                    RenameDetailPlus d = new RenameDetailPlus();
-                    // store folder containing the original file
+                    // compute original folder and name
                     String originalDir = null;
+                    String originalName = null;
                     if (original != null) {
                         java.nio.file.Path parent = original.toAbsolutePath().getParent();
                         originalDir = parent != null ? parent.toString() : original.toAbsolutePath().toString();
+                        originalName = original.getFileName() != null ? original.getFileName().toString() : null;
                     }
-                    d.setOriginalPath(originalDir);
-                    d.setOriginalName(original != null && original.getFileName() != null ? original.getFileName().toString() : null);
-                    d.setNewPath(null);
-                    d.setNewName(null);
-                    d.setMediaType(mediaType);
-                    d.setTitle(info != null ? info.getTitle() : null);
-                    d.setYear(info != null ? info.getYear() : null);
-                    d.setSeason(info != null ? info.getSeason() : null);
-                    d.setEpisode(info != null ? info.getEpisode() : null);
-                    d.setTmdbId(info != null ? info.getTmdbId() : null);
-                    d.setResolution(info != null ? info.getResolution() : null);
-                    d.setVideoCodec(info != null ? info.getVideoCodec() : null);
-                    d.setAudioCodec(info != null ? info.getAudioCodec() : null);
-                    d.setSource(info != null ? info.getSource() : null);
-                    d.setReleaseGroup(info != null ? info.getReleaseGroup() : null);
-                    d.setStatus("0"); // mark as failed
-                    renameDetailService.save(d);
-                    log.info("Saved failed rename detail for task {} : {} reason={}", taskId, original, reason);
+
+                    // Try to find existing record by original path + original name (if available)
+                    RenameDetailPlus record = null;
+                    if (originalDir != null && originalName != null) {
+                        QueryWrapper<RenameDetailPlus> qw = new QueryWrapper<>();
+                        qw.eq("original_path", originalDir).eq("original_name", originalName);
+                        java.util.List<RenameDetailPlus> found = renameDetailService.list(qw);
+                        if (found != null && !found.isEmpty()) {
+                            record = found.get(0);
+                        }
+                    }
+
+                    if (record == null) {
+                        record = new RenameDetailPlus();
+                        record.setOriginalPath(originalDir);
+                        record.setOriginalName(originalName);
+                    }
+
+                    record.setNewPath(null);
+                    record.setNewName(null);
+                    record.setMediaType(mediaType);
+                    record.setTitle(info != null ? info.getTitle() : null);
+                    record.setYear(info != null ? info.getYear() : null);
+                    record.setSeason(info != null ? info.getSeason() : null);
+                    record.setEpisode(info != null ? info.getEpisode() : null);
+                    record.setTmdbId(info != null ? info.getTmdbId() : null);
+                    record.setResolution(info != null ? info.getResolution() : null);
+                    record.setVideoCodec(info != null ? info.getVideoCodec() : null);
+                    record.setAudioCodec(info != null ? info.getAudioCodec() : null);
+                    record.setSource(info != null ? info.getSource() : null);
+                    record.setReleaseGroup(info != null ? info.getReleaseGroup() : null);
+                    record.setStatus("0"); // mark as failed
+
+                    if (record.getId() == null) {
+                        renameDetailService.save(record);
+                        log.info("Saved failed rename detail for task {} : {} reason={}", taskId, original, reason);
+                    } else {
+                        renameDetailService.updateById(record);
+                        log.info("Updated failed rename detail for task {} : {} reason={} (id={})", taskId, original, reason, record.getId());
+                    }
                 } catch (Exception e) {
                     log.warn("Failed to persist failed rename detail: {}", e.getMessage());
                 }

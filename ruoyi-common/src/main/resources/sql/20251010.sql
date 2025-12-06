@@ -37,28 +37,29 @@ CREATE TABLE `rename_task`  (
 
 CREATE TABLE `rename_detail`  (
                                   `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '自增主键',
-                                  `originalPath` varchar(1024)NULL DEFAULT NULL COMMENT '原文件路径',
-                                  `originalName` varchar(255) NULL DEFAULT NULL COMMENT '原文件名称',
-                                  `newPath` varchar(1024) NULL DEFAULT NULL COMMENT '新文件路径',
-                                  `newName` varchar(255) NULL DEFAULT NULL COMMENT '新文件名称',
-                                  `media_type` varchar(8) NULL DEFAULT NULL COMMENT '媒体类型',
-                                  `title` varchar(32) NULL DEFAULT NULL COMMENT '标题',
-                                  `year` varchar(4) NULL DEFAULT NULL COMMENT '年份',
-                                  `season` varchar(4) NULL DEFAULT NULL COMMENT '季',
-                                  `episode` varchar(6) NULL DEFAULT NULL COMMENT '集',
-                                  `tmdbId` varchar(10) NULL DEFAULT NULL COMMENT 'tmdbId',
-                                  `resolution` varchar(10) NULL DEFAULT NULL COMMENT '分辨率',
-                                  `videoCodec` varchar(10) NULL DEFAULT NULL COMMENT '视频编码',
-                                  `audioCodec` varchar(10) NULL DEFAULT NULL COMMENT '音频编码',
-                                  `source` varchar(10) NULL DEFAULT NULL COMMENT '来源',
-                                  `releaseGroup` varchar(10) NULL DEFAULT NULL COMMENT '发布组',
-                                  `status` varchar(2) NULL DEFAULT NULL COMMENT '状态',
+                                  `original_path` varchar(1024) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '原文件路径',
+                                  `original_name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '原文件名称',
+                                  `new_path` varchar(1024) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '新文件路径',
+                                  `new_name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '新文件名称',
+                                  `media_type` varchar(8) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '媒体类型',
+                                  `title` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '标题',
+                                  `year` varchar(4) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '年份',
+                                  `season` varchar(4) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '季',
+                                  `episode` varchar(6) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '集',
+                                  `tmdb_id` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT 'tmdbId',
+                                  `resolution` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '分辨率',
+                                  `video_codec` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '视频编码',
+                                  `audio_codec` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '音频编码',
+                                  `source` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '来源',
+                                  `release_group` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '发布组',
+                                  `status` varchar(2) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '状态',
                                   `create_time` datetime(0) NULL DEFAULT NULL COMMENT '创建时间',
                                   `update_time` datetime(0) NULL DEFAULT NULL COMMENT '更新时间',
                                   PRIMARY KEY (`id`) USING BTREE,
-                                  INDEX `idx_orig_path`(`originalPath`(255)) USING BTREE,
-                                  INDEX `idx_new_path`(`newPath`(255)) USING BTREE
-) COMMENT = '重命名明细' ;
+                                  INDEX `idx_orig_path`(`original_path`(255)) USING BTREE,
+                                  INDEX `idx_new_path`(`new_path`(255)) USING BTREE
+) COMMENT = '重命名明细';
+
 
 INSERT INTO `sys_config`(`config_id`, `config_name`, `config_key`, `config_value`, `config_type`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (107, 'TMDB接口Apikey', 'openlist.tmdb.apikey', '', 'Y', 'admin', '2025-12-06 09:51:29', 'admin', '2025-12-06 09:52:57', '');
 INSERT INTO `sys_config`(`config_id`, `config_name`, `config_key`, `config_value`, `config_type`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (108, 'openai接口Apikey', 'openlist.openai.apikey', '', 'Y', 'admin', '2025-12-06 09:52:12', 'admin', '2025-12-06 09:53:07', '');

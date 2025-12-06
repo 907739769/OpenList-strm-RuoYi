@@ -32,25 +32,25 @@ public class RenameDetailPlus extends BaseEntity {
     /**
      * 原文件路径
      */
-    @TableField("originalPath")
+    @TableField("original_path")
     private String originalPath;
 
     /**
      * 原文件名称
      */
-    @TableField("originalName")
+    @TableField("original_name")
     private String originalName;
 
     /**
      * 新文件路径
      */
-    @TableField("newPath")
+    @TableField("new_path")
     private String newPath;
 
     /**
      * 新文件名称
      */
-    @TableField("newName")
+    @TableField("new_name")
     private String newName;
 
     /**
@@ -86,7 +86,7 @@ public class RenameDetailPlus extends BaseEntity {
     /**
      * tmdbId
      */
-    @TableField("tmdbId")
+    @TableField("tmdb_id")
     private String tmdbId;
 
     /**
@@ -98,13 +98,13 @@ public class RenameDetailPlus extends BaseEntity {
     /**
      * 视频编码
      */
-    @TableField("videoCodec")
+    @TableField("video_codec")
     private String videoCodec;
 
     /**
      * 音频编码
      */
-    @TableField("audioCodec")
+    @TableField("audio_codec")
     private String audioCodec;
 
     /**
@@ -116,7 +116,7 @@ public class RenameDetailPlus extends BaseEntity {
     /**
      * 发布组
      */
-    @TableField("releaseGroup")
+    @TableField("release_group")
     private String releaseGroup;
 
     /**
