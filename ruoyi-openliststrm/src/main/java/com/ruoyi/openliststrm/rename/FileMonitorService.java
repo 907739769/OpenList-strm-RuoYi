@@ -52,7 +52,7 @@ public class FileMonitorService {
     private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
 
     // centralized default template used when none provided
-    private static final String DEFAULT_FILENAME_TEMPLATE = "{{ title }} {% if year and not season %} ({{ year }}) {% endif %}{% if season %}S{{ season }}{% endif %}{% if episode %}E{{ episode }}{% endif %}{% if resolution %} - {{ resolution }}{% endif %}{% if source %}.{{ source }}{% endif %}{% if videoCodec %}.{{ videoCodec }}{% endif %}{% if audioCodec %}.{{ audioCodec }}{% endif %}{% if tags is not empty %}.{{ tags|join('.') }}{% endif %}{% if releaseGroup %}-{{ releaseGroup }}{% endif %}.{{ extension }}";
+    private static final String DEFAULT_FILENAME_TEMPLATE = "{{ title }} {% if year %} ({{ year }}) {% endif %}/{% if season %}Season {{ season }}/{% endif %}{{ title }} {% if year and not season %} ({{ year }}) {% endif %}{% if season %}S{{ season }}{% endif %}{% if episode %}E{{ episode }}{% endif %}{% if resolution %} - {{ resolution }}{% endif %}{% if source %}.{{ source }}{% endif %}{% if videoCodec %}.{{ videoCodec }}{% endif %}{% if audioCodec %}.{{ audioCodec }}{% endif %}{% if tags is not empty %}.{{ tags|join('.') }}{% endif %}{% if releaseGroup %}-{{ releaseGroup }}{% endif %}.{{ extension }}";
 
     // existing constructor kept (no listener) - delegates to extended constructor with null helper
     public FileMonitorService(Path sourceDir, Path targetRoot, TMDbClient tmdbClient, OpenAIClient openAIClient, long minFileSizeBytes) {
@@ -291,24 +291,51 @@ public class FileMonitorService {
         String category = classify(info, mediaType);
         if (category == null) category = "未分类";
 
-        // build destination dir: targetRoot/{mediaType}/{category}/{title (year)}
-        String safeTitle = sanitizeForPath(info.getTitle() != null ? info.getTitle() : stripExtension(filename));
-        String yearPart = info.getYear() != null && !info.getYear().isEmpty() ? " (" + info.getYear() + ")" : "";
-        String destDirName = safeTitle + yearPart;
+        // build destination dir: targetRoot/{mediaType}/{category}
         // 第一层目录使用中文：电影 / 电视剧
         String topLevel = "movie".equals(mediaType) ? "电影" : "电视剧";
-        Path destDir = targetRoot.resolve(topLevel).resolve(category).resolve(destDirName);
+        Path destDir = targetRoot.resolve(topLevel).resolve(category);
         Files.createDirectories(destDir);
 
         // produce new filename via MediaParser.rename
         String rendered = parser.rename(filename, filenameTemplate);
         String newFilename = rendered == null || rendered.trim().isEmpty() ? filename : rendered.trim();
-        // If template produced path segments, keep only last segment as filename
+        // Normalize separators to forward slash for template-produced paths.
         newFilename = newFilename.replace('\\', '/');
-        if (newFilename.contains("/")) newFilename = newFilename.substring(newFilename.lastIndexOf('/') + 1);
-        newFilename = sanitizeForPath(newFilename);
 
-        Path destFile = destDir.resolve(newFilename);
+        // If template produced path segments, treat them as subdirectories under destDir.
+        Path finalDestDir = destDir;
+        String fileNameOnly = newFilename;
+        if (newFilename.contains("/")) {
+            String[] parts = newFilename.split("/");
+            List<String> cleanParts = new ArrayList<>();
+            for (String part : parts) {
+                if (part == null) continue;
+                part = part.trim();
+                if (part.isEmpty()) continue; // skip empty segments
+                // prevent directory traversal or relative segments
+                if (".".equals(part) || "..".equals(part)) continue;
+                cleanParts.add(sanitizeForPath(part));
+            }
+            if (cleanParts.isEmpty()) {
+                // if nothing usable remained (e.g. template was "/" or only relative segments),
+                // fallback to using the original file name to avoid embedding slashes
+                fileNameOnly = sanitizeForPath(filename);
+            } else {
+                // All except last are directories
+                for (int i = 0; i < cleanParts.size() - 1; i++) {
+                    finalDestDir = finalDestDir.resolve(cleanParts.get(i));
+                }
+                fileNameOnly = cleanParts.get(cleanParts.size() - 1);
+            }
+        } else {
+            fileNameOnly = sanitizeForPath(newFilename);
+        }
+
+        // ensure final destination directory exists (may be a nested path)
+        Files.createDirectories(finalDestDir);
+
+        Path destFile = finalDestDir.resolve(fileNameOnly);
         // copy and overwrite if exists
         Files.copy(p, destFile, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
         log.info("已复制并重命名 {} -> {}", p, destFile);

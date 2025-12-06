@@ -14,9 +14,9 @@ import java.util.regex.Pattern;
  */
 public class YearSeasonEpisodeExtractor implements Extractor {
     private static final Pattern YEAR = Pattern.compile("\\b(19\\d{2}|20\\d{2})\\b");
-    private static final Pattern S_E = Pattern.compile("\\bS(\\d{1,2})E(\\d{1,4})\\b", Pattern.CASE_INSENSITIVE);
+    private static final Pattern S_E = Pattern.compile("\\bS(\\d{1,2})EP?(\\d{1,4})\\b", Pattern.CASE_INSENSITIVE);
     private static final Pattern Sonly = Pattern.compile("\\bS(\\d{1,2})\\b", Pattern.CASE_INSENSITIVE);
-    private static final Pattern Eonly = Pattern.compile("\\bE(\\d{1,4})\\b", Pattern.CASE_INSENSITIVE);
+    private static final Pattern Eonly = Pattern.compile("\\bEP?(\\d{1,4})\\b", Pattern.CASE_INSENSITIVE);
 
     @Override
     public String extract(String name, MediaInfo info) {
