@@ -67,6 +67,12 @@
             <version>11.0.0.M1</version>
         </dependency>
 
+        <dependency>
+            <groupId>io.pebbletemplates</groupId>
+            <artifactId>pebble</artifactId>
+            <version>3.2.4</version>
+        </dependency>
+
     </dependencies>
 
 </project>

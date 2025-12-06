@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.openliststrm.mapper.RenameDetailMapper">
+    
+    <resultMap type="RenameDetail" id="RenameDetailResult">
+        <result property="id"    column="id"    />
+        <result property="originalPath"    column="original_path"    />
+        <result property="originalName"    column="original_name"    />
+        <result property="newPath"    column="new_path"    />
+        <result property="newName"    column="new_name"    />
+        <result property="mediaType"    column="media_type"    />
+        <result property="title"    column="title"    />
+        <result property="year"    column="year"    />
+        <result property="season"    column="season"    />
+        <result property="episode"    column="episode"    />
+        <result property="tmdbId"    column="tmdb_id"    />
+        <result property="resolution"    column="resolution"    />
+        <result property="videoCodec"    column="video_codec"    />
+        <result property="audioCodec"    column="audio_codec"    />
+        <result property="source"    column="source"    />
+        <result property="releaseGroup"    column="release_group"    />
+        <result property="status"    column="status"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateTime"    column="update_time"    />
+    </resultMap>
+
+    <sql id="selectRenameDetailVo">
+        select id, original_path, original_name, new_path, new_name, media_type, title, year, season, episode, tmdb_id, resolution, video_codec, audio_codec, source, release_group, status, create_time, update_time from rename_detail
+    </sql>
+
+    <select id="selectRenameDetailList" parameterType="RenameDetail" resultMap="RenameDetailResult">
+        <include refid="selectRenameDetailVo"/>
+        <where>  
+            <if test="originalPath != null  and originalPath != ''"> and original_path like concat(#{originalPath}, '%')</if>
+            <if test="originalName != null  and originalName != ''"> and original_name like concat('%', #{originalName}, '%')</if>
+            <if test="newPath != null  and newPath != ''"> and new_path like concat(#{newPath}, '%')</if>
+            <if test="newName != null  and newName != ''"> and new_name like concat('%', #{newName}, '%')</if>
+            <if test="status != null  and status != ''"> and status = #{status}</if>
+        </where>
+        order by create_time desc
+    </select>
+    
+    <select id="selectRenameDetailById" parameterType="Integer" resultMap="RenameDetailResult">
+        <include refid="selectRenameDetailVo"/>
+        where id = #{id}
+    </select>
+
+    <insert id="insertRenameDetail" parameterType="RenameDetail" useGeneratedKeys="true" keyProperty="id">
+        insert into rename_detail
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="originalPath != null and originalPath != ''">original_path,</if>
+            <if test="originalName != null and originalName != ''">original_name,</if>
+            <if test="newPath != null">new_path,</if>
+            <if test="newName != null">new_name,</if>
+            <if test="mediaType != null">media_type,</if>
+            <if test="title != null">title,</if>
+            <if test="year != null">year,</if>
+            <if test="season != null">season,</if>
+            <if test="episode != null">episode,</if>
+            <if test="tmdbId != null">tmdb_id,</if>
+            <if test="resolution != null">resolution,</if>
+            <if test="videoCodec != null">video_codec,</if>
+            <if test="audioCodec != null">audio_codec,</if>
+            <if test="source != null">source,</if>
+            <if test="releaseGroup != null">release_group,</if>
+            <if test="status != null">status,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateTime != null">update_time,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="originalPath != null and originalPath != ''">#{originalPath},</if>
+            <if test="originalName != null and originalName != ''">#{originalName},</if>
+            <if test="newPath != null">#{newPath},</if>
+            <if test="newName != null">#{newName},</if>
+            <if test="mediaType != null">#{mediaType},</if>
+            <if test="title != null">#{title},</if>
+            <if test="year != null">#{year},</if>
+            <if test="season != null">#{season},</if>
+            <if test="episode != null">#{episode},</if>
+            <if test="tmdbId != null">#{tmdbId},</if>
+            <if test="resolution != null">#{resolution},</if>
+            <if test="videoCodec != null">#{videoCodec},</if>
+            <if test="audioCodec != null">#{audioCodec},</if>
+            <if test="source != null">#{source},</if>
+            <if test="releaseGroup != null">#{releaseGroup},</if>
+            <if test="status != null">#{status},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+         </trim>
+    </insert>
+
+    <update id="updateRenameDetail" parameterType="RenameDetail">
+        update rename_detail
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="originalPath != null and originalPath != ''">original_path = #{originalPath},</if>
+            <if test="originalName != null and originalName != ''">original_name = #{originalName},</if>
+            <if test="newPath != null">new_path = #{newPath},</if>
+            <if test="newName != null">new_name = #{newName},</if>
+            <if test="mediaType != null">media_type = #{mediaType},</if>
+            <if test="title != null">title = #{title},</if>
+            <if test="year != null">year = #{year},</if>
+            <if test="season != null">season = #{season},</if>
+            <if test="episode != null">episode = #{episode},</if>
+            <if test="tmdbId != null">tmdb_id = #{tmdbId},</if>
+            <if test="resolution != null">resolution = #{resolution},</if>
+            <if test="videoCodec != null">video_codec = #{videoCodec},</if>
+            <if test="audioCodec != null">audio_codec = #{audioCodec},</if>
+            <if test="source != null">source = #{source},</if>
+            <if test="releaseGroup != null">release_group = #{releaseGroup},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteRenameDetailById" parameterType="Integer">
+        delete from rename_detail where id = #{id}
+    </delete>
+
+    <delete id="deleteRenameDetailByIds" parameterType="String">
+        delete from rename_detail where id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+</mapper>

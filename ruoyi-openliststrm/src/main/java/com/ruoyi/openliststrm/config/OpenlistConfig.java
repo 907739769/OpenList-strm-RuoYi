@@ -50,5 +50,25 @@ public class OpenlistConfig {
         return sysConfigService.selectConfigByKey("openlist.api.apikey");
     }
 
+    // TMDb API Key (stored in sys_config as 'openlist.tmdb.apikey')
+    public String getTmdbApiKey() {
+        return sysConfigService.selectConfigByKey("openlist.tmdb.apikey");
+    }
+
+    // OpenAI API Key (stored in sys_config as 'openlist.openai.apikey')
+    public String getOpenAiApiKey() {
+        return sysConfigService.selectConfigByKey("openlist.openai.apikey");
+    }
+
+    // OpenAI service endpoint / host. If configured, this can be a full URL (including scheme and path)
+    // or just a host/domain like 'api.chatanywhere.tech'. If empty, clients should default to OpenAI's endpoint.
+    public String getOpenAiEndpoint() {
+        return sysConfigService.selectConfigByKey("openlist.openai.endpoint");
+    }
+
+    // OpenAI model name (stored in sys_config as 'openlist.openai.model'). If empty, clients should use a sensible default.
+    public String getOpenAiModel() {
+        return sysConfigService.selectConfigByKey("openlist.openai.model");
+    }
 
 }
