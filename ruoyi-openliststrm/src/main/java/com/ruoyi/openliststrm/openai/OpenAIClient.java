@@ -3,6 +3,7 @@ package com.ruoyi.openliststrm.openai;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ruoyi.openliststrm.rename.model.MediaInfo;
+import com.ruoyi.openliststrm.config.OpenlistConfig;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.*;
 
@@ -16,21 +17,50 @@ import java.util.Map;
  */
 @Slf4j
 public class OpenAIClient {
-    private static final String DEFAULT_MODEL = "gpt-4o-mini";
-    private static final String ENDPOINT = "https://api.chatanywhere.tech/v1/chat/completions";
+    private static final String DEFAULT_MODEL = "gpt-5-mini";
+    // default OpenAI chat completions endpoint
+    private static final String DEFAULT_ENDPOINT = "https://api.openai.com";
 
     private final OkHttpClient http = new OkHttpClient();
     private final ObjectMapper mapper = new ObjectMapper();
     private final String apiKey;
     private final String model;
+    private final String endpoint;
 
     public OpenAIClient(String apiKey) {
-        this(apiKey, DEFAULT_MODEL);
+        this(apiKey, null, null);
     }
 
-    public OpenAIClient(String apiKey, String model) {
+    // allow passing an explicit endpoint (may be a full URL or just a host/domain)
+    public OpenAIClient(String apiKey, String endpoint) {
+        this(apiKey, endpoint, null);
+    }
+
+    // prefer this constructor when callers want to supply a model string explicitly
+    public OpenAIClient(String apiKey, String endpoint, String model) {
         this.apiKey = apiKey;
-        this.model = model == null ? DEFAULT_MODEL : model;
+        // determine model: prefer explicit param, then env OPENAI_MODEL, then hardcoded default
+        String chosenModel = null;
+        if (model != null && !model.trim().isEmpty()) {
+            chosenModel = model.trim();
+        } else {
+            String envModel = System.getenv().getOrDefault("OPENAI_MODEL", "");
+            if (envModel != null && !envModel.trim().isEmpty()) chosenModel = envModel.trim();
+            else chosenModel = DEFAULT_MODEL;
+        }
+        this.model = chosenModel;
+        this.endpoint = buildEndpoint(endpoint);
+    }
+
+    private String buildEndpoint(String cfg) {
+        if (cfg == null || cfg.trim().isEmpty()) return DEFAULT_ENDPOINT;
+        String t = cfg.trim();
+        // if a full URL is provided, use it directly
+        if (t.startsWith("http://") || t.startsWith("https://")) {
+            return t;
+        }
+        // otherwise treat as host/domain and construct the standard path
+        return "https://" + t;
     }
 
     /**
@@ -43,7 +73,7 @@ public class OpenAIClient {
             String prompt = buildPrompt(info, filename);
             RequestBody body = RequestBody.create(mapper.writeValueAsBytes(buildRequestPayload(prompt)), MediaType.parse("application/json; charset=utf-8"));
             Request req = new Request.Builder()
-                    .url(ENDPOINT)
+                    .url(endpoint + "/v1/chat/completions")
                     .addHeader("Authorization", "Bearer " + apiKey)
                     .post(body)
                     .build();
@@ -107,9 +137,9 @@ public class OpenAIClient {
         sb.append("1) Titles should be concise. If the filename or existing fields are in pinyin, convert the pinyin tokens into Chinese characters by mapping each pinyin token in-order. **Do NOT reorder tokens for grammatical fluency**; preserve the original token sequence as the likely original title. Example: 'Xi Huan Ni Wo Ye Shi' -> '喜欢你我也是' (NOT '我也喜欢你').\n");
         sb.append("2) If the pinyin forms a known/standard title, prefer the standard Chinese title (still keep original token order unless the standard title clearly differs and is more established).\n");
         sb.append("3) When ambiguous, produce the most literal Chinese candidate preserving token order; do not invent or paraphrase.\n");
-        sb.append("4) Season and episode should be numeric strings (e.g. \"01\", \"10\"). Year should be a 4-digit string.\n\n");
+        sb.append("4) Season and episode should be numeric strings (e.g. \\\"01\\\", \\\"10\\\"). Year should be a 4-digit string.\n\n");
 
-        sb.append("Respond with a strict JSON object only. Example: {\"originalTitle\": \"Xi.Huan.Ni.Wo.Ye.Shi.S05E07.2024.2160p.WEB-DL.H265.EDR.AAC-HHWEB.strm\", \"title\": \"喜欢你我也是\", \"year\": \"2024\", \"season\": \"05\", \"episode\": \"07\"}\n\n");
+        sb.append("Respond with a strict JSON object only. Example: {\\\"originalTitle\\\": \\\"Xi.Huan.Ni.Wo.Ye.Shi.S05E07.2024.2160p.WEB-DL.H265.EDR.AAC-HHWEB.strm\\\", \\\"title\\\": \\\"喜欢你我也是\\\", \\\"year\\\": \\\"2024\\\", \\\"season\\\": \\\"05\\\", \\\"episode\\\": \\\"07\\\"}\\n\\n");
 
         sb.append("Filename: \"").append(filename).append("\"\n");
         sb.append("Current extracted fields: \n");
@@ -122,4 +152,3 @@ public class OpenAIClient {
         return sb.toString();
     }
 }
-

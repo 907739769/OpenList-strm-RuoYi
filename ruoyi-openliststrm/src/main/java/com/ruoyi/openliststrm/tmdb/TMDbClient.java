@@ -38,25 +38,15 @@ public class TMDbClient {
 
         try {
             String tmdbTitle;
-            if (maybeTV(info)) {
-                tmdbTitle = search("tv", info);
-            } else {
-                tmdbTitle = search("movie", info);
-            }
+            String type = maybeTV(info) ? "tv" : "movie";
+            tmdbTitle = search(type, info);
             if (StringUtils.isNotEmpty(tmdbTitle)) {
                 info.setTitle(tmdbTitle);
             }
         } catch (Exception e) {
-            log.error("", e);
+            log.error("TMDb enrich error", e);
         }
     }
-
-//    private String guessQuery(MediaInfo info) {
-//        if (info.getOriginalTitle() == null) return null;
-//        Object eng = info.getExtra().get("englishTitle");
-//        if (eng != null) return eng.toString();
-//        return info.getOriginalTitle();
-//    }
 
     private boolean maybeTV(MediaInfo info) {
         return info.getSeason() != null ||
@@ -112,7 +102,7 @@ public class TMDbClient {
     }
 
     /**
-     * 执行一次请求并解析首个结果；若 info.year 为空则回填
+     * 执行一次请求并解析首个结果；若 info.year 为空则回填，并从详情接口补充其它字段
      */
     private String doSearchOnce(String type, MediaInfo info, HttpUrl url) throws IOException {
         Request req = new Request.Builder().url(url).get().build();
@@ -130,7 +120,60 @@ public class TMDbClient {
             info.setTmdbId(first.path("id").asText());
 
             int id = first.path("id").asInt(-1);
-            return (id > 0) ? getBestTitle(type, first, id) : null;
+            String best = (id > 0) ? getBestTitle(type, first, id) : null;
+
+            // fetch details to populate genres, original language and origin countries
+            if (id > 0) {
+                try {
+                    fetchDetails(type, id, info);
+                } catch (Exception e) {
+                    log.warn("fetchDetails failed: {}", e.getMessage());
+                }
+            }
+
+            return best;
+        }
+    }
+
+    private void fetchDetails(String type, int id, MediaInfo info) throws IOException {
+        HttpUrl url = Objects.requireNonNull(HttpUrl.parse(BASE + "/" + type + "/" + id))
+                .newBuilder().addQueryParameter("api_key", apiKey).addQueryParameter("language", LANGUAGE).build();
+        Request req = new Request.Builder().url(url).get().build();
+        try (Response resp = http.newCall(req).execute()) {
+            if (!resp.isSuccessful() || resp.body() == null) return;
+            JsonNode d = mapper.readTree(resp.body().byteStream());
+            info.getMetadata().put("details", d);
+
+            // genres -> ids
+            JsonNode genres = d.path("genres");
+            if (genres.isArray()) {
+                info.getGenreIds().clear();
+                for (JsonNode g : genres) {
+                    if (g.has("id")) info.getGenreIds().add(String.valueOf(g.get("id").asInt()));
+                }
+            }
+
+            // original language
+            if (d.hasNonNull("original_language")) {
+                info.setOriginalLanguage(d.get("original_language").asText());
+            }
+
+            // origin countries: tv uses origin_country (array of codes); movie uses production_countries
+            if (type.equals("tv")) {
+                JsonNode oc = d.path("origin_country");
+                if (oc.isArray()) {
+                    info.getOriginCountries().clear();
+                    for (JsonNode c : oc) info.getOriginCountries().add(c.asText());
+                }
+            } else {
+                JsonNode pcs = d.path("production_countries");
+                if (pcs.isArray()) {
+                    info.getOriginCountries().clear();
+                    for (JsonNode pc : pcs) {
+                        if (pc.has("iso_3166_1")) info.getOriginCountries().add(pc.get("iso_3166_1").asText());
+                    }
+                }
+            }
         }
     }
 

@@ -39,6 +39,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="newName != null  and newName != ''"> and newName like concat('%', #{newName}, '%')</if>
             <if test="status != null  and status != ''"> and status = #{status}</if>
         </where>
+        order by create_time desc
     </select>
     
     <select id="selectRenameDetailById" parameterType="Integer" resultMap="RenameDetailResult">

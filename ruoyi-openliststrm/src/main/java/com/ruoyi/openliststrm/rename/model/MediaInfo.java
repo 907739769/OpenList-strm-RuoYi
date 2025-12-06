@@ -31,6 +31,12 @@ public class MediaInfo {
     private String releaseGroup; // 发布组 HHWEB, MWeb
     private String extension;//文件后缀
 
+    // TMDb / metadata fields (may be populated by TMDb client)
+    private List<String> genreIds = new ArrayList<>();
+    private String originalLanguage; // e.g. "zh", "en"
+    private List<String> originCountries = new ArrayList<>();
+    private Map<String, Object> metadata = new HashMap<>();
+
     public MediaInfo(String originalName) {
         this.originalName = originalName;
     }

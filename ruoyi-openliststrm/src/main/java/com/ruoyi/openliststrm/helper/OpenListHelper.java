@@ -48,4 +48,18 @@ public class OpenListHelper {
         return false;
     }
 
+    /**
+     * 判断文件是 .strm 文件（不区分大小写）
+     * 如果是 .strm 文件，应直接处理，不受最小文件大小限制
+     *
+     * @param name 文件名或路径
+     * @return true 如果以 .strm 结尾
+     */
+    public boolean isStrm(String name) {
+        if (name == null) {
+            return false;
+        }
+        return name.toLowerCase().endsWith(".strm");
+    }
+
 }

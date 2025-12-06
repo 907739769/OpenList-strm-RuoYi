@@ -110,8 +110,14 @@ public class MediaParser {
         // If you have keys, set them as env vars OPENAI_API_KEY and TMDB_API_KEY, or edit below.
         String tmdbKey = System.getenv().getOrDefault("TMDB_API_KEY", "");
         String openaiKey = System.getenv().getOrDefault("OPENAI_API_KEY", "");
+        String openaiEndpoint = System.getenv().getOrDefault("OPENAI_ENDPOINT", "");
+        String openaiModel = System.getenv().getOrDefault("OPENAI_MODEL", "");
         TMDbClient tmdb = (tmdbKey == null || tmdbKey.isEmpty()) ? null : new TMDbClient(tmdbKey);
-        OpenAIClient openai = (openaiKey == null || openaiKey.isEmpty()) ? null : new OpenAIClient(openaiKey);
+        OpenAIClient openai = null;
+        if (openaiKey != null && !openaiKey.isEmpty()) {
+            String modelToPass = (openaiModel == null || openaiModel.isEmpty()) ? null : openaiModel;
+            openai = new OpenAIClient(openaiKey, openaiEndpoint, modelToPass);
+        }
 
         MediaParser parser = new MediaParser(tmdb, openai);
 

@@ -1,23 +1,26 @@
 package com.ruoyi.openliststrm.controller;
 
-import java.util.List;
+import com.ruoyi.common.annotation.Log;
+import com.ruoyi.common.core.controller.BaseController;
+import com.ruoyi.common.core.domain.AjaxResult;
+import com.ruoyi.common.core.page.TableDataInfo;
+import com.ruoyi.common.core.text.Convert;
+import com.ruoyi.common.enums.BusinessType;
+import com.ruoyi.common.utils.poi.ExcelUtil;
+import com.ruoyi.framework.manager.AsyncManager;
+import com.ruoyi.openliststrm.domain.RenameTask;
+import com.ruoyi.openliststrm.rename.RenameTaskManager;
+import com.ruoyi.openliststrm.service.IRenameTaskService;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseBody;
-import com.ruoyi.common.annotation.Log;
-import com.ruoyi.common.enums.BusinessType;
-import com.ruoyi.openliststrm.domain.RenameTask;
-import com.ruoyi.openliststrm.service.IRenameTaskService;
-import com.ruoyi.common.core.controller.BaseController;
-import com.ruoyi.common.core.domain.AjaxResult;
-import com.ruoyi.common.utils.poi.ExcelUtil;
-import com.ruoyi.common.core.page.TableDataInfo;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.TimerTask;
+import java.util.stream.Collectors;
 
 /**
  * 重命名任务配置Controller
@@ -33,6 +36,9 @@ public class RenameTaskController extends BaseController
 
     @Autowired
     private IRenameTaskService renameTaskService;
+
+    @Autowired
+    private RenameTaskManager renameTaskManager;
 
     @RequiresPermissions("openliststrm:renameTask:view")
     @GetMapping()
@@ -124,5 +130,46 @@ public class RenameTaskController extends BaseController
     public AjaxResult remove(String ids)
     {
         return toAjax(renameTaskService.deleteRenameTaskByIds(ids));
+    }
+
+    /**
+     * 页面手动触发单个任务执行（立即扫描一次）。
+     */
+    @PostMapping("/execute/{id}")
+    @ResponseBody
+    @RequiresPermissions("openliststrm:renameTask:edit")
+    @Log(title = "重命名任务配置", businessType = BusinessType.UPDATE)
+    public AjaxResult executeNow(@PathVariable("id") Integer id) {
+        if (id == null) return AjaxResult.error("id 为空");
+        AsyncManager.me().execute(new TimerTask() {
+            @Override
+            public void run() {
+                renameTaskManager.executeTaskNow(id);
+            }
+        });
+        return AjaxResult.success();
+    }
+
+    /**
+     * 页面手动触发批量任务执行（立即扫描一次）。
+     */
+    @PostMapping("/executeBatch")
+    @ResponseBody
+    @RequiresPermissions("openliststrm:renameTask:edit")
+    @Log(title = "重命名任务配置", businessType = BusinessType.UPDATE)
+    public AjaxResult executeBatch(String ids) {
+        if (ids == null || ids.trim().isEmpty()) return AjaxResult.error("没有选择任务");
+        AsyncManager.me().execute(new TimerTask() {
+            @Override
+            public void run() {
+                List<String> idList = Arrays.stream(Convert.toStrArray(ids)).collect(Collectors.toList());
+                // convert to Integer list
+                List<Integer> intIds = idList.stream().map(s -> {
+                    try { return Integer.valueOf(s); } catch (Exception e) { return null; }
+                }).filter(i -> i != null).collect(Collectors.toList());
+                renameTaskManager.executeTasksBatch(intIds);
+            }
+        });
+        return AjaxResult.success();
     }
 }
