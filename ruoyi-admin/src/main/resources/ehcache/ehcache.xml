@@ -7,4 +7,22 @@
            timeToLiveSeconds="30"
            timeToIdleSeconds="10"
            memoryStoreEvictionPolicy="LRU"/>
+
+    <cache name="tmdbSearch"
+           maxEntriesLocalHeap="10000"
+           timeToLiveSeconds="86400"
+           timeToIdleSeconds="86400"
+           memoryStoreEvictionPolicy="LRU"/>
+
+    <cache name="tmdbDetails"
+           maxEntriesLocalHeap="10000"
+           timeToLiveSeconds="86400"
+           timeToIdleSeconds="86400"
+           memoryStoreEvictionPolicy="LRU"/>
+
+    <cache name="tmdbAlts"
+           maxEntriesLocalHeap="10000"
+           timeToLiveSeconds="86400"
+           timeToIdleSeconds="86400"
+           memoryStoreEvictionPolicy="LRU"/>
 </ehcache>

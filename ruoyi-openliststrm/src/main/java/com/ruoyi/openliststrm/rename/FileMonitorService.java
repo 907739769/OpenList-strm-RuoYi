@@ -49,7 +49,12 @@ public class FileMonitorService {
     private final Map<Path, Instant> recentProcessed = new ConcurrentHashMap<>();
     private final long dedupeWindowMillis = 5_000L; // don't re-process same file within 5 seconds
 
-    private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
+    // tracks files for which we've scheduled a retry (so outer callers shouldn't clear processing/recentProcessed yet)
+    private final Set<Path> keepProcessing = ConcurrentHashMap.newKeySet();
+
+    // Use separate executors: one for watcher loop, one (pool) for processing/retries so they can't block each other
+    private final ScheduledExecutorService watcherExecutor = Executors.newSingleThreadScheduledExecutor();
+    private final ScheduledExecutorService workerExecutor = Executors.newScheduledThreadPool(2);
 
     // centralized default template used when none provided
     private static final String DEFAULT_FILENAME_TEMPLATE = "{{ title }} {% if year %} ({{ year }}) {% endif %}/{% if season %}Season {{ season }}/{% endif %}{{ title }} {% if year and not season %} ({{ year }}) {% endif %}{% if season %}S{{ season }}{% endif %}{% if episode %}E{{ episode }}{% endif %}{% if resolution %} - {{ resolution }}{% endif %}{% if source %}.{{ source }}{% endif %}{% if videoCodec %}.{{ videoCodec }}{% endif %}{% if audioCodec %}.{{ audioCodec }}{% endif %}{% if tags is not empty %}.{{ tags|join('.') }}{% endif %}{% if releaseGroup %}-{{ releaseGroup }}{% endif %}.{{ extension }}";
@@ -100,8 +105,8 @@ public class FileMonitorService {
             }
         });
 
-        // poll thread
-        executor.scheduleWithFixedDelay(() -> {
+        // poll thread - run the watch loop on watcherExecutor so it won't block file processing
+        watcherExecutor.scheduleWithFixedDelay(() -> {
             try {
                 WatchKey key;
                 while ((key = this.watchService.poll()) != null) {
@@ -125,6 +130,42 @@ public class FileMonitorService {
                                             return FileVisitResult.CONTINUE;
                                         }
                                     });
+
+                                    // Also schedule any files that already exist inside this newly created directory.
+                                    // This handles the case where a directory and files inside it are created simultaneously
+                                    // and the file creation events may not be delivered after we register the directory.
+                                    try {
+                                        Files.walkFileTree(full, new SimpleFileVisitor<Path>() {
+                                            @Override
+                                            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                                                Path p2 = file.toAbsolutePath().normalize();
+                                                if (!Files.isDirectory(p2) && shouldSchedule(p2)) {
+                                                    processing.add(p2);
+                                                    workerExecutor.schedule(() -> {
+                                                        try {
+                                                            try {
+                                                                handleFileIfReady(p2);
+                                                            } catch (Exception e) {
+                                                                log.error("处理文件失败(新目录扫描): {}", p2, e);
+                                                            }
+                                                            if (!keepProcessing.contains(p2)) {
+                                                                recentProcessed.put(p2, Instant.now());
+                                                                processing.remove(p2);
+                                                            } else {
+                                                                log.debug("Deferring clearing processing for {} due to pending retry (new dir scan)", p2);
+                                                            }
+                                                        } catch (Exception e) {
+                                                            log.error("Unexpected error scheduling file from new dir {}: {}", p2, e.getMessage());
+                                                        }
+                                                    }, 2, TimeUnit.SECONDS);
+                                                }
+                                                return FileVisitResult.CONTINUE;
+                                            }
+                                        });
+                                    } catch (IOException e) {
+                                        log.warn("Failed to scan newly created directory {} for files: {}", full, e.getMessage());
+                                    }
+
                                     continue; // don't schedule directory for file processing
                                 }
                             } catch (IOException e) {
@@ -135,15 +176,23 @@ public class FileMonitorService {
                         // schedule processing after short delay so file writes finish
                         if (shouldSchedule(full)) {
                             processing.add(full); // mark as in-flight to avoid duplicate scheduling
-                            executor.schedule(() -> {
+                            workerExecutor.schedule(() -> {
                                 try {
-                                    handleFileIfReady(full);
-                                } catch (Exception e) {
-                                    log.error("处理文件失败: {}", full, e);
+                                    boolean finished = false;
+                                    try {
+                                        finished = handleFileIfReady(full);
+                                    } catch (Exception e) {
+                                        log.error("处理文件失败: {}", full, e);
+                                    }
+                                    // Only clear processed/in-flight state if no retry was scheduled
+                                    if (!keepProcessing.contains(full)) {
+                                        recentProcessed.put(full, Instant.now());
+                                        processing.remove(full);
+                                    } else {
+                                        log.debug("Deferring clearing processing for {} due to pending retry", full);
+                                    }
                                 } finally {
-                                    // record processing time and clear in-flight mark
-                                    recentProcessed.put(full, Instant.now());
-                                    processing.remove(full);
+                                    // nothing here; cleanup done above
                                 }
                             }, 2, TimeUnit.SECONDS);
                         } else {
@@ -159,7 +208,9 @@ public class FileMonitorService {
     }
 
     public void stop() {
-        executor.shutdownNow();
+        // shutdown executors
+        watcherExecutor.shutdownNow();
+        workerExecutor.shutdownNow();
         if (this.watchService != null) {
             try {
                 this.watchService.close();
@@ -186,13 +237,18 @@ public class FileMonitorService {
                     Path p = file.toAbsolutePath().normalize();
                     if (shouldSchedule(p)) {
                         processing.add(p);
+                        boolean finished = false;
                         try {
-                            handleFileIfReady(p);
+                            finished = handleFileIfReady(p);
                         } catch (Exception e) {
                             log.error("processOnce handleFileIfReady failed for {}", p, e);
                         } finally {
-                            recentProcessed.put(p, Instant.now());
-                            processing.remove(p);
+                            if (!keepProcessing.contains(p)) {
+                                recentProcessed.put(p, Instant.now());
+                                processing.remove(p);
+                            } else {
+                                log.debug("Deferring clearing processing for {} due to pending retry (processOnce)", p);
+                            }
                         }
                     } else {
                         log.debug("processOnce skipping already-processed or in-flight file: {}", p);
@@ -218,9 +274,10 @@ public class FileMonitorService {
         return true;
     }
 
-    private void handleFileIfReady(Path file) throws IOException {
+    // changed to return boolean: true == finished processing (copied/skipped), false == retry scheduled (not finished)
+    private boolean handleFileIfReady(Path file) throws IOException {
         Path p = file.toAbsolutePath().normalize();
-        if (!Files.exists(p) || Files.isDirectory(p)) return;
+        if (!Files.exists(p) || Files.isDirectory(p)) return true; // nothing to do => treat as finished
 
         long size = Files.size(p);
 
@@ -232,18 +289,18 @@ public class FileMonitorService {
             boolean isVideo = openListHelper.isVideo(filename);
             if (!isStrm && !isVideo) {
                 log.info("Skipping non-video file {}", p);
-                return;
+                return true;
             }
             // if not a .strm file, enforce minimum size; .strm files are processed regardless of size
             if (!isStrm && size < minFileSizeBytes) {
                 log.info("Skipping small file {} ({} bytes)", p, size);
-                return;
+                return true;
             }
         } else {
             // legacy behavior when helper not available: enforce size threshold
             if (size < minFileSizeBytes) {
                 log.info("跳过小文件 {} ({} bytes)", p, size);
-                return;
+                return true;
             }
         }
 
@@ -253,21 +310,37 @@ public class FileMonitorService {
         if (Instant.now().minusSeconds(3).isBefore(modified)) {
             // still being written
             log.debug("文件仍在写入，稍后再试：{}", p);
-            // reschedule (respect dedupe rules)
-            executor.schedule(() -> {
+
+            // Mark that we're going to retry this file so outer callers don't clear processing/recentProcessed
+            keepProcessing.add(p);
+
+            // schedule a retry that bypasses dedupe checks (it's an intentional retry)
+            workerExecutor.schedule(() -> {
                 try {
-                    if (shouldSchedule(p)) {
-                        processing.add(p);
-                        handleFileIfReady(p);
+                    // ensure we have an in-flight marker while retrying
+                    processing.add(p);
+                    boolean completed = false;
+                    try {
+                        completed = handleFileIfReady(p);
+                    } catch (Exception e) {
+                        log.error("重试处理失败 for {}", p, e);
                     }
-                } catch (Exception e) {
-                    log.error("重试处理失败", e);
+
+                    if (completed) {
+                        // mark processed and clear keepProcessing
+                        recentProcessed.put(p, Instant.now());
+                        keepProcessing.remove(p);
+                    } else {
+                        // if the retry also scheduled another retry, keepProcessing remains set and we'll wait for future run to clear
+                        log.debug("Retry for {} did not complete; another retry scheduled", p);
+                    }
                 } finally {
-                    recentProcessed.put(p, Instant.now());
                     processing.remove(p);
                 }
             }, 2, TimeUnit.SECONDS);
-            return;
+
+            // indicate not finished to caller so caller won't clear state
+            return false;
         }
 
         MediaParser parser = new MediaParser(tmdbClient, openAIClient);
@@ -284,7 +357,7 @@ public class FileMonitorService {
                     log.warn("renameListener.onRenameFailed failed: {}", e.getMessage());
                 }
             }
-            return;
+            return true;
         }
 
         // decide category
@@ -348,6 +421,8 @@ public class FileMonitorService {
                 log.warn("renameListener failed: {}", e.getMessage());
             }
         }
+
+        return true;
     }
 
     private String stripExtension(String name) {
