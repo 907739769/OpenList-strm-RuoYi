@@ -1,32 +1,21 @@
 package com.ruoyi.openliststrm.tmdb;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.openliststrm.rename.model.MediaInfo;
+import com.ruoyi.common.utils.spring.SpringUtils;
 import lombok.extern.slf4j.Slf4j;
-import okhttp3.HttpUrl;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.Response;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
- * @Author Jack
- * @Date 2025/8/12 16:53
- * @Version 1.1.0
+ * TMDb client helper
  */
 @Slf4j
 public class TMDbClient {
-    private static final String BASE = "https://api.tmdb.org/3";
-    private static final String LANGUAGE = "zh-CN";
-    private final OkHttpClient http = new OkHttpClient();
-    private final ObjectMapper mapper = new ObjectMapper();
     private final String apiKey;
 
     public TMDbClient(String apiKey) {
@@ -39,7 +28,9 @@ public class TMDbClient {
         try {
             String tmdbTitle;
             String type = maybeTV(info) ? "tv" : "movie";
-            tmdbTitle = search(type, info);
+            // get Spring bean that performs TMDb HTTP calls (and provides caching)
+            TMDbApiService api = SpringUtils.getBean(TMDbApiService.class);
+            tmdbTitle = search(type, info, api);
             if (StringUtils.isNotEmpty(tmdbTitle)) {
                 info.setTitle(tmdbTitle);
             }
@@ -56,7 +47,7 @@ public class TMDbClient {
     /**
      * 通用搜索（重构版）
      */
-    private String search(String type, MediaInfo info) throws IOException {
+    private String search(String type, MediaInfo info, TMDbApiService api) throws IOException {
         if (StringUtils.isBlank(type) || info == null) return null;
 
         List<String> candidates = new ArrayList<>();
@@ -70,8 +61,8 @@ public class TMDbClient {
                 .distinct()
                 .collect(Collectors.toList())) {
 
-            HttpUrl url = buildSearchUrl(type, q, info.getYear());
-            title = doSearchOnce(type, info, url);
+            JsonNode root = api.search(apiKey, type, q, info.getYear());
+            title = doSearchOnce(type, info, root, api);
             if (title != null) return title;
         }
         log.info("尝试只根据标题查询TMDB，不限定年份");
@@ -80,108 +71,85 @@ public class TMDbClient {
                 .distinct()
                 .collect(Collectors.toList())) {
 
-            HttpUrl url = buildSearchUrl(type, q, null);
-            title = doSearchOnce(type, info, url);
+            JsonNode root = api.search(apiKey, type, q, null);
+            title = doSearchOnce(type, info, root, api);
             if (title != null) return title;
         }
 
         return null;
     }
 
-    private HttpUrl buildSearchUrl(String type, String query, String year) {
-        HttpUrl.Builder b = HttpUrl.parse(BASE + "/search/" + type).newBuilder()
-                .addQueryParameter("api_key", apiKey)
-                .addQueryParameter("query", query)
-                .addQueryParameter("language", LANGUAGE);
-
-        if (StringUtils.isNotBlank(year)) {
-            String yearKey = "movie".equals(type) ? "year" : "first_air_date_year";
-            b.addQueryParameter(yearKey, year);
-        }
-        return b.build();
-    }
-
     /**
-     * 执行一次请求并解析首个结果；若 info.year 为空则回填，并从详情接口补充其它字段
+     * 处理 search 返回的 JsonNode（来自 TMDbApiService），解析首个结果
      */
-    private String doSearchOnce(String type, MediaInfo info, HttpUrl url) throws IOException {
-        Request req = new Request.Builder().url(url).get().build();
-        try (Response resp = http.newCall(req).execute()) {
-            if (!resp.isSuccessful() || resp.body() == null) return null;
+    private String doSearchOnce(String type, MediaInfo info, com.fasterxml.jackson.databind.JsonNode root, TMDbApiService api) throws IOException {
+        if (root == null) return null;
+        JsonNode results = root.path("results");
+        log.debug("doSearchOnce: {} results: {}", info.getTitle(), results);
+        if (!results.isArray() || results.isEmpty()) return null;
 
-            JsonNode root = mapper.readTree(resp.body().byteStream());
-            JsonNode results = root.path("results");
-            log.debug("doSearchOnce: {} results: {}", url.queryParameter("query"), results);
-            if (!results.isArray() || results.isEmpty()) return null;
+        JsonNode first = results.get(0);
 
-            JsonNode first = results.get(0);
+        info.setYear(getYearSafe(first, type));
+        info.setTmdbId(first.path("id").asText());
 
-            info.setYear(getYearSafe(first, type));
-            info.setTmdbId(first.path("id").asText());
+        int id = first.path("id").asInt(-1);
+        String best = (id > 0) ? getBestTitle(type, first, id, api) : null;
 
-            int id = first.path("id").asInt(-1);
-            String best = (id > 0) ? getBestTitle(type, first, id) : null;
-
-            // fetch details to populate genres, original language and origin countries
-            if (id > 0) {
-                try {
-                    fetchDetails(type, id, info);
-                } catch (Exception e) {
-                    log.warn("fetchDetails failed: {}", e.getMessage());
-                }
+        // fetch details to populate genres, original language and origin countries
+        if (id > 0) {
+            try {
+                fetchDetails(type, id, info, api);
+            } catch (Exception e) {
+                log.warn("fetchDetails failed: {}", e.getMessage());
             }
-
-            return best;
         }
+
+        return best;
     }
 
-    private void fetchDetails(String type, int id, MediaInfo info) throws IOException {
-        HttpUrl url = Objects.requireNonNull(HttpUrl.parse(BASE + "/" + type + "/" + id))
-                .newBuilder().addQueryParameter("api_key", apiKey).addQueryParameter("language", LANGUAGE).build();
-        Request req = new Request.Builder().url(url).get().build();
-        try (Response resp = http.newCall(req).execute()) {
-            if (!resp.isSuccessful() || resp.body() == null) return;
-            JsonNode d = mapper.readTree(resp.body().byteStream());
-            info.getMetadata().put("details", d);
+    private void fetchDetails(String type, int id, MediaInfo info, TMDbApiService api) throws IOException {
+        JsonNode d = api.getDetails(apiKey, type, id);
+        if (d == null) return;
+        info.getMetadata().put("details", d);
 
-            // genres -> ids
-            JsonNode genres = d.path("genres");
-            if (genres.isArray()) {
-                info.getGenreIds().clear();
-                for (JsonNode g : genres) {
-                    if (g.has("id")) info.getGenreIds().add(String.valueOf(g.get("id").asInt()));
-                }
+        // genres -> ids
+        JsonNode genres = d.path("genres");
+        if (genres.isArray()) {
+            info.getGenreIds().clear();
+            for (JsonNode g : genres) {
+                if (g.has("id")) info.getGenreIds().add(String.valueOf(g.get("id").asInt()));
             }
+        }
 
-            // original language
-            if (d.hasNonNull("original_language")) {
-                info.setOriginalLanguage(d.get("original_language").asText());
+        // original language
+        if (d.hasNonNull("original_language")) {
+            info.setOriginalLanguage(d.get("original_language").asText());
+        }
+
+        // origin countries: tv uses origin_country (array of codes); movie uses production_countries
+        if (type.equals("tv")) {
+            JsonNode oc = d.path("origin_country");
+            if (oc.isArray()) {
+                info.getOriginCountries().clear();
+                for (JsonNode c : oc) info.getOriginCountries().add(c.asText());
             }
-
-            // origin countries: tv uses origin_country (array of codes); movie uses production_countries
-            if (type.equals("tv")) {
-                JsonNode oc = d.path("origin_country");
-                if (oc.isArray()) {
-                    info.getOriginCountries().clear();
-                    for (JsonNode c : oc) info.getOriginCountries().add(c.asText());
-                }
-            } else {
-                JsonNode pcs = d.path("production_countries");
-                if (pcs.isArray()) {
-                    info.getOriginCountries().clear();
-                    for (JsonNode pc : pcs) {
-                        if (pc.has("iso_3166_1")) info.getOriginCountries().add(pc.get("iso_3166_1").asText());
-                    }
+        } else {
+            JsonNode pcs = d.path("production_countries");
+            if (pcs.isArray()) {
+                info.getOriginCountries().clear();
+                for (JsonNode pc : pcs) {
+                    if (pc.has("iso_3166_1")) info.getOriginCountries().add(pc.get("iso_3166_1").asText());
                 }
             }
         }
     }
 
-    private String getBestTitle(String type, JsonNode result, int id) throws IOException {
+    private String getBestTitle(String type, JsonNode result, int id, TMDbApiService api) throws IOException {
         String title = getOfficialChineseTitle(result, type);
         if (StringUtils.isNotEmpty(title)) return title;
 
-        title = fetchChineseAlias(type, id);
+        title = fetchChineseAlias(type, id, api);
         if (StringUtils.isNotEmpty(title)) return title;
 
         return fallbackTitle(result, type);
@@ -195,24 +163,18 @@ public class TMDbClient {
         return null;
     }
 
-    private String fetchChineseAlias(String type, int id) throws IOException {
-        HttpUrl url = Objects.requireNonNull(HttpUrl.parse(BASE + "/" + type + "/" + id + "/alternative_titles"))
-                .newBuilder().addQueryParameter("api_key", apiKey).build();
-        Request req = new Request.Builder().url(url).get().build();
-        try (Response resp = http.newCall(req).execute()) {
-            if (!resp.isSuccessful()) return null;
+    private String fetchChineseAlias(String type, int id, TMDbApiService api) throws IOException {
+        JsonNode root = api.getAlternativeTitles(apiKey, type, id);
+        if (root == null) return null;
+        log.debug("fetchChineseAlias: {}", root);
 
-            JsonNode root = mapper.readTree(resp.body().byteStream());
-            log.debug("fetchChineseAlias: {}", root);
-
-            JsonNode titles = type.equals("movie") ? root.get("titles") : root.get("results");
-            if (titles != null) {
-                for (JsonNode t : titles) {
-                    if (t.has("iso_3166_1") && "CN".equals(t.get("iso_3166_1").asText())) {
-                        String title = t.has("title") ? t.get("title").asText() :
-                                t.has("name") ? t.get("name").asText() : null;
-                        if (isChinese(title)) return title;
-                    }
+        JsonNode titles = type.equals("movie") ? root.get("titles") : root.get("results");
+        if (titles != null) {
+            for (JsonNode t : titles) {
+                if (t.has("iso_3166_1") && "CN".equals(t.get("iso_3166_1").asText())) {
+                    String title = t.has("title") ? t.get("title").asText() :
+                            t.has("name") ? t.get("name").asText() : null;
+                    if (isChinese(title)) return title;
                 }
             }
         }
