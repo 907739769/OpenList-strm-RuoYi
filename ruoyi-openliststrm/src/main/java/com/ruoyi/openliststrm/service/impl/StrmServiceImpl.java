@@ -134,6 +134,7 @@ public class StrmServiceImpl implements IStrmService {
                     //视频文件
                     if (openListHelper.isVideo(name)) {
                         if (object.getLong("size") < Long.parseLong(config.getOpenListMinFileSize()) * 1024 * 1024) {
+                            log.info("Skipping small file {} ({} bytes)", name, object.getLong("size"));
                             continue;
                         }
                         String finalPath = path;
