@@ -10,6 +10,7 @@ import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.enums.BusinessType;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.common.utils.poi.ExcelUtil;
+import com.ruoyi.framework.manager.AsyncManager;
 import com.ruoyi.openliststrm.api.OpenlistApi;
 import com.ruoyi.openliststrm.domain.OpenlistCopy;
 import com.ruoyi.openliststrm.enums.CopyStatusEnum;
@@ -148,6 +149,23 @@ public class OpenlistCopyController extends BaseController {
         List<String> idList = Arrays.stream(Convert.toStrArray(ids)).collect(Collectors.toList());
         List<OpenlistCopyPlus> openlistCopyPlusList = openlistCopyPlusService.listByIds(idList);
         //删除网盘数据
+        if (openlistCopyPlusList.size() > 20) {
+            AsyncManager.me().execute(new TimerTask() {
+                @Override
+                public void run() {
+                    openlistCopyPlusList.forEach(openlistCopyPlus -> {
+                        openlistApi.fsRemove(openlistCopyPlus.getCopyDstPath(), Collections.singletonList(openlistCopyPlus.getCopyDstFileName()));
+                        openlistStrmPlusService.remove(new LambdaQueryWrapper<OpenlistStrmPlus>()
+                                .eq(OpenlistStrmPlus::getStrmFileName, openlistCopyPlus.getCopyDstFileName())
+                                .eq(OpenlistStrmPlus::getStrmPath, openlistCopyPlus.getCopyDstPath())
+                        );
+                    });
+                    //删除表数据
+                    openlistCopyPlusService.removeBatchByIds(idList);
+                }
+            });
+            return success("异步处理中");
+        }
         openlistCopyPlusList.forEach(openlistCopyPlus -> {
             openlistApi.fsRemove(openlistCopyPlus.getCopyDstPath(), Collections.singletonList(openlistCopyPlus.getCopyDstFileName()));
             openlistStrmPlusService.remove(new LambdaQueryWrapper<OpenlistStrmPlus>()
@@ -177,6 +195,18 @@ public class OpenlistCopyController extends BaseController {
             openlistCopyPlus.setCopyTaskId("");
         });
         openlistCopyPlusService.updateBatchById(openlistCopyPlusList);
+        if (openlistCopyPlusList.size() > 20) {
+            AsyncManager.me().execute(new TimerTask() {
+                @Override
+                public void run() {
+                    //重新同步文件
+                    openlistCopyPlusList.forEach(openlistCopyPlus -> {
+                        copyService.syncOneFile(openlistCopyPlus.getCopySrcPath(), openlistCopyPlus.getCopyDstPath(), openlistCopyPlus.getCopySrcFileName());
+                    });
+                }
+            });
+            return success("异步处理中");
+        }
         //重新同步文件
         openlistCopyPlusList.forEach(openlistCopyPlus -> {
             copyService.syncOneFile(openlistCopyPlus.getCopySrcPath(), openlistCopyPlus.getCopyDstPath(), openlistCopyPlus.getCopySrcFileName());
