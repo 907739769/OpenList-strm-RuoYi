@@ -1,5 +1,6 @@
 package com.ruoyi.openliststrm.rename;
 
+import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.openliststrm.openai.OpenAIClient;
 import com.ruoyi.openliststrm.rename.model.MediaInfo;
 import com.ruoyi.openliststrm.tmdb.TMDbClient;
@@ -18,7 +19,7 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * 监控目录，识别并将文件复制到目标目录，按电影/电视剧和分类规则组织子目录。
- *
+ * <p>
  * 说明：
  * - 递归注册子目录以支持监控子文件夹。
  * - 使用简单的去重机制：在短时间窗口内（默认5s）不会重复处理同一文件，也避免并发多次处理。
@@ -267,15 +268,29 @@ public class FileMonitorService {
         // skip directories
         try {
             if (Files.exists(p) && Files.isDirectory(p)) return false;
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
         Instant last = recentProcessed.get(p);
         if (last != null && Instant.now().minusMillis(dedupeWindowMillis).isBefore(last)) return false;
         if (processing.contains(p)) return false;
         return true;
     }
 
-    // changed to return boolean: true == finished processing (copied/skipped), false == retry scheduled (not finished)
+    public boolean handleOneFile(Path file,String title,String year,String season,String episode) {
+        try {
+            return handleFileIfReady(file, title, year, season, episode);
+        } catch (IOException e) {
+            log.error("", e);
+        }
+        return false;
+    }
+
     private boolean handleFileIfReady(Path file) throws IOException {
+        return handleFileIfReady(file, null, null, null, null);
+    }
+
+    // changed to return boolean: true == finished processing (copied/skipped), false == retry scheduled (not finished)
+    private boolean handleFileIfReady(Path file,String title,String year,String season,String episode) throws IOException {
         Path p = file.toAbsolutePath().normalize();
         if (!Files.exists(p) || Files.isDirectory(p)) return true; // nothing to do => treat as finished
 
@@ -344,7 +359,13 @@ public class FileMonitorService {
         }
 
         MediaParser parser = new MediaParser(tmdbClient, openAIClient);
-        MediaInfo info = parser.parse(filename);
+        MediaInfo info = parser.parse(filename,title,year);
+        if (StringUtils.isNotEmpty(season)) {
+            info.setSeason(season);
+        }
+        if (StringUtils.isNotEmpty(episode)) {
+            info.setEpisode(episode);
+        }
 
         // If no tmdbId was found, consider this a failure: do not copy and notify listener
         String mediaType = (info.getSeason() != null || info.getEpisode() != null) ? "tv" : "movie";
@@ -352,7 +373,7 @@ public class FileMonitorService {
             log.info("未找到 tmdbId，跳过文件处理：{} ; parsed info title={}", p, info.getTitle());
             if (renameListener != null) {
                 try {
-                    renameListener.onRenameFailed(p, info, mediaType, "tmdbId not found");
+                    renameListener.onRenameFailed(p, targetRoot, info, mediaType, "tmdbId not found");
                 } catch (Exception e) {
                     log.warn("renameListener.onRenameFailed failed: {}", e.getMessage());
                 }
@@ -371,7 +392,7 @@ public class FileMonitorService {
         Files.createDirectories(destDir);
 
         // produce new filename via MediaParser.rename
-        String rendered = parser.rename(filename, filenameTemplate);
+        String rendered = parser.render(info, filenameTemplate);
         String newFilename = rendered == null || rendered.trim().isEmpty() ? filename : rendered.trim();
         // Normalize separators to forward slash for template-produced paths.
         newFilename = newFilename.replace('\\', '/');
@@ -449,14 +470,14 @@ public class FileMonitorService {
 
         // tv rules
         List<CategoryRule> tv = new ArrayList<>();
-        tv.add(new CategoryRule("国漫").withGenreIds("16").withOriginCountry("CN","TW","HK"));
+        tv.add(new CategoryRule("国漫").withGenreIds("16").withOriginCountry("CN", "TW", "HK"));
         tv.add(new CategoryRule("日番").withGenreIds("16").withOriginCountry("JP"));
         tv.add(new CategoryRule("纪录片").withGenreIds("99"));
         tv.add(new CategoryRule("儿童").withGenreIds("10762"));
-        tv.add(new CategoryRule("综艺").withGenreIds("10764","10767"));
-        tv.add(new CategoryRule("国产剧").withOriginCountry("CN","TW","HK"));
-        tv.add(new CategoryRule("欧美剧").withOriginCountry("US","FR","GB","DE","ES","IT","NL","PT","RU","UK"));
-        tv.add(new CategoryRule("日韩剧").withOriginCountry("JP","KP","KR","TH","IN","SG"));
+        tv.add(new CategoryRule("综艺").withGenreIds("10764", "10767"));
+        tv.add(new CategoryRule("国产剧").withOriginCountry("CN", "TW", "HK"));
+        tv.add(new CategoryRule("欧美剧").withOriginCountry("US", "FR", "GB", "DE", "ES", "IT", "NL", "PT", "RU", "UK"));
+        tv.add(new CategoryRule("日韩剧").withOriginCountry("JP", "KP", "KR", "TH", "IN", "SG"));
         tv.add(new CategoryRule("未分类"));
         m.put("tv", tv);
 

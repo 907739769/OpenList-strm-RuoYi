@@ -47,6 +47,10 @@ public class MediaParser {
     }
 
     public MediaInfo parse(String filename) {
+        return parse(filename, null, null);
+    }
+
+    public MediaInfo parse(String filename,String title,String year) {
         log.info("开始重命名文件名: {}", filename);
         String extension = "";
         String baseName = filename;
@@ -62,6 +66,12 @@ public class MediaParser {
             remaining = ex.extract(remaining, info);
         }
         titleProcessor.processTitle(remaining, info);
+        if (StringUtils.isNotEmpty(title)) {
+            info.setTitle(title);
+        }
+        if (StringUtils.isNotEmpty(year)) {
+            info.setYear(year);
+        }
         if (tmdbClient != null) {
             tmdbClient.enrich(info);
         }

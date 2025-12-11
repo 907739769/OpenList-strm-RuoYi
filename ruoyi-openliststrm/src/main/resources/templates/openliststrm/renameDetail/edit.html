@@ -50,57 +50,57 @@
                     </div>
                 </div>
             </div>
-            <div class="col-xs-12">
-                <div class="form-group">
-                    <label class="col-sm-3 control-label">tmdbId：</label>
-                    <div class="col-sm-8">
-                        <input name="tmdbId" th:field="*{tmdbId}" class="form-control" type="text">
-                    </div>
-                </div>
-            </div>
-            <div class="col-xs-12">
-                <div class="form-group">
-                    <label class="col-sm-3 control-label">分辨率：</label>
-                    <div class="col-sm-8">
-                        <div class="radio-box" th:each="dict : ${@dict.getType('rename_resolution')}">
-                            <input type="radio" th:id="${'resolution_' + dict.dictCode}" name="resolution" th:value="${dict.dictValue}" th:field="*{resolution}">
-                            <label th:for="${'resolution_' + dict.dictCode}" th:text="${dict.dictLabel}"></label>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-xs-12">
-                <div class="form-group">
-                    <label class="col-sm-3 control-label">视频编码：</label>
-                    <div class="col-sm-8">
-                        <input name="videoCodec" th:field="*{videoCodec}" class="form-control" type="text">
-                    </div>
-                </div>
-            </div>
-            <div class="col-xs-12">
-                <div class="form-group">
-                    <label class="col-sm-3 control-label">音频编码：</label>
-                    <div class="col-sm-8">
-                        <input name="audioCodec" th:field="*{audioCodec}" class="form-control" type="text">
-                    </div>
-                </div>
-            </div>
-            <div class="col-xs-12">
-                <div class="form-group">
-                    <label class="col-sm-3 control-label">来源：</label>
-                    <div class="col-sm-8">
-                        <input name="source" th:field="*{source}" class="form-control" type="text">
-                    </div>
-                </div>
-            </div>
-            <div class="col-xs-12">
-                <div class="form-group">
-                    <label class="col-sm-3 control-label">发布组：</label>
-                    <div class="col-sm-8">
-                        <input name="releaseGroup" th:field="*{releaseGroup}" class="form-control" type="text">
-                    </div>
-                </div>
-            </div>
+<!--            <div class="col-xs-12">-->
+<!--                <div class="form-group">-->
+<!--                    <label class="col-sm-3 control-label">tmdbId：</label>-->
+<!--                    <div class="col-sm-8">-->
+<!--                        <input name="tmdbId" th:field="*{tmdbId}" class="form-control" type="text">-->
+<!--                    </div>-->
+<!--                </div>-->
+<!--            </div>-->
+<!--            <div class="col-xs-12">-->
+<!--                <div class="form-group">-->
+<!--                    <label class="col-sm-3 control-label">分辨率：</label>-->
+<!--                    <div class="col-sm-8">-->
+<!--                        <div class="radio-box" th:each="dict : ${@dict.getType('rename_resolution')}">-->
+<!--                            <input type="radio" th:id="${'resolution_' + dict.dictCode}" name="resolution" th:value="${dict.dictValue}" th:field="*{resolution}">-->
+<!--                            <label th:for="${'resolution_' + dict.dictCode}" th:text="${dict.dictLabel}"></label>-->
+<!--                        </div>-->
+<!--                    </div>-->
+<!--                </div>-->
+<!--            </div>-->
+<!--            <div class="col-xs-12">-->
+<!--                <div class="form-group">-->
+<!--                    <label class="col-sm-3 control-label">视频编码：</label>-->
+<!--                    <div class="col-sm-8">-->
+<!--                        <input name="videoCodec" th:field="*{videoCodec}" class="form-control" type="text">-->
+<!--                    </div>-->
+<!--                </div>-->
+<!--            </div>-->
+<!--            <div class="col-xs-12">-->
+<!--                <div class="form-group">-->
+<!--                    <label class="col-sm-3 control-label">音频编码：</label>-->
+<!--                    <div class="col-sm-8">-->
+<!--                        <input name="audioCodec" th:field="*{audioCodec}" class="form-control" type="text">-->
+<!--                    </div>-->
+<!--                </div>-->
+<!--            </div>-->
+<!--            <div class="col-xs-12">-->
+<!--                <div class="form-group">-->
+<!--                    <label class="col-sm-3 control-label">来源：</label>-->
+<!--                    <div class="col-sm-8">-->
+<!--                        <input name="source" th:field="*{source}" class="form-control" type="text">-->
+<!--                    </div>-->
+<!--                </div>-->
+<!--            </div>-->
+<!--            <div class="col-xs-12">-->
+<!--                <div class="form-group">-->
+<!--                    <label class="col-sm-3 control-label">发布组：</label>-->
+<!--                    <div class="col-sm-8">-->
+<!--                        <input name="releaseGroup" th:field="*{releaseGroup}" class="form-control" type="text">-->
+<!--                    </div>-->
+<!--                </div>-->
+<!--            </div>-->
             <div class="col-xs-12">
                 <div class="form-group">
                     <label class="col-sm-3 control-label">状态：</label>
@@ -126,6 +126,30 @@
                 $.operate.save(prefix + "/edit", $('#form-renameDetail-edit').serialize());
             }
         }
+
+        // 媒体类型变化时控制季和集的可输入状态
+        function handleMediaTypeChange() {
+            var mediaType = $('input[name="mediaType"]:checked').val();
+            if (mediaType === 'movie') {
+                // 电影：禁用季和集输入框
+                $('input[name="season"]').prop('disabled', true).val('');
+                $('input[name="episode"]').prop('disabled', true).val('');
+            } else {
+                // 电视剧：启用季和集输入框
+                $('input[name="season"]').prop('disabled', false);
+                $('input[name="episode"]').prop('disabled', false);
+            }
+        }
+
+        $(function() {
+            // 页面加载时初始化
+            handleMediaTypeChange();
+            
+            // 监听媒体类型变化
+            $('input[name="mediaType"]').on('change', function() {
+                handleMediaTypeChange();
+            });
+        });
     </script>
 </body>
 </html>

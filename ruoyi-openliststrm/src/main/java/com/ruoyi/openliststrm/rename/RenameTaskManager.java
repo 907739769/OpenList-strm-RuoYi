@@ -19,6 +19,7 @@ import javax.annotation.PreDestroy;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
@@ -321,7 +322,7 @@ public class RenameTaskManager {
     /**
      * 批量立即执行任务（以逗号分隔的 id 字符串或整数列表）。
      */
-    public Map<Integer, String> executeTasksBatch(java.util.List<Integer> ids) {
+    public Map<Integer, String> executeTasksBatch(List<Integer> ids) {
         Map<Integer, String> res = new HashMap<>();
         if (ids == null || ids.isEmpty()) return res;
         for (Integer id : ids) {
@@ -329,6 +330,52 @@ public class RenameTaskManager {
             res.put(id, ok ? "ok" : "failed");
         }
         return res;
+    }
+
+    public boolean executeRenameDetails(Integer id) {
+        RenameDetailPlus rd = renameDetailService.getById(id);
+        if (rd == null) {
+            log.warn("executeRenameDetails: rename detail {} not found", id);
+            return false;
+        }
+        if (currentTmdbKey == null || tmdbClient == null) {
+            log.warn("executeRenameDetails: TMDb client not initialized - cannot execute rename detail {}", id);
+            return false;
+        }
+        String src = rd.getOriginalPath();
+        String tgt = rd.getNewPath();
+        Path path = Paths.get(tgt);
+        Path target = path;
+        for (int i = path.getNameCount() - 1; i >= 0; i--) {
+            String name = path.getName(i).toString();
+            if (name.equals("电影") || name.equals("电视剧")) {
+                target = path.getRoot().resolve(path.subpath(0, i));
+                break;
+            }
+        }
+        tgt = target.toString();
+        if (src == null || tgt == null) {
+            log.warn("executeRenameDetails: RenameDetails {} missing source/target", id);
+            return false;
+        }
+        long minSize = 10 * 1024 * 1024L; // default 10MB in bytes
+        try {
+            String cfg = openlistConfig != null ? openlistConfig.getOpenListMinFileSize() : null;
+            if (cfg != null && !cfg.isEmpty()) minSize = Long.parseLong(cfg) * 1024L * 1024L; // cfg treated as MB
+        } catch (Exception ignored) {
+        }
+
+        FileMonitorService svc = new FileMonitorService(Paths.get(src), Paths.get(tgt), tmdbClient, openAIClient, minSize, null, createPersistingListener(id), openListHelper);
+
+        return svc.handleOneFile(Paths.get(rd.getOriginalPath()).resolve(rd.getOriginalName()),rd.getTitle(),rd.getYear(),rd.getSeason(),rd.getEpisode());
+
+    }
+
+    public void executeRenameDetailsBatch(List<Integer> ids) {
+        if (ids == null || ids.isEmpty()) return;
+        for (Integer id : ids) {
+            executeRenameDetails(id);
+        }
     }
 
     /**
@@ -406,7 +453,7 @@ public class RenameTaskManager {
             }
 
             @Override
-            public void onRenameFailed(Path original, MediaInfo info, String mediaType, String reason) {
+            public void onRenameFailed(Path original, Path targetRoot, MediaInfo info, String mediaType, String reason) {
                 try {
                     // compute original folder and name
                     String originalDir = null;
@@ -434,7 +481,7 @@ public class RenameTaskManager {
                         record.setOriginalName(originalName);
                     }
 
-                    record.setNewPath(null);
+                    record.setNewPath(targetRoot.toString());
                     record.setNewName(null);
                     record.setMediaType(mediaType);
                     record.setTitle(info != null ? info.getTitle() : null);

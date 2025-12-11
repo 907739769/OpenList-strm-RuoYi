@@ -1,6 +1,13 @@
 package com.ruoyi.openliststrm.controller;
 
+import java.util.Arrays;
 import java.util.List;
+import java.util.TimerTask;
+import java.util.stream.Collectors;
+
+import com.ruoyi.common.core.text.Convert;
+import com.ruoyi.framework.manager.AsyncManager;
+import com.ruoyi.openliststrm.rename.RenameTaskManager;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
@@ -33,6 +40,9 @@ public class RenameDetailController extends BaseController
 
     @Autowired
     private IRenameDetailService renameDetailService;
+
+    @Autowired
+    private RenameTaskManager renameTaskManager;
 
     @RequiresPermissions("openliststrm:renameDetail:view")
     @GetMapping()
@@ -124,5 +134,46 @@ public class RenameDetailController extends BaseController
     public AjaxResult remove(String ids)
     {
         return toAjax(renameDetailService.deleteRenameDetailByIds(ids));
+    }
+
+    /**
+     * 页面手动触发单个
+     */
+    @PostMapping("/execute/{id}")
+    @ResponseBody
+    @RequiresPermissions("openliststrm:renameDetail:edit")
+    @Log(title = "重命名明细", businessType = BusinessType.UPDATE)
+    public AjaxResult executeNow(@PathVariable("id") Integer id) {
+        if (id == null) return AjaxResult.error("id 为空");
+        AsyncManager.me().execute(new TimerTask() {
+            @Override
+            public void run() {
+                renameTaskManager.executeRenameDetails(id);
+            }
+        });
+        return AjaxResult.success();
+    }
+
+    /**
+     * 页面手动触发批量执行
+     */
+    @PostMapping("/executeBatch")
+    @ResponseBody
+    @RequiresPermissions("openliststrm:renameDetail:edit")
+    @Log(title = "重命名明细", businessType = BusinessType.UPDATE)
+    public AjaxResult executeBatch(String ids) {
+        if (ids == null || ids.trim().isEmpty()) return AjaxResult.error("没有选择任务");
+        AsyncManager.me().execute(new TimerTask() {
+            @Override
+            public void run() {
+                List<String> idList = Arrays.stream(Convert.toStrArray(ids)).collect(Collectors.toList());
+                // convert to Integer list
+                List<Integer> intIds = idList.stream().map(s -> {
+                    try { return Integer.valueOf(s); } catch (Exception e) { return null; }
+                }).filter(i -> i != null).collect(Collectors.toList());
+                renameTaskManager.executeRenameDetailsBatch(intIds);
+            }
+        });
+        return AjaxResult.success();
     }
 }

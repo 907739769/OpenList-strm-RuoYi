@@ -49,6 +49,9 @@
 <!--                <a class="btn btn-primary single disabled" onclick="$.operate.edit()" shiro:hasPermission="openliststrm:renameDetail:edit">-->
 <!--                    <i class="fa fa-edit"></i> 修改-->
 <!--                </a>-->
+                <a class="btn btn-primary multiple disabled" id="btnExecute" onclick="executeSelected()">
+                    <i class="fa fa-refresh"></i> 重试
+                </a>
                 <a class="btn btn-danger multiple disabled" onclick="$.operate.removeAll()" shiro:hasPermission="openliststrm:renameDetail:remove">
                     <i class="fa fa-remove"></i> 删除
                 </a>
@@ -181,6 +184,7 @@
                     formatter: function(value, row, index) {
                         var actions = [];
                         actions.push('<a class="btn btn-success btn-xs ' + editFlag + '" href="javascript:void(0)" onclick="$.operate.edit(\'' + row.id + '\')"><i class="fa fa-edit"></i>编辑</a> ');
+                        actions.push('<a class="btn btn-primary btn-xs" href="javascript:void(0)" onclick="executeOne(\'' + row.id + '\')"><i class="fa fa-refresh"></i>重试</a> ');
                         actions.push('<a class="btn btn-danger btn-xs ' + removeFlag + '" href="javascript:void(0)" onclick="$.operate.remove(\'' + row.id + '\')"><i class="fa fa-remove"></i>删除</a>');
                         return actions.join('');
                     }
@@ -188,6 +192,44 @@
             };
             $.table.init(options);
         });
+
+        // 手动触发选中任务的批量执行
+        function executeSelected() {
+            var ids = $.table.selectIds();
+            if (!ids || ids.length === 0) {
+                $.modal.msgError('请选择要执行的任务');
+                return;
+            }
+            $.modal.confirm('确认立即执行选中任务吗？', function() {
+                $.ajax({
+                    url: prefix + '/executeBatch',
+                    method: 'POST',
+                    data: { ids: ids },
+                    traditional: true,
+                    success: function(res) {
+                        if (res && res.code === 0) {
+                            $.modal.msgSuccess('触发执行成功');
+                        } else {
+                            $.modal.msgError(res && res.msg ? res.msg : '触发执行失败');
+                        }
+                    },
+                    error: function() { $.modal.msgError('请求服务器失败'); }
+                });
+            });
+        }
+
+        // 单个任务执行
+        function executeOne(id) {
+            $.modal.confirm('确认立即执行该任务吗？', function() {
+                $.post(prefix + '/execute/' + id, function(res) {
+                    if (res && res.code === 0) {
+                        $.modal.msgSuccess('触发执行成功');
+                    } else {
+                        $.modal.msgError(res && res.msg ? res.msg : '触发执行失败');
+                    }
+                }).fail(function() { $.modal.msgError('请求服务器失败'); });
+            });
+        }
     </script>
 </body>
 </html>
