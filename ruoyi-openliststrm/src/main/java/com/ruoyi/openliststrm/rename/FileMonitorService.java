@@ -425,11 +425,6 @@ public class FileMonitorService {
         return true;
     }
 
-    private String stripExtension(String name) {
-        int idx = name.lastIndexOf('.');
-        return idx == -1 ? name : name.substring(0, idx);
-    }
-
     private String sanitizeForPath(String s) {
         // remove characters invalid in Windows paths
         return s.replaceAll("[\\\\/:*?\"<>|]", "_").trim();
