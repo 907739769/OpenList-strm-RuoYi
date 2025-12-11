@@ -7,6 +7,7 @@ import com.ruoyi.openliststrm.mybatisplus.domain.RenameTaskPlus;
 import com.ruoyi.openliststrm.mybatisplus.service.IRenameDetailPlusService;
 import com.ruoyi.openliststrm.mybatisplus.service.IRenameTaskPlusService;
 import com.ruoyi.openliststrm.openai.OpenAIClient;
+import com.ruoyi.openliststrm.rename.model.MediaInfo;
 import com.ruoyi.openliststrm.tmdb.TMDbClient;
 import com.ruoyi.openliststrm.helper.OpenListHelper;
 import lombok.extern.slf4j.Slf4j;
@@ -15,6 +16,8 @@ import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -24,7 +27,7 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Manager that polls rename_task table and keeps FileMonitorService instances running for active tasks.
- *
+ * <p>
  * Behavior changes:
  * - TMDb/OpenAI keys are read from `OpenlistConfig` every poll. If TMDb key is missing, tasks will not start.
  * - If TMDb key is removed at runtime, all monitors are stopped until a valid key appears.
@@ -50,10 +53,14 @@ public class RenameTaskManager {
         final FileMonitorService svc;
         final String source;
         final String target;
+
         MonitorInfo(FileMonitorService svc, String source, String target) {
-            this.svc = svc; this.source = source; this.target = target;
+            this.svc = svc;
+            this.source = source;
+            this.target = target;
         }
     }
+
     private final Map<Integer, MonitorInfo> monitors = new ConcurrentHashMap<>();
 
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
@@ -81,7 +88,10 @@ public class RenameTaskManager {
     public void shutdown() {
         scheduler.shutdownNow();
         monitors.values().forEach(mi -> {
-            try { mi.svc.stop(); } catch (Exception ignored) {}
+            try {
+                mi.svc.stop();
+            } catch (Exception ignored) {
+            }
         });
         monitors.clear();
         // destroy clients
@@ -105,9 +115,15 @@ public class RenameTaskManager {
             } catch (Exception e) {
                 log.warn("Failed to read keys from OpenlistConfig: {}", e.getMessage());
             }
-            if (tmdbKey == null || tmdbKey.isEmpty()) tmdbKey = System.getenv().getOrDefault("TMDB_API_KEY", "");
-            if (openaiKey == null || openaiKey.isEmpty()) openaiKey = System.getenv().getOrDefault("OPENAI_API_KEY", "");
-            if (openaiEndpoint == null || openaiEndpoint.isEmpty()) openaiEndpoint = System.getenv().getOrDefault("OPENAI_ENDPOINT", "");
+            if (tmdbKey == null || tmdbKey.isEmpty()) {
+                tmdbKey = System.getenv().getOrDefault("TMDB_API_KEY", "");
+            }
+            if (openaiKey == null || openaiKey.isEmpty()) {
+                openaiKey = System.getenv().getOrDefault("OPENAI_API_KEY", "");
+            }
+            if (openaiEndpoint == null || openaiEndpoint.isEmpty()) {
+                openaiEndpoint = System.getenv().getOrDefault("OPENAI_ENDPOINT", "");
+            }
 
             // update TMDb client if key changed
             if (tmdbKey == null || tmdbKey.isEmpty()) {
@@ -155,8 +171,10 @@ public class RenameTaskManager {
                 String openaiModel = null;
                 try {
                     openaiModel = openlistConfig != null ? openlistConfig.getOpenAiModel() : null;
-                } catch (Exception ignored) {}
-                if (openaiModel == null || openaiModel.isEmpty()) openaiModel = System.getenv().getOrDefault("OPENAI_MODEL", "");
+                } catch (Exception ignored) {
+                }
+                if (openaiModel == null || openaiModel.isEmpty())
+                    openaiModel = System.getenv().getOrDefault("OPENAI_MODEL", "");
                 boolean modelChanged = (openaiModel == null && currentOpenAiModel != null) || (openaiModel != null && !openaiModel.equals(currentOpenAiModel));
                 if (keyChanged || endpointChanged || modelChanged || openAIClient == null) {
                     try {
@@ -234,10 +252,11 @@ public class RenameTaskManager {
             try {
                 String cfg = openlistConfig != null ? openlistConfig.getOpenListMinFileSize() : null;
                 if (cfg != null && !cfg.isEmpty()) minSize = Long.parseLong(cfg) * 1024L * 1024L; // cfg treated as MB
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            }
 
             // Create FileMonitorService with listener that persists rename details
-            FileMonitorService svc = new FileMonitorService(java.nio.file.Paths.get(src), java.nio.file.Paths.get(tgt), tmdbClient, openAIClient, minSize, null, createPersistingListener(task.getId()), openListHelper);
+            FileMonitorService svc = new FileMonitorService(Paths.get(src), Paths.get(tgt), tmdbClient, openAIClient, minSize, null, createPersistingListener(task.getId()), openListHelper);
 
             svc.start();
             monitors.put(task.getId(), new MonitorInfo(svc, src, tgt));
@@ -285,9 +304,10 @@ public class RenameTaskManager {
             try {
                 String cfg = openlistConfig != null ? openlistConfig.getOpenListMinFileSize() : null;
                 if (cfg != null && !cfg.isEmpty()) minSize = Long.parseLong(cfg) * 1024L * 1024L; // cfg treated as MB
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            }
 
-            FileMonitorService svc = new FileMonitorService(java.nio.file.Paths.get(src), java.nio.file.Paths.get(tgt), tmdbClient, openAIClient, minSize, null, createPersistingListener(taskId), openListHelper);
+            FileMonitorService svc = new FileMonitorService(Paths.get(src), Paths.get(tgt), tmdbClient, openAIClient, minSize, null, createPersistingListener(taskId), openListHelper);
 
             // perform a one-shot scan
             svc.processOnce();
@@ -319,13 +339,13 @@ public class RenameTaskManager {
     private RenameEventListener createPersistingListener(final Integer taskId) {
         return new RenameEventListener() {
             @Override
-            public void onRename(java.nio.file.Path original, java.nio.file.Path dest, com.ruoyi.openliststrm.rename.model.MediaInfo info, String mediaType) {
+            public void onRename(Path original, Path dest, MediaInfo info, String mediaType) {
                 try {
                     // compute original folder and name
                     String originalDir = null;
                     String originalName = null;
                     if (original != null) {
-                        java.nio.file.Path parent = original.toAbsolutePath().getParent();
+                        Path parent = original.toAbsolutePath().getParent();
                         originalDir = parent != null ? parent.toString() : original.toAbsolutePath().toString();
                         originalName = original.getFileName() != null ? original.getFileName().toString() : null;
                     }
@@ -334,7 +354,7 @@ public class RenameTaskManager {
                     String destDir = null;
                     String destName = null;
                     if (dest != null) {
-                        java.nio.file.Path parent = dest.toAbsolutePath().getParent();
+                        Path parent = dest.toAbsolutePath().getParent();
                         destDir = parent != null ? parent.toString() : dest.toAbsolutePath().toString();
                         destName = dest.getFileName() != null ? dest.getFileName().toString() : null;
                     }
@@ -386,13 +406,13 @@ public class RenameTaskManager {
             }
 
             @Override
-            public void onRenameFailed(java.nio.file.Path original, com.ruoyi.openliststrm.rename.model.MediaInfo info, String mediaType, String reason) {
+            public void onRenameFailed(Path original, MediaInfo info, String mediaType, String reason) {
                 try {
                     // compute original folder and name
                     String originalDir = null;
                     String originalName = null;
                     if (original != null) {
-                        java.nio.file.Path parent = original.toAbsolutePath().getParent();
+                        Path parent = original.toAbsolutePath().getParent();
                         originalDir = parent != null ? parent.toString() : original.toAbsolutePath().toString();
                         originalName = original.getFileName() != null ? original.getFileName().toString() : null;
                     }
