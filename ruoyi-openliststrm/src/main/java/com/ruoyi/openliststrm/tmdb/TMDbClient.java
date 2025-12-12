@@ -85,7 +85,7 @@ public class TMDbClient {
     private String doSearchOnce(String type, MediaInfo info, com.fasterxml.jackson.databind.JsonNode root, TMDbApiService api) throws IOException {
         if (root == null) return null;
         JsonNode results = root.path("results");
-        log.debug("doSearchOnce: {} results: {}", info.getTitle(), results);
+        log.debug("doSearchOnce: {} results: {}", info.getOriginalName(), results);
         if (!results.isArray() || results.isEmpty()) return null;
 
         JsonNode first = results.get(0);
