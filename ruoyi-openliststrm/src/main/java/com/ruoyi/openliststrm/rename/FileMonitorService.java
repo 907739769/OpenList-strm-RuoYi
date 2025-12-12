@@ -12,10 +12,7 @@ import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.time.Instant;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 /**
  * 监控目录，识别并将文件复制到目标目录，按电影/电视剧和分类规则组织子目录。
@@ -44,6 +41,9 @@ public class FileMonitorService {
 
     // optional callback to persist or react to rename events
     private final RenameEventListener renameListener;
+
+    // 全局锁表，每个目标文件一个锁
+    private static final ConcurrentMap<Path, Object> FILE_LOCKS = new ConcurrentHashMap<>();
 
     // dedupe / in-flight tracking
     private final Set<Path> processing = ConcurrentHashMap.newKeySet();
@@ -319,6 +319,13 @@ public class FileMonitorService {
             }
         }
 
+        // 等待文件写入完成，避免处理未完成的文件
+        try {
+            TimeUnit.SECONDS.sleep(3);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.warn("文件处理等待被中断: {}", p);
+        }
         // only process files that haven't been modified for a short window
         BasicFileAttributes attr = Files.readAttributes(p, BasicFileAttributes.class);
         Instant modified = attr.lastModifiedTime().toInstant();
@@ -438,8 +445,16 @@ public class FileMonitorService {
 
         Path destFile = finalDestDir.resolve(fileNameOnly);
         // copy and overwrite if exists
-        Files.copy(p, destFile, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
-        log.info("已复制并重命名 {} -> {}", p, destFile);
+        // 获取当前文件的锁对象
+        Object lock = FILE_LOCKS.computeIfAbsent(destFile, k -> new Object());
+        synchronized (lock) {
+            try {
+                Files.copy(p, destFile, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
+                log.info("已复制并重命名 {} -> {}", p, destFile);
+            } finally {
+                FILE_LOCKS.remove(destFile);
+            }
+        }
 
         // notify listener if present
         if (renameListener != null) {
