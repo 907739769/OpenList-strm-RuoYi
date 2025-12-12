@@ -55,7 +55,7 @@ public class FileMonitorService {
 
     // Use separate executors: one for watcher loop, one (pool) for processing/retries so they can't block each other
     private final ScheduledExecutorService watcherExecutor = Executors.newSingleThreadScheduledExecutor();
-    private final ScheduledExecutorService workerExecutor = Executors.newScheduledThreadPool(2);
+    private final ScheduledExecutorService workerExecutor = Executors.newScheduledThreadPool(10);
 
     // centralized default template used when none provided
     private static final String DEFAULT_FILENAME_TEMPLATE = "{{ title }} {% if year %} ({{ year }}) {% endif %}/{% if season %}Season {{ season }}/{% endif %}{{ title }} {% if year and not season %} ({{ year }}) {% endif %}{% if season %}S{{ season }}{% endif %}{% if episode %}E{{ episode }}{% endif %}{% if resolution %} - {{ resolution }}{% endif %}{% if source %}.{{ source }}{% endif %}{% if videoCodec %}.{{ videoCodec }}{% endif %}{% if audioCodec %}.{{ audioCodec }}{% endif %}{% if tags is not empty %}.{{ tags|join('.') }}{% endif %}{% if releaseGroup %}-{{ releaseGroup }}{% endif %}.{{ extension }}";
@@ -339,6 +339,13 @@ public class FileMonitorService {
                         completed = handleFileIfReady(p);
                     } catch (Exception e) {
                         log.error("重试处理失败 for {}", p, e);
+                        if (renameListener != null) {
+                            try {
+                                renameListener.onRenameFailed(p, targetRoot, new MediaInfo(filename), null, e.getMessage());
+                            } catch (Exception oe) {
+                                log.warn("renameListener.onRenameFailed failed: {}", oe.getMessage());
+                            }
+                        }
                     }
 
                     if (completed) {
