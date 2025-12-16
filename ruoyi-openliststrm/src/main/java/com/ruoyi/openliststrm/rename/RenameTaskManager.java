@@ -414,6 +414,11 @@ public class RenameTaskManager {
                         java.util.List<RenameDetailPlus> found = renameDetailService.list(qw);
                         if (found != null && !found.isEmpty()) {
                             record = found.get(0);
+                            //删除旧文件
+                            Path oldPath = Paths.get(record.getNewPath()).resolve(record.getNewName());
+                            if (oldPath.toFile().exists()) {
+                                oldPath.toFile().delete();
+                            }
                         }
                     }
 
