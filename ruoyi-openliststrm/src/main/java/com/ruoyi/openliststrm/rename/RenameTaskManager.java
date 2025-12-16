@@ -1,6 +1,7 @@
 package com.ruoyi.openliststrm.rename;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.openliststrm.config.OpenlistConfig;
 import com.ruoyi.openliststrm.mybatisplus.domain.RenameDetailPlus;
 import com.ruoyi.openliststrm.mybatisplus.domain.RenameTaskPlus;
@@ -415,9 +416,17 @@ public class RenameTaskManager {
                         if (found != null && !found.isEmpty()) {
                             record = found.get(0);
                             //删除旧文件
-                            Path oldPath = Paths.get(record.getNewPath()).resolve(record.getNewName());
-                            if (oldPath.toFile().exists()) {
-                                oldPath.toFile().delete();
+                            try {
+                                for (RenameDetailPlus renameDetailPlus : found) {
+                                    if (StringUtils.isNotEmpty(renameDetailPlus.getNewPath()) && StringUtils.isNotEmpty(renameDetailPlus.getNewName())) {
+                                        Path oldPath = Paths.get(renameDetailPlus.getNewPath()).resolve(renameDetailPlus.getNewName());
+                                        if (oldPath.toFile().exists()) {
+                                            oldPath.toFile().delete();
+                                        }
+                                    }
+                                }
+                            } catch (Exception e) {
+                                log.warn("executeRenameDetails: failed to delete old file", e);
                             }
                         }
                     }
