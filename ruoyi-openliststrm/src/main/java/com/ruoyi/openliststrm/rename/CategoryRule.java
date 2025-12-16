@@ -47,37 +47,33 @@ public class CategoryRule {
     }
 
     public boolean matches(MediaInfo info) {
-        // If genreIds present on rule, check intersection
-        List<String> g = getGenreIdsFromInfo(info);
+        // 1. 检查 genreIds
         if (!genreIds.isEmpty()) {
-            if (g.isEmpty()) return false;
-            for (String id : g) {
-                if (genreIds.contains(id)) return true;
+            List<String> infoGenres = getGenreIdsFromInfo(info);
+            if (infoGenres.isEmpty() || Collections.disjoint(infoGenres, genreIds)) {
+                return false;
             }
-            return false;
         }
 
-        // original language
+        // 2. 检查 originalLanguages
         if (!originalLanguages.isEmpty()) {
             String lang = getOriginalLanguageFromInfo(info);
-            if (lang == null) return false;
-            for (String l : originalLanguages) {
-                if (lang.equalsIgnoreCase(l)) return true;
+            if (lang == null || !originalLanguages.contains(lang.toLowerCase())) {
+                return false;
             }
-            return false;
         }
 
-        // origin countries
+        // 3. 检查 originCountries
         if (!originCountries.isEmpty()) {
             List<String> countries = getOriginCountriesFromInfo(info);
             if (countries == null || countries.isEmpty()) return false;
-            for (String c : countries) {
-                if (originCountries.contains(c.toUpperCase())) return true;
-            }
-            return false;
+
+            boolean matchedCountry = countries.stream()
+                    .anyMatch(c -> originCountries.contains(c.toUpperCase()));
+            if (!matchedCountry) return false;
         }
 
-        // if no conditions, matches as fallback
+        // 4. 如果没有任何条件，或者全部条件都满足
         return true;
     }
 
