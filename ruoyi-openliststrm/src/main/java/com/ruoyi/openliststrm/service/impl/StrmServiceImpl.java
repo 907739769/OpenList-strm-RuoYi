@@ -18,6 +18,8 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.net.URLEncoder;
 import java.time.LocalDateTime;
+import java.util.LinkedList;
+import java.util.Queue;
 import java.util.TimerTask;
 
 /**
@@ -55,7 +57,7 @@ public class StrmServiceImpl implements IStrmService {
     public void strmDir(String path) {
         log.info("开始执行指定路径strm任务{}", LocalDateTime.now());
         try {
-            getData(path, outputDir + File.separator + path.replace("/", File.separator));
+            getData(path, outputDir);
         } catch (Exception e) {
             log.error("", e);
         } finally {
@@ -100,77 +102,91 @@ public class StrmServiceImpl implements IStrmService {
         }
     }
 
-    public void getData(String path, String localPath) {
-        if (path.endsWith("/")) {
-            path = path.substring(0, path.lastIndexOf("/"));
-        }
+    public void getData(String rootPath, String localRootPath) {
+        // 队列存目录信息
+        Queue<String> dirsQueue = new LinkedList<>();
+        dirsQueue.add(rootPath);
 
-        File outputDirFile = new File(localPath);
-        outputDirFile.mkdirs();
+        while (!dirsQueue.isEmpty()) {
+            String currentPath = dirsQueue.poll();
+            String currentLocalPath = localRootPath + File.separator + currentPath.replace("/", File.separator);
+            File currentDir = new File(currentLocalPath);
+            if (!currentDir.exists()) {
+                currentDir.mkdirs();
+            }
 
-        JSONObject jsonObject = openListApi.getOpenlist(path);
-        if (jsonObject != null && 200 == jsonObject.getInteger("code")) {
+            JSONObject jsonObject = openListApi.getOpenlist(currentPath);
+            if (jsonObject == null || jsonObject.getInteger("code") != 200) {
+                continue;
+            }
+
             JSONArray jsonArray = jsonObject.getJSONObject("data").getJSONArray("content");
             if (jsonArray == null) {
-                return;
+                continue;
             }
 
             for (Object obj : jsonArray) {
                 JSONObject object = (JSONObject) obj;
-                String name = object.getString("name");
-                if (object.getBoolean("is_dir")) {
-                    String newLocalPath = localPath + File.separator + (name.length() > 255 ? name.substring(0, 250) : name);
-                    File file = new File(newLocalPath);
-                    if (!file.exists()) {
-                        file.mkdirs();
-                    }
-                    getData(path + "/" + name, newLocalPath);
+                String rawName = object.getString("name");
+                boolean isDir = object.getBoolean("is_dir");
+                long size = object.getLongValue("size");
+
+                if (isDir) {
+                    dirsQueue.add(currentPath + "/" + rawName);
                 } else {
-                    //判断是否处理过
-                    if (strmHelper.exitStrm(path, name)) {
-                        log.info("文件已处理过，跳过处理" + path + "/" + name);
-                        continue;
-                    }
-                    //视频文件
-                    if (openListHelper.isVideo(name)) {
-                        if (object.getLong("size") < Long.parseLong(config.getOpenListMinFileSize()) * 1024 * 1024) {
-                            log.info("Skipping small file {} ({} bytes)", name, object.getLong("size"));
-                            continue;
-                        }
-                        String finalPath = path;
-                        //异步处理 提升效率
-                        AsyncManager.me().execute(new TimerTask() {
-                            @Override
-                            public void run() {
-                                String fileName = name.substring(0, name.lastIndexOf(".")).replaceAll("[\\\\/:*?\"<>|]", "");
-                                try (FileWriter writer = new FileWriter(localPath + File.separator + (fileName.length() > 255 ? fileName.substring(0, 250) : fileName) + ".strm")) {
-                                    String encodePath = finalPath + "/" + name;
+                    //异步处理 提升效率
+                    AsyncManager.me().execute(new TimerTask() {
+                        @Override
+                        public void run() {
+                            String safeName = rawName.replaceAll("[\\\\/:*?\"<>|]", "");
+                            String fileName = safeName.length() > 255 ? safeName.substring(0, 250) : safeName;
+
+                            // 判断是否处理过
+                            if (strmHelper.exitStrm(currentPath, rawName)) {
+                                if (log.isDebugEnabled()) {
+                                    log.debug("文件已处理过，跳过处理 {} / {}", currentPath, rawName);
+                                }
+                                return;
+                            }
+
+                            // 视频文件处理
+                            if (openListHelper.isVideo(rawName)) {
+                                if (size < Long.parseLong(config.getOpenListMinFileSize()) * 1024 * 1024) {
+                                    log.info("Skipping small file {} ({} bytes)", rawName, size);
+                                    return;
+                                }
+
+                                File outFile = new File(currentLocalPath + File.separator + fileName + ".strm");
+                                try (BufferedWriter writer = new BufferedWriter(new FileWriter(outFile))) {
+                                    String encodePath = currentPath + "/" + rawName;
                                     if ("1".equals(encode)) {
-                                        encodePath = URLEncoder.encode(finalPath + "/" + name, "UTF-8").replace("+", "%20").replace("%2F", "/");
+                                        encodePath = URLEncoder.encode(encodePath, "UTF-8").replace("+", "%20").replace("%2F", "/");
                                     }
                                     writer.write(config.getOpenListUrl() + "/d" + encodePath);
-                                    strmHelper.addStrm(finalPath, name, "1");
-                                } catch (Exception e) {
-                                    log.error("", e);
-                                    strmHelper.addStrm(finalPath, name, "0");
+                                    strmHelper.addStrm(currentPath, rawName, "1");
+                                } catch (IOException e) {
+                                    log.error("写入 .strm 文件失败 {}", outFile.getAbsolutePath(), e);
+                                    strmHelper.addStrm(currentPath, rawName, "0");
                                 }
                             }
-                        });
-                    }
 
-                    //字幕文件
-                    if ("1".equals(isDownSub) && openListHelper.isSrt(name)) {
-                        String url = openListApi.getFile(path + "/" + name).getJSONObject("data").getString("raw_url");
-                        String fileName = name.replaceAll("[\\\\/:*?\"<>|]", "");
-                        try {
-                            downloadFile(url, localPath + File.separator + (fileName.length() > 255 ? fileName.substring(0, 250) : fileName) + name.substring(name.lastIndexOf(".")));
-                            strmHelper.addStrm(path, name, "1");
-                        } catch (Exception e) {
-                            log.error("", e);
-                            strmHelper.addStrm(path, name, "0");
+                            // 字幕文件处理（异步限流）
+                            if ("1".equals(isDownSub) && openListHelper.isSrt(rawName)) {
+                                try {
+                                    JSONObject fileJson = openListApi.getFile(currentPath + "/" + rawName);
+                                    if (fileJson != null && fileJson.getJSONObject("data") != null) {
+                                        String url = fileJson.getJSONObject("data").getString("raw_url");
+                                        File outFile = new File(currentLocalPath + File.separator + fileName + rawName.substring(rawName.lastIndexOf(".")));
+                                        downloadFile(url, outFile.getAbsolutePath());
+                                        strmHelper.addStrm(currentPath, rawName, "1");
+                                    }
+                                } catch (Exception e) {
+                                    log.error("下载字幕失败 {} / {}", currentPath, rawName, e);
+                                    strmHelper.addStrm(currentPath, rawName, "0");
+                                }
+                            }
                         }
-
-                    }
+                    });
                 }
             }
 
