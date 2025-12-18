@@ -311,8 +311,11 @@ public class RenameTaskManager {
 
             FileMonitorService svc = new FileMonitorService(Paths.get(src), Paths.get(tgt), tmdbClient, openAIClient, minSize, null, createPersistingListener(taskId), openListHelper);
 
-            // perform a one-shot scan
-            svc.processOnce();
+            try {
+                svc.processOnce();
+            } finally {
+                svc.stop();
+            }
             return true;
         } catch (Exception e) {
             log.error("executeTaskNow error for {}: {}", taskId, e.getMessage(), e);
@@ -367,8 +370,13 @@ public class RenameTaskManager {
         }
 
         FileMonitorService svc = new FileMonitorService(Paths.get(src), Paths.get(tgt), tmdbClient, openAIClient, minSize, null, createPersistingListener(id), openListHelper);
-
-        return svc.handleOneFile(Paths.get(rd.getOriginalPath()).resolve(rd.getOriginalName()),rd.getTitle(),rd.getYear(),rd.getSeason(),rd.getEpisode());
+        boolean result;
+        try {
+            result = svc.handleOneFile(Paths.get(rd.getOriginalPath()).resolve(rd.getOriginalName()), rd.getTitle(), rd.getYear(), rd.getSeason(), rd.getEpisode());
+        } finally {
+            svc.stop();
+        }
+        return result;
 
     }
 

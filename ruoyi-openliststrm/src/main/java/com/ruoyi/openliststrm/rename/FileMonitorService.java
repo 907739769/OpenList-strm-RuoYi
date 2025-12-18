@@ -43,12 +43,13 @@ public class FileMonitorService {
     private final RenameEventListener renameListener;
 
     // 全局锁表，每个目标文件一个锁
-    private static final ConcurrentMap<Path, Object> FILE_LOCKS = new ConcurrentHashMap<>();
+    private static final ConcurrentMap<String, Object> FILE_LOCKS = new ConcurrentHashMap<>();
 
     // dedupe / in-flight tracking
     private final Set<Path> processing = ConcurrentHashMap.newKeySet();
     private final Map<Path, Instant> recentProcessed = new ConcurrentHashMap<>();
     private final long dedupeWindowMillis = 5_000L; // don't re-process same file within 5 seconds
+    private final long maxRetentionMillis = 60_000L; // 最多保留 1 分钟
 
     // tracks files for which we've scheduled a retry (so outer callers shouldn't clear processing/recentProcessed yet)
     private final Set<Path> keepProcessing = ConcurrentHashMap.newKeySet();
@@ -212,6 +213,9 @@ public class FileMonitorService {
         // shutdown executors
         watcherExecutor.shutdownNow();
         workerExecutor.shutdownNow();
+        processing.clear();
+        recentProcessed.clear();
+        keepProcessing.clear();
         if (this.watchService != null) {
             try {
                 this.watchService.close();
@@ -271,6 +275,7 @@ public class FileMonitorService {
         } catch (Exception ignored) {
         }
         Instant last = recentProcessed.get(p);
+        recentProcessed.entrySet().removeIf(e -> Instant.now().minusMillis(maxRetentionMillis).isAfter(e.getValue()));
         if (last != null && Instant.now().minusMillis(dedupeWindowMillis).isBefore(last)) return false;
         if (processing.contains(p)) return false;
         return true;
@@ -446,13 +451,14 @@ public class FileMonitorService {
         Path destFile = finalDestDir.resolve(fileNameOnly);
         // copy and overwrite if exists
         // 获取当前文件的锁对象
-        Object lock = FILE_LOCKS.computeIfAbsent(destFile, k -> new Object());
+        String lockKey = destFile.toAbsolutePath().normalize().toString();
+        Object lock = FILE_LOCKS.computeIfAbsent(lockKey, k -> new Object());
         synchronized (lock) {
             try {
                 Files.copy(p, destFile, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
                 log.info("已复制并重命名 {} -> {}", p, destFile);
             } finally {
-                FILE_LOCKS.remove(destFile);
+                FILE_LOCKS.remove(lockKey);
             }
         }
 
