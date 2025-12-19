@@ -138,7 +138,7 @@ public class StrmServiceImpl implements IStrmService {
                     AsyncManager.me().execute(new TimerTask() {
                         @Override
                         public void run() {
-                            String safeName = rawName.replaceAll("[\\\\/:*?\"<>|]", "");
+                            String safeName = rawName.substring(0, rawName.lastIndexOf(".")).replaceAll("[\\\\/:*?\"<>|]", "");
                             String fileName = safeName.length() > 255 ? safeName.substring(0, 250) : safeName;
 
                             // 判断是否处理过
