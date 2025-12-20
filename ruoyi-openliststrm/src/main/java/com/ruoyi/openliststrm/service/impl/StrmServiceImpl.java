@@ -21,6 +21,7 @@ import java.time.LocalDateTime;
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.TimerTask;
+import java.util.regex.Pattern;
 
 /**
  * @Author Jack
@@ -48,6 +49,8 @@ public class StrmServiceImpl implements IStrmService {
 
     @Autowired
     private OpenlistApi openListApi;
+
+    private static final Pattern ILLEGAL_PATTERN = Pattern.compile("[\\\\/:*?\"<>|]");
 
     /**
      * strm处理一个目录
@@ -138,7 +141,9 @@ public class StrmServiceImpl implements IStrmService {
                     AsyncManager.me().execute(new TimerTask() {
                         @Override
                         public void run() {
-                            String safeName = rawName.substring(0, rawName.lastIndexOf(".")).replaceAll("[\\\\/:*?\"<>|]", "");
+                            int dot = rawName.lastIndexOf('.');
+                            String baseName = (dot > 0) ? rawName.substring(0, dot) : rawName;
+                            String safeName = ILLEGAL_PATTERN.matcher(baseName).replaceAll("");
                             String fileName = safeName.length() > 255 ? safeName.substring(0, 250) : safeName;
 
                             // 判断是否处理过
