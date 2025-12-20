@@ -17,6 +17,8 @@ import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashMap;
@@ -420,7 +422,7 @@ public class RenameTaskManager {
                     if (originalDir != null && originalName != null) {
                         QueryWrapper<RenameDetailPlus> qw = new QueryWrapper<>();
                         qw.eq("original_path", originalDir).eq("original_name", originalName);
-                        java.util.List<RenameDetailPlus> found = renameDetailService.list(qw);
+                        List<RenameDetailPlus> found = renameDetailService.list(qw);
                         if (found != null && !found.isEmpty()) {
                             record = found.get(0);
                             //删除旧文件
@@ -428,8 +430,15 @@ public class RenameTaskManager {
                                 for (RenameDetailPlus renameDetailPlus : found) {
                                     if (StringUtils.isNotEmpty(renameDetailPlus.getNewPath()) && StringUtils.isNotEmpty(renameDetailPlus.getNewName())) {
                                         Path oldPath = Paths.get(renameDetailPlus.getNewPath()).resolve(renameDetailPlus.getNewName());
-                                        if (oldPath.toFile().exists()) {
-                                            oldPath.toFile().delete();
+                                        if (destDir != null && destName != null) {
+                                            Path newPath = Paths.get(destDir).resolve(destName);
+                                            if (Files.exists(oldPath) && !oldPath.equals(newPath)) {
+                                                try {
+                                                    Files.deleteIfExists(oldPath);
+                                                } catch (IOException e) {
+                                                    log.warn("删除文件失败: {}", oldPath, e);
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -491,7 +500,7 @@ public class RenameTaskManager {
                     if (originalDir != null && originalName != null) {
                         QueryWrapper<RenameDetailPlus> qw = new QueryWrapper<>();
                         qw.eq("original_path", originalDir).eq("original_name", originalName);
-                        java.util.List<RenameDetailPlus> found = renameDetailService.list(qw);
+                        List<RenameDetailPlus> found = renameDetailService.list(qw);
                         if (found != null && !found.isEmpty()) {
                             record = found.get(0);
                         }
