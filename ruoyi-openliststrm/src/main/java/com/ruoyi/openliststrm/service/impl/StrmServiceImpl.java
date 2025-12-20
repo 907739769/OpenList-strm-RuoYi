@@ -139,13 +139,14 @@ public class StrmServiceImpl implements IStrmService {
                     dirsQueue.add(currentPath + "/" + rawName);
                 } else {
                     //异步处理 提升效率
+                    String finalCurrentPath = currentPath;
                     AsyncManager.me().execute(new TimerTask() {
                         @Override
                         public void run() {
                             // 判断是否处理过
-                            if (strmHelper.exitStrm(currentPath, rawName)) {
+                            if (strmHelper.exitStrm(finalCurrentPath, rawName)) {
                                 if (log.isDebugEnabled()) {
-                                    log.debug("文件已处理过，跳过处理 {} / {}", currentPath, rawName);
+                                    log.debug("文件已处理过，跳过处理 {} / {}", finalCurrentPath, rawName);
                                 }
                                 return;
                             }
@@ -171,31 +172,31 @@ public class StrmServiceImpl implements IStrmService {
 
                                 File outFile = new File(currentLocalPath + File.separator + fileName + ".strm");
                                 try (BufferedWriter writer = new BufferedWriter(new FileWriter(outFile))) {
-                                    String encodePath = currentPath + "/" + rawName;
+                                    String encodePath = finalCurrentPath + "/" + rawName;
                                     if ("1".equals(encode)) {
                                         encodePath = URLEncoder.encode(encodePath, "UTF-8").replace("+", "%20").replace("%2F", "/");
                                     }
                                     writer.write(config.getOpenListUrl() + "/d" + encodePath);
-                                    strmHelper.addStrm(currentPath, rawName, "1");
+                                    strmHelper.addStrm(finalCurrentPath, rawName, "1");
                                 } catch (IOException e) {
                                     log.error("写入 .strm 文件失败 {}", outFile.getAbsolutePath(), e);
-                                    strmHelper.addStrm(currentPath, rawName, "0");
+                                    strmHelper.addStrm(finalCurrentPath, rawName, "0");
                                 }
                             }
 
                             // 字幕文件处理（异步限流）
                             if ("1".equals(isDownSub) && openListHelper.isSrt(rawName)) {
                                 try {
-                                    JSONObject fileJson = openListApi.getFile(currentPath + "/" + rawName);
+                                    JSONObject fileJson = openListApi.getFile(finalCurrentPath + "/" + rawName);
                                     if (fileJson != null && fileJson.getJSONObject("data") != null) {
                                         String url = fileJson.getJSONObject("data").getString("raw_url");
                                         File outFile = new File(currentLocalPath + File.separator + fileName + rawName.substring(rawName.lastIndexOf(".")));
                                         downloadFile(url, outFile.getAbsolutePath());
-                                        strmHelper.addStrm(currentPath, rawName, "1");
+                                        strmHelper.addStrm(finalCurrentPath, rawName, "1");
                                     }
                                 } catch (Exception e) {
-                                    log.error("下载字幕失败 {} / {}", currentPath, rawName, e);
-                                    strmHelper.addStrm(currentPath, rawName, "0");
+                                    log.error("下载字幕失败 {} / {}", finalCurrentPath, rawName, e);
+                                    strmHelper.addStrm(finalCurrentPath, rawName, "0");
                                 }
                             }
                         }
