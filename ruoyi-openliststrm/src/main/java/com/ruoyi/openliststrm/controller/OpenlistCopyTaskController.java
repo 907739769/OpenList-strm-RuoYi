@@ -145,7 +145,7 @@ public class OpenlistCopyTaskController extends BaseController
     @PostMapping("/run")
     @ResponseBody
     public AjaxResult run(String ids) {
-        logger.info("执行的任务：{}", ids);
+        logger.info("开始执行复制任务，任务ID：{}", ids);
         AsyncManager.me().execute(new TimerTask() {
             @Override
             public void run() {

@@ -112,6 +112,7 @@ public class StrmServiceImpl implements IStrmService {
 
         while (!dirsQueue.isEmpty()) {
             String currentPath = dirsQueue.poll();
+            currentPath = StringUtils.removeEnd(currentPath, "/");
             String currentLocalPath = localRootPath + File.separator + currentPath.replace("/", File.separator);
             File currentDir = new File(currentLocalPath);
             if (!currentDir.exists()) {

@@ -15,16 +15,14 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayDeque;
 import java.util.Collections;
+import java.util.Queue;
 import java.util.TimerTask;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * 复制openlist文件
- *
- * @Author Jack
- * @Date 2024/6/22 17:53
- * @Version 1.0.0
+ * 复制 openlist 文件（队列版，非递归，防内存泄漏）
  */
 @Service
 @Slf4j
@@ -45,111 +43,165 @@ public class CopyServiceImpl implements ICopyService {
     @Autowired
     private OpenlistConfig config;
 
-    private void syncFilesRecursion(String srcDir, String dstDir, String relativePath) {
+    /**
+     * 目录遍历任务（极轻量）
+     */
+    private static class DirTask {
+        String relativePath;
+
+        DirTask(String relativePath) {
+            this.relativePath = relativePath;
+        }
+    }
+
+    /**
+     * 队列方式同步目录（完全替代递归）
+     */
+    private void syncFilesByQueue(String srcDir, String dstDir, String startRelativePath) {
         if (StringUtils.isAnyBlank(srcDir, dstDir)) {
             return;
         }
-        if (relativePath.startsWith("/")) {
-            relativePath = relativePath.replaceFirst("/", "");
-        }
-        if (srcDir.endsWith("/")) {
-            srcDir = srcDir.substring(0, srcDir.lastIndexOf("/"));
-        }
-        if (dstDir.endsWith("/")) {
-            dstDir = dstDir.substring(0, dstDir.lastIndexOf("/"));
-        }
-        //查出所有源目录
-        JSONObject object = openlistApi.getOpenlist(srcDir + "/" + relativePath);
-        if (object.getJSONObject("data") == null) {
-            return;
-        }
-        JSONArray jsonArray = object.getJSONObject("data").getJSONArray("content");
-        if (jsonArray == null) {
-            return;
+
+        if (StringUtils.isNotBlank(startRelativePath) && startRelativePath.startsWith("/")) {
+            startRelativePath = startRelativePath.substring(1);
         }
 
-        for (Object content : jsonArray) {
-            JSONObject contentJson = (JSONObject) content;
-            String name = contentJson.getString("name");
+        srcDir = StringUtils.removeEnd(srcDir, "/");
+        dstDir = StringUtils.removeEnd(dstDir, "/");
 
-            //不是视频文件就不用继续往下走上传了
-            if (!contentJson.getBoolean("is_dir") && !openListHelper.isVideo(name)) {
+        Queue<DirTask> queue = new ArrayDeque<>();
+        queue.offer(new DirTask(startRelativePath));
+
+        while (!queue.isEmpty()) {
+            DirTask task = queue.poll();
+            String relativePath = task.relativePath;
+
+            String srcPath = srcDir + (StringUtils.isBlank(relativePath) ? "" : "/" + relativePath);
+            JSONObject listResp = openlistApi.getOpenlist(srcPath);
+
+            if (listResp == null || listResp.getJSONObject("data") == null) {
                 continue;
             }
 
-            JSONObject jsonObject = openlistApi.getFile(dstDir + "/" + relativePath + (StringUtils.isBlank(relativePath) ? "" : "/") + name);
-            //是目录
-            if (contentJson.getBoolean("is_dir")) {
-                //判断目标目录是否存在这个文件夹
-                //200就是存在 存在就继续往下级目录找
-                if (200 == jsonObject.getInteger("code")) {
-                    syncFilesRecursion(srcDir, dstDir, relativePath + (StringUtils.isBlank(relativePath) ? "" : "/") + name);
-                } else {
-                    openlistApi.mkdir(dstDir + "/" + relativePath + (StringUtils.isBlank(relativePath) ? "" : "/") + name);
-                    syncFilesRecursion(srcDir, dstDir, relativePath + (StringUtils.isBlank(relativePath) ? "" : "/") + name);
-                }
-            } else {
-                //异步处理 提升效率
-                String finalSrcDir = srcDir;
-                String finalDstDir = dstDir;
-                String finalRelativePath = relativePath;
-                AsyncManager.me().execute(new TimerTask() {
-                    @Override
-                    public void run() {
-                        String copySrcPath=finalSrcDir + (StringUtils.isBlank(finalRelativePath) ? "" : "/") + finalRelativePath;
-                        String copyDstPath=finalDstDir + (StringUtils.isBlank(finalRelativePath) ? "" : "/") + finalRelativePath;
-                        OpenlistCopyPlus copy = new OpenlistCopyPlus();
-                        copy.setCopySrcPath(copySrcPath);
-                        copy.setCopyDstPath(copyDstPath);
-                        copy.setCopySrcFileName(name);
-                        copy.setCopyDstFileName(name);
-                        if (copyHelper.exitCopy(copy)) {
-                            log.info("文件已处理过，跳过处理" + copyDstPath + "/" + name);
-                            return;
-                        }
-                        //是视频文件才复制 并且不存在
-                        if (!(200 == jsonObject.getInteger("code")) && openListHelper.isVideo(name)) {
-                            if (contentJson.getLong("size") >= Long.parseLong(config.getOpenListMinFileSize()) * 1024 * 1024) {
-                                JSONObject jsonResponse = openlistApi.copyOpenlist(copySrcPath, copyDstPath, Collections.singletonList(name));
-                                if (jsonResponse != null && 200 == jsonResponse.getInteger("code")) {
-                                    //获取上传文件的任务id
-                                    JSONArray tasks = jsonResponse.getJSONObject("data").getJSONArray("tasks");
-                                    copy.setCopyTaskId(tasks.getJSONObject(0).getString("id"));
-                                    copy.setCopyStatus("1");
-                                    copyHelper.addCopy(copy);
-                                }
-                            }
-                        } else if (200 == jsonObject.getInteger("code")) {
-                            copy.setCopyStatus("3");
-                            copyHelper.addCopy(copy);
-                        }
-                    }
-                });
+            JSONArray contents = listResp.getJSONObject("data").getJSONArray("content");
+            if (contents == null) {
+                continue;
+            }
 
+            for (Object obj : contents) {
+                JSONObject content = (JSONObject) obj;
+                String name = content.getString("name");
+                boolean isDir = content.getBooleanValue("is_dir");
+
+                // 非目录 & 非视频文件，直接跳过
+                if (!isDir && !openListHelper.isVideo(name)) {
+                    continue;
+                }
+
+                String childRelativePath =
+                        StringUtils.isBlank(relativePath) ? name : relativePath + "/" + name;
+
+                String dstCheckPath = dstDir + "/" + childRelativePath;
+                JSONObject dstExistResp = openlistApi.getFile(dstCheckPath);
+
+                if (isDir) {
+                    // 目录不存在则创建
+                    if (dstExistResp == null || dstExistResp.getInteger("code") != 200) {
+                        openlistApi.mkdir(
+                                dstDir + (StringUtils.isBlank(relativePath) ? "" : "/" + relativePath)
+                                        + "/" + name
+                        );
+                    }
+                    queue.offer(new DirTask(childRelativePath));
+                } else {
+                    submitCopyTask(
+                            srcDir,
+                            dstDir,
+                            relativePath,
+                            name,
+                            content.getLongValue("size"),
+                            dstExistResp
+                    );
+                }
             }
         }
-
     }
 
+    /**
+     * 提交异步复制任务（避免捕获大对象）
+     */
+    private void submitCopyTask(
+            String srcDir,
+            String dstDir,
+            String relativePath,
+            String fileName,
+            long fileSize,
+            JSONObject dstExistResp
+    ) {
+        final String copySrcPath =
+                srcDir + (StringUtils.isBlank(relativePath) ? "" : "/" + relativePath);
+        final String copyDstPath =
+                dstDir + (StringUtils.isBlank(relativePath) ? "" : "/" + relativePath);
+
+        AsyncManager.me().execute(new TimerTask() {
+            @Override
+            public void run() {
+                OpenlistCopyPlus copy = new OpenlistCopyPlus();
+                copy.setCopySrcPath(copySrcPath);
+                copy.setCopyDstPath(copyDstPath);
+                copy.setCopySrcFileName(fileName);
+                copy.setCopyDstFileName(fileName);
+
+                if (copyHelper.exitCopy(copy)) {
+                    log.debug("文件已处理过，跳过处理 {}/{}", copyDstPath, fileName);
+                    return;
+                }
+
+                // 目标不存在 & 视频文件 & 体积满足
+                if ((dstExistResp == null || dstExistResp.getInteger("code") != 200)
+                        && openListHelper.isVideo(fileName)
+                        && fileSize >= Long.parseLong(config.getOpenListMinFileSize()) * 1024 * 1024) {
+
+                    JSONObject resp = openlistApi.copyOpenlist(
+                            copySrcPath,
+                            copyDstPath,
+                            Collections.singletonList(fileName)
+                    );
+
+                    if (resp != null && resp.getInteger("code") == 200) {
+                        JSONArray tasks = resp.getJSONObject("data").getJSONArray("tasks");
+                        copy.setCopyTaskId(tasks.getJSONObject(0).getString("id"));
+                        copy.setCopyStatus("1");
+                        copyHelper.addCopy(copy);
+                    }
+                } else if (dstExistResp != null && dstExistResp.getInteger("code") == 200) {
+                    copy.setCopyStatus("3");
+                    copyHelper.addCopy(copy);
+                }
+            }
+        });
+    }
+
+    /**
+     * 单文件同步（保持原实现）
+     */
+    @Override
     public void syncOneFile(String srcDir, String dstDir, String relativePath) {
         if (!openListHelper.isVideo(relativePath)) {
             return;
         }
+
         if (relativePath.startsWith("/")) {
-            relativePath = relativePath.replaceFirst("/", "");
+            relativePath = relativePath.substring(1);
         }
-        if (srcDir.endsWith("/")) {
-            srcDir = srcDir.substring(0, srcDir.lastIndexOf("/"));
-        }
-        if (dstDir.endsWith("/")) {
-            dstDir = dstDir.substring(0, dstDir.lastIndexOf("/"));
-        }
-        //源目录
+
+        srcDir = StringUtils.removeEnd(srcDir, "/");
+        dstDir = StringUtils.removeEnd(dstDir, "/");
+
         String copySrcPath = srcDir;
-        //目标目录
         String copyDstPath = dstDir;
-        //文件名
         String fileName = relativePath;
+
         if (relativePath.contains("/")) {
             copySrcPath = srcDir + "/" + relativePath.substring(0, relativePath.lastIndexOf("/"));
             copyDstPath = dstDir + "/" + relativePath.substring(0, relativePath.lastIndexOf("/"));
@@ -161,29 +213,36 @@ public class CopyServiceImpl implements ICopyService {
         copy.setCopyDstPath(copyDstPath);
         copy.setCopySrcFileName(fileName);
         copy.setCopyDstFileName(fileName);
+
         if (copyHelper.exitCopy(copy)) {
-            log.info("文件已处理过，跳过处理" + dstDir + "/" + relativePath);
+            log.info("文件已处理过，跳过处理 {}/{}", dstDir, relativePath);
             return;
         }
+
         AtomicBoolean flag = new AtomicBoolean(false);
-        JSONObject jsonObject = openlistApi.getFile(dstDir + "/" + relativePath);
-        if (!(200 == jsonObject.getInteger("code")) && openListHelper.isVideo(relativePath)) {
-            JSONObject srcJson = openlistApi.getFile(srcDir + "/" + relativePath);
-            if (srcJson.getJSONObject("data").getLong("size") >= Long.parseLong(config.getOpenListMinFileSize()) * 1024 * 1024) {
+        JSONObject dstExistResp = openlistApi.getFile(dstDir + "/" + relativePath);
+
+        if ((dstExistResp == null || dstExistResp.getInteger("code") != 200)) {
+            JSONObject srcResp = openlistApi.getFile(srcDir + "/" + relativePath);
+            if (srcResp.getJSONObject("data").getLong("size")
+                    >= Long.parseLong(config.getOpenListMinFileSize()) * 1024 * 1024) {
+
                 openlistApi.mkdir(copyDstPath);
-                JSONObject jsonResponse = openlistApi.copyOpenlist(copySrcPath, copyDstPath, Collections.singletonList(fileName));
-                if (jsonResponse != null && 200 == jsonResponse.getInteger("code")) {
+                JSONObject resp = openlistApi.copyOpenlist(
+                        copySrcPath,
+                        copyDstPath,
+                        Collections.singletonList(fileName)
+                );
+
+                if (resp != null && resp.getInteger("code") == 200) {
                     flag.set(true);
-                    //获取上传文件的任务id
-                    JSONArray tasks = jsonResponse.getJSONObject("data").getJSONArray("tasks");
+                    JSONArray tasks = resp.getJSONObject("data").getJSONArray("tasks");
                     copy.setCopyTaskId(tasks.getJSONObject(0).getString("id"));
                     copy.setCopyStatus("1");
                     copyHelper.addCopy(copy);
                 }
-            }else {
-                log.info("文件{}体积不满足最小同步文件体积条件", fileName);
             }
-        } else if (200 == jsonObject.getInteger("code")) {
+        } else {
             flag.set(true);
             copy.setCopyStatus("3");
             copyHelper.addCopy(copy);
@@ -192,22 +251,21 @@ public class CopyServiceImpl implements ICopyService {
         if (flag.get() && "1".equals(config.getOpenListCopyStrm())) {
             asynHelper.isCopyDoneOneFile(dstDir + "/" + relativePath, copy);
         }
-
     }
 
+    @Override
     public void syncFiles(String srcDir, String dstDir, String relativePath) {
-        syncFilesRecursion(srcDir, dstDir, relativePath);
+        syncFilesByQueue(srcDir, dstDir, relativePath);
         if ("1".equals(config.getOpenListCopyStrm())) {
             asynHelper.isCopyDone(dstDir, relativePath);
         }
     }
 
+    @Override
     public void syncFiles(String srcDir, String dstDir) {
-        syncFilesRecursion(srcDir, dstDir, "");
+        syncFilesByQueue(srcDir, dstDir, "");
         if ("1".equals(config.getOpenListCopyStrm())) {
             asynHelper.isCopyDone(dstDir, "");
         }
     }
-
-
 }
