@@ -141,11 +141,6 @@ public class StrmServiceImpl implements IStrmService {
                     AsyncManager.me().execute(new TimerTask() {
                         @Override
                         public void run() {
-                            int dot = rawName.lastIndexOf('.');
-                            String baseName = (dot > 0) ? rawName.substring(0, dot) : rawName;
-                            String safeName = ILLEGAL_PATTERN.matcher(baseName).replaceAll("");
-                            String fileName = safeName.length() > 255 ? safeName.substring(0, 250) : safeName;
-
                             // 判断是否处理过
                             if (strmHelper.exitStrm(currentPath, rawName)) {
                                 if (log.isDebugEnabled()) {
@@ -153,6 +148,16 @@ public class StrmServiceImpl implements IStrmService {
                                 }
                                 return;
                             }
+
+                            if (!openListHelper.isVideo(rawName) || !openListHelper.isSrt(rawName)) {
+                                log.info("Skipping no media file {}", rawName);
+                                return;
+                            }
+
+                            int dot = rawName.lastIndexOf('.');
+                            String baseName = (dot > 0) ? rawName.substring(0, dot) : rawName;
+                            String safeName = ILLEGAL_PATTERN.matcher(baseName).replaceAll("");
+                            String fileName = safeName.length() > 255 ? safeName.substring(0, 250) : safeName;
 
                             // 视频文件处理
                             if (openListHelper.isVideo(rawName)) {
