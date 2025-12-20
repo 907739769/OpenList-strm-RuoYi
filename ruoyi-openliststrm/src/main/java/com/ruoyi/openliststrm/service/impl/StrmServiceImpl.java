@@ -58,13 +58,13 @@ public class StrmServiceImpl implements IStrmService {
      * @param path
      */
     public void strmDir(String path) {
-        log.info("开始执行指定路径strm任务{}", LocalDateTime.now());
+        log.info("开始执行指定路径strm任务:{}", path);
         try {
             getData(path, outputDir);
         } catch (Exception e) {
             log.error("", e);
         } finally {
-            log.info("strm任务执行完成{}", LocalDateTime.now());
+            log.info("strm任务执行完成{}:", path);
         }
     }
 
@@ -149,8 +149,10 @@ public class StrmServiceImpl implements IStrmService {
                                 return;
                             }
 
-                            if (!openListHelper.isVideo(rawName) || !openListHelper.isSrt(rawName)) {
-                                log.info("Skipping no media file {}", rawName);
+                            if (!openListHelper.isVideo(rawName) && !openListHelper.isSrt(rawName)) {
+                                if (log.isDebugEnabled()) {
+                                    log.debug("Skipping no media file {}", rawName);
+                                }
                                 return;
                             }
 
@@ -162,7 +164,7 @@ public class StrmServiceImpl implements IStrmService {
                             // 视频文件处理
                             if (openListHelper.isVideo(rawName)) {
                                 if (size < Long.parseLong(config.getOpenListMinFileSize()) * 1024 * 1024) {
-                                    log.info("Skipping small file {} ({} bytes)", rawName, size);
+                                    log.debug("Skipping small file {} ({} bytes)", rawName, size);
                                     return;
                                 }
 
