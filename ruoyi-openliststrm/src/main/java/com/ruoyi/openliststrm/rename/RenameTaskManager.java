@@ -432,7 +432,7 @@ public class RenameTaskManager {
                                         Path oldPath = Paths.get(renameDetailPlus.getNewPath()).resolve(renameDetailPlus.getNewName());
                                         if (destDir != null && destName != null) {
                                             Path newPath = Paths.get(destDir).resolve(destName);
-                                            if (Files.exists(oldPath) && !oldPath.equals(newPath)) {
+                                            if (Files.exists(oldPath) && !oldPath.toAbsolutePath().normalize().toString().equals(newPath.toAbsolutePath().normalize().toString())) {
                                                 try {
                                                     Files.deleteIfExists(oldPath);
                                                 } catch (IOException e) {
