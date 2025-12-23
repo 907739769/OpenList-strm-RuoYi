@@ -88,7 +88,20 @@ public class TMDbClient {
         log.debug("doSearchOnce: {} results: {}", info.getOriginalName(), results);
         if (!results.isArray() || results.isEmpty()) return null;
 
-        JsonNode first = results.get(0);
+        JsonNode first = null;
+        if (StringUtils.isNotEmpty(info.getOriginalTitle()) && results.size() > 1) {
+            for (int i = 0; i < results.size(); i++) {
+                JsonNode node = results.get(i);
+                if (info.getOriginalTitle().equals(getOfficialChineseTitle(node, type))) {
+                    first = node;
+                    break;
+                }
+            }
+
+        }
+        if (first == null) {
+            first = results.get(0);
+        }
 
         info.setYear(getYearSafe(first, type));
         info.setTmdbId(first.path("id").asText());
@@ -182,8 +195,8 @@ public class TMDbClient {
     }
 
     private String fallbackTitle(JsonNode result, String type) {
-        return type.equals("movie") ? result.get("original_title").asText()
-                : result.get("original_name").asText();
+        return type.equals("movie") ? result.get("title").asText()
+                : result.get("name").asText();
     }
 
     private String getYearSafe(JsonNode result, String type) {
