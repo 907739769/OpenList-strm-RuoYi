@@ -143,12 +143,12 @@ public class RenameDetailController extends BaseController
     @ResponseBody
     @RequiresPermissions("openliststrm:renameDetail:edit")
     @Log(title = "重命名明细", businessType = BusinessType.UPDATE)
-    public AjaxResult executeNow(@PathVariable("id") Integer id) {
+    public AjaxResult executeNow(@PathVariable("id") Integer id, String title, String year) {
         if (id == null) return AjaxResult.error("id 为空");
         AsyncManager.me().execute(new TimerTask() {
             @Override
             public void run() {
-                renameTaskManager.executeRenameDetails(id);
+                renameTaskManager.executeRenameDetails(id,title,year);
             }
         });
         return AjaxResult.success();
@@ -161,7 +161,7 @@ public class RenameDetailController extends BaseController
     @ResponseBody
     @RequiresPermissions("openliststrm:renameDetail:edit")
     @Log(title = "重命名明细", businessType = BusinessType.UPDATE)
-    public AjaxResult executeBatch(String ids) {
+    public AjaxResult executeBatch(String ids, String title, String year) {
         if (ids == null || ids.trim().isEmpty()) return AjaxResult.error("没有选择任务");
         AsyncManager.me().execute(new TimerTask() {
             @Override
@@ -171,7 +171,7 @@ public class RenameDetailController extends BaseController
                 List<Integer> intIds = idList.stream().map(s -> {
                     try { return Integer.valueOf(s); } catch (Exception e) { return null; }
                 }).filter(i -> i != null).collect(Collectors.toList());
-                renameTaskManager.executeRenameDetailsBatch(intIds);
+                renameTaskManager.executeRenameDetailsBatch(intIds, title, year);
             }
         });
         return AjaxResult.success();

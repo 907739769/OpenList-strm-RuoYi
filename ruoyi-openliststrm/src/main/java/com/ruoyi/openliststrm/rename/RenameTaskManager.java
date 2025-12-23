@@ -338,7 +338,7 @@ public class RenameTaskManager {
         return res;
     }
 
-    public boolean executeRenameDetails(Integer id) {
+    public boolean executeRenameDetails(Integer id, String title, String year) {
         RenameDetailPlus rd = renameDetailService.getById(id);
         if (rd == null) {
             log.warn("executeRenameDetails: rename detail {} not found", id);
@@ -374,7 +374,7 @@ public class RenameTaskManager {
         FileMonitorService svc = new FileMonitorService(Paths.get(src), Paths.get(tgt), tmdbClient, openAIClient, minSize, null, createPersistingListener(id), openListHelper);
         boolean result;
         try {
-            result = svc.handleOneFile(Paths.get(rd.getOriginalPath()).resolve(rd.getOriginalName()), rd.getTitle(), rd.getYear(), rd.getSeason(), rd.getEpisode());
+            result = svc.handleOneFile(Paths.get(rd.getOriginalPath()).resolve(rd.getOriginalName()), StringUtils.isNotBlank(title) ? title : rd.getTitle(), StringUtils.isNotBlank(year) ? year : rd.getYear(), rd.getSeason(), rd.getEpisode());
         } finally {
             svc.stop();
         }
@@ -382,10 +382,10 @@ public class RenameTaskManager {
 
     }
 
-    public void executeRenameDetailsBatch(List<Integer> ids) {
+    public void executeRenameDetailsBatch(List<Integer> ids, String title, String year) {
         if (ids == null || ids.isEmpty()) return;
         for (Integer id : ids) {
-            executeRenameDetails(id);
+            executeRenameDetails(id, title, year);
         }
     }
 

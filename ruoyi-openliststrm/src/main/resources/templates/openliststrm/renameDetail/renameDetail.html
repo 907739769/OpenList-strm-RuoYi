@@ -200,34 +200,107 @@
                 $.modal.msgError('请选择要执行的任务');
                 return;
             }
-            $.modal.confirm('确认立即执行选中任务吗？', function() {
-                $.ajax({
-                    url: prefix + '/executeBatch',
-                    method: 'POST',
-                    data: { ids: ids },
-                    traditional: true,
-                    success: function(res) {
-                        if (res && res.code === 0) {
-                            $.modal.msgSuccess('执行成功');
-                        } else {
-                            $.modal.msgError(res && res.msg ? res.msg : '执行失败');
+            // 使用layer弹窗让用户输入影视剧名称和年份
+            layer.open({
+                type: 1,
+                title: '影视剧信息',
+                area: ['450px', '280px'],
+                content: '<div style="padding: 20px;">' +
+                    '<form id="executeForm" class="form-horizontal">' +
+                    '<div class="form-group">' +
+                    '<label class="col-sm-3 control-label">影视剧名称：</label>' +
+                    '<div class="col-sm-9">' +
+                    '<input type="text" class="form-control" id="mediaTitle" name="title" placeholder="请输入影视剧名称（可选）">' +
+                    '</div>' +
+                    '</div>' +
+                    '<div class="form-group">' +
+                    '<label class="col-sm-3 control-label">年份：</label>' +
+                    '<div class="col-sm-9">' +
+                    '<input type="text" class="form-control" id="mediaYear" name="year" placeholder="请输入年份（可选）">' +
+                    '</div>' +
+                    '</div>' +
+                    '</form>' +
+                    '</div>',
+                btn: ['确定', '取消'],
+                yes: function(index, layero) {
+                    var title = $('#mediaTitle').val().trim();
+                    var year = $('#mediaYear').val().trim();
+                    
+                    $.ajax({
+                        url: prefix + '/executeBatch',
+                        method: 'POST',
+                        data: { 
+                            ids: ids,
+                            title: title,
+                            year: year
+                        },
+                        traditional: true,
+                        success: function(res) {
+                            if (res && res.code === 0) {
+                                $.modal.msgSuccess('执行成功');
+                                layer.close(index);
+                                $.table.refresh();
+                            } else {
+                                $.modal.msgError(res && res.msg ? res.msg : '执行失败');
+                            }
+                        },
+                        error: function() { 
+                            $.modal.msgError('请求服务器失败'); 
                         }
-                    },
-                    error: function() { $.modal.msgError('请求服务器失败'); }
-                });
+                    });
+                }
             });
         }
 
         // 单个任务执行
         function executeOne(id) {
-            $.modal.confirm('确认立即执行该任务吗？', function() {
-                $.post(prefix + '/execute/' + id, function(res) {
-                    if (res && res.code === 0) {
-                        $.modal.msgSuccess('执行成功');
-                    } else {
-                        $.modal.msgError(res && res.msg ? res.msg : '执行失败');
-                    }
-                }).fail(function() { $.modal.msgError('请求服务器失败'); });
+            // 使用layer弹窗让用户输入影视剧名称和年份
+            layer.open({
+                type: 1,
+                title: '影视剧信息',
+                area: ['450px', '280px'],
+                content: '<div style="padding: 20px;">' +
+                    '<form id="executeForm" class="form-horizontal">' +
+                    '<div class="form-group">' +
+                    '<label class="col-sm-3 control-label">影视剧名称：</label>' +
+                    '<div class="col-sm-9">' +
+                    '<input type="text" class="form-control" id="mediaTitle" name="title" placeholder="请输入影视剧名称（可选）">' +
+                    '</div>' +
+                    '</div>' +
+                    '<div class="form-group">' +
+                    '<label class="col-sm-3 control-label">年份：</label>' +
+                    '<div class="col-sm-9">' +
+                    '<input type="text" class="form-control" id="mediaYear" name="year" placeholder="请输入年份（可选）">' +
+                    '</div>' +
+                    '</div>' +
+                    '</form>' +
+                    '</div>',
+                btn: ['确定', '取消'],
+                yes: function(index, layero) {
+                    var title = $('#mediaTitle').val().trim();
+                    var year = $('#mediaYear').val().trim();
+                    
+                    $.ajax({
+                        url: prefix + '/execute/' + id,
+                        method: 'POST',
+                        data: { 
+                            title: title,
+                            year: year
+                        },
+                        success: function(res) {
+                            if (res && res.code === 0) {
+                                $.modal.msgSuccess('执行成功');
+                                layer.close(index);
+                                $.table.refresh();
+                            } else {
+                                $.modal.msgError(res && res.msg ? res.msg : '执行失败');
+                            }
+                        },
+                        error: function() { 
+                            $.modal.msgError('请求服务器失败'); 
+                        }
+                    });
+                }
             });
         }
     </script>
