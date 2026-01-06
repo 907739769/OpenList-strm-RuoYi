@@ -473,13 +473,14 @@ public class RenameTaskManager {
 
                     if (record.getId() == null) {
                         renameDetailService.save(record);
-                        log.info("Saved rename detail for task {} : {} -> {}", taskId, original, dest);
+                        log.debug("Saved rename detail for task {} : {} -> {}", taskId, original, dest);
                     } else {
                         renameDetailService.updateById(record);
-                        log.info("Updated rename detail for task {} : {} -> {} (id={})", taskId, original, dest, record.getId());
+                        log.debug("Updated rename detail for task {} : {} -> {} (id={})", taskId, original, dest, record.getId());
                     }
                 } catch (Exception e) {
                     log.warn("Failed to persist rename detail: {}", e.getMessage());
+                    log.error("Failed to persist rename detail", e);
                 }
             }
 

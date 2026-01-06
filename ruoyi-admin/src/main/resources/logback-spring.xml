@@ -4,6 +4,30 @@
     <property name="log.path" value="/data/logs" />
     <property name="log.pattern" value="[%d{yyyy-MM-dd HH:mm:ss.SSS}][%X{traceId}][%-5level][%logger{0}] %msg%n" />
 
+    <!-- DEBUG 文件（只含 DEBUG） -->
+    <appender name="file_debug" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${log.path}/sys-debug.log</file>
+
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${log.path}/sys-debug.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>50MB</maxFileSize>
+            <maxHistory>7</maxHistory>
+        </rollingPolicy>
+
+        <encoder>
+            <pattern>${log.pattern}</pattern>
+        </encoder>
+
+        <!-- 仅记录 DEBUG -->
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <level>DEBUG</level>
+            <!-- 匹配时的操作：接收（记录） -->
+            <onMatch>ACCEPT</onMatch>
+            <!-- 不匹配时的操作：拒绝（不记录） -->
+            <onMismatch>DENY</onMismatch>
+        </filter>
+    </appender>
+
     <!-- INFO 文件（含 INFO/WARN/ERROR） -->
     <appender name="file_info" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${log.path}/sys-info.log</file>
@@ -66,9 +90,11 @@
     <logger name="org.springframework" level="warn" />
     <logger name="org.apache" level="warn" />
     <logger name="com.ruoyi.framework.shiro.web.session" level="warn" />
+    <logger name="com.ruoyi.openliststrm" level="debug" />
 
     <!-- 系统日志输出 -->
     <root level="info">
+        <appender-ref ref="file_debug" />
         <appender-ref ref="file_info" />
         <appender-ref ref="file_error" />
     </root>
@@ -93,12 +119,11 @@
         <logger name="org.springframework" level="warn" />
         <logger name="org.apache" level="warn" />
         <logger name="com.ruoyi.framework.shiro.web.session" level="warn" />
-        <logger name="com.ruoyi.openliststrm" level="debug" additivity="false">
-            <appender-ref ref="console"/>
-        </logger>
+        <logger name="com.ruoyi.openliststrm" level="debug" />
 
         <!-- root logger dev 环境 -->
         <root level="info">
+            <appender-ref ref="file_debug" />
             <appender-ref ref="file_error" />
             <appender-ref ref="file_info"/>
             <appender-ref ref="console"/>
