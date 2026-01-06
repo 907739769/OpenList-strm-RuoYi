@@ -13,7 +13,7 @@ import java.util.regex.Pattern;
  */
 public class SourceAndGroupExtractor implements Extractor {
     private static final Pattern SOURCE = Pattern.compile("\\b(WEB-?DL|BluRay|BRRip|HDRip|HDTV|BDRip|CAM|WEB)\\b", Pattern.CASE_INSENSITIVE);
-    private static final Pattern GROUP = Pattern.compile("-([A-Za-z0-9]+)$");
+    private static final Pattern GROUP = Pattern.compile("[-@]([A-Za-z0-9]+)$");
     private static final Pattern TAGS = Pattern.compile("\\b(REMUX|ENCODED|PROPER|REPACK|Atmos|HDR|10bit|60fps)\\b", Pattern.CASE_INSENSITIVE);
 
     @Override
