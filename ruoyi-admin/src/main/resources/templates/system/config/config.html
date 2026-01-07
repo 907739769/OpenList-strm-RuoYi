@@ -14,21 +14,6 @@
 								参数名称：<input type="text" name="configName"/>
 							</li>
 							<li>
-								参数键名：<input type="text" name="configKey"/>
-							</li>
-							<li>
-								系统内置：<select name="configType" th:with="type=${@dict.getType('sys_yes_no')}">
-									<option value="">所有</option>
-									<option th:each="dict : ${type}" th:text="${dict.dictLabel}" th:value="${dict.dictValue}"></option>
-								</select>
-							</li>
-							<li class="select-time">
-								<label>创建时间： </label>
-								<input type="text" class="time-input" id="startTime" placeholder="开始时间" name="params[beginTime]"/>
-								<span>-</span>
-								<input type="text" class="time-input" id="endTime" placeholder="结束时间" name="params[endTime]"/>
-							</li>
-							<li>
 								<a class="btn btn-primary btn-rounded btn-sm" onclick="$.table.search()"><i class="fa fa-search"></i>&nbsp;搜索</a>
 								<a class="btn btn-warning btn-rounded btn-sm" onclick="$.form.reset()"><i class="fa fa-refresh"></i>&nbsp;重置</a>
 							</li>
@@ -38,18 +23,6 @@
 			</div>
 			
 	        <div class="btn-group-sm" id="toolbar" role="group">
-		        <a class="btn btn-success" onclick="$.operate.add()" shiro:hasPermission="system:config:add">
-		            <i class="fa fa-plus"></i> 新增
-		        </a>
-		        <a class="btn btn-primary single disabled" onclick="$.operate.edit()" shiro:hasPermission="system:config:edit">
-		            <i class="fa fa-edit"></i> 修改
-		        </a>
-		        <a class="btn btn-danger multiple disabled" onclick="$.operate.removeAll()" shiro:hasPermission="system:config:remove">
-		            <i class="fa fa-remove"></i> 删除
-		        </a>
-		        <a class="btn btn-warning" onclick="$.table.exportExcel()" shiro:hasPermission="system:config:export">
-		            <i class="fa fa-download"></i> 导出
-		        </a>
 		        <a class="btn btn-danger" onclick="refreshCache()" shiro:hasPermission="system:config:remove">
 		            <i class="fa fa-refresh"></i> 刷新缓存
 		        </a>
@@ -81,6 +54,7 @@
                 },
                 {
                     field: 'configId',
+                    visible: false,
                     title: '参数主键'
                 },
                 {
@@ -93,6 +67,7 @@
                 {
                     field: 'configKey',
                     title: '参数键名',
+                    visible: false,
                     formatter: function(value, row, index) {
                         return $.table.tooltip(value);
                     }
@@ -109,6 +84,7 @@
                     field: 'configType',
                     title: '系统内置',
                     align: 'center',
+                    visible: false,
                     formatter: function(value, row, index) {
                         return $.table.selectDictLabel(datas, value);
                     }
@@ -123,6 +99,7 @@
                 },
                 {
                     field: 'createTime',
+                    visible: false,
                     title: '创建时间'
                 },
                 {
@@ -131,7 +108,6 @@
                     formatter: function(value, row, index) {
                         var actions = [];
                         actions.push('<a class="btn btn-success btn-xs ' + editFlag + '" href="javascript:void(0)" onclick="$.operate.edit(\'' + row.configId + '\')"><i class="fa fa-edit"></i>编辑</a> ');
-                        actions.push('<a class="btn btn-danger btn-xs ' + removeFlag + '" href="javascript:void(0)" onclick="$.operate.remove(\'' + row.configId + '\')"><i class="fa fa-remove"></i>删除</a>');
                         return actions.join('');
                     }
                 }]
