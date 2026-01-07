@@ -22,7 +22,8 @@ public class MysqlDdl extends SimpleDdl {
         return Arrays.asList(
                 "sql/init.sql",
                 "sql/20250724.sql",
-                "sql/20251010.sql"
+                "sql/20251010.sql",
+                "sql/20260107.sql"
         );
     }
 }
