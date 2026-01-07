@@ -60,17 +60,17 @@ public class TMDbClient {
                 .filter(StringUtils::isNotBlank)
                 .distinct()
                 .collect(Collectors.toList())) {
-
+            log.debug("尝试根据标题查询TMDB：{}", q);
             JsonNode root = api.search(apiKey, type, q, info.getYear());
             title = doSearchOnce(type, info, root, api);
             if (title != null) return title;
         }
-        log.info("尝试只根据标题查询TMDB，不限定年份");
+
         for (String q : candidates.stream()
                 .filter(StringUtils::isNotBlank)
                 .distinct()
                 .collect(Collectors.toList())) {
-
+            log.debug("尝试只根据标题查询TMDB，不限定年份：{}", q);
             JsonNode root = api.search(apiKey, type, q, null);
             title = doSearchOnce(type, info, root, api);
             if (title != null) return title;
