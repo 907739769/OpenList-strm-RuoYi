@@ -126,6 +126,7 @@ public class AsynHelper {
             public void run() {
                 if (StringUtils.isBlank(copy.getCopyTaskId())) {
                     strmService.strmOneFile(path);// 生成 STRM 文件
+                    return;
                 }
                 Threads.sleep(30000);
                 while (true) {
