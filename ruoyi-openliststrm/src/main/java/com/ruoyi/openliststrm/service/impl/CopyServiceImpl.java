@@ -215,7 +215,7 @@ public class CopyServiceImpl implements ICopyService {
         copy.setCopyDstFileName(fileName);
 
         if (copyHelper.exitCopy(copy)) {
-            log.info("文件已处理过，跳过处理 {}/{}", dstDir, relativePath);
+            log.debug("文件已处理过，跳过处理 {}/{}", dstDir, relativePath);
             return;
         }
 

@@ -1,5 +1,6 @@
 package com.ruoyi.common.utils;
 
+import java.util.Map;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -7,6 +8,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 /**
  * 线程相关工具类.
@@ -96,4 +98,22 @@ public class Threads
             logger.error(t.getMessage(), t);
         }
     }
+
+    // 统一包装Runnable任务
+    public static Runnable wrap(Runnable task) {
+        Map<String, String> context = MDC.getCopyOfContextMap();
+        return () -> {
+            try {
+                if (context != null) {
+                    MDC.setContextMap(context);
+                    String childTraceId = ThreadTraceIdUtil.createChildTraceId();
+                    MDC.put(ThreadTraceIdUtil.TRACE_ID_KEY, childTraceId);
+                }
+                task.run();
+            } finally {
+                MDC.clear();
+            }
+        };
+    }
+
 }

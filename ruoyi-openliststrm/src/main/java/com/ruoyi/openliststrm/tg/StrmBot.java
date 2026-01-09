@@ -1,11 +1,13 @@
 package com.ruoyi.openliststrm.tg;
 
+import com.ruoyi.common.utils.ThreadTraceIdUtil;
 import com.ruoyi.common.utils.spring.SpringUtils;
 import com.ruoyi.openliststrm.service.ICopyService;
 import com.ruoyi.openliststrm.service.IStrmService;
 import com.ruoyi.openliststrm.task.OpenListStrmTask;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.MDC;
 import org.telegram.abilitybots.api.bot.AbilityBot;
 import org.telegram.abilitybots.api.objects.Ability;
 import org.telegram.abilitybots.api.objects.Flag;
@@ -65,10 +67,15 @@ public class StrmBot extends AbilityBot {
                 .locality(USER)
                 .input(0)
                 .action(ctx -> {
-                    silent.send("==开始执行strm任务==", ctx.chatId());
-                    OpenListStrmTask openListStrmTask = SpringUtils.getBean("openListStrmTask");
-                    openListStrmTask.strm();
-                    silent.send("==执行strm任务完成==", ctx.chatId());
+                    try {
+                        ThreadTraceIdUtil.initTraceId();
+                        silent.send("==开始执行strm任务==", ctx.chatId());
+                        OpenListStrmTask openListStrmTask = SpringUtils.getBean("openListStrmTask");
+                        openListStrmTask.strm();
+                        silent.send("==执行strm任务完成==", ctx.chatId());
+                    } finally {
+                        MDC.clear();
+                    }
                 })
                 .build();
     }
@@ -81,21 +88,26 @@ public class StrmBot extends AbilityBot {
                 .locality(USER)
                 .input(0)
                 .action(ctx -> {
-                    String parameter;
                     try {
-                        parameter = ctx.firstArg();
-                    } catch (Exception e) {
-                        silent.forceReply("请输入路径", ctx.chatId());
-                        return;
+                        ThreadTraceIdUtil.initTraceId();
+                        String parameter;
+                        try {
+                            parameter = ctx.firstArg();
+                        } catch (Exception e) {
+                            silent.forceReply("请输入路径", ctx.chatId());
+                            return;
+                        }
+                        if (StringUtils.isBlank(parameter)) {
+                            silent.forceReply("请输入路径", ctx.chatId());
+                            return;
+                        }
+                        silent.send("==开始执行指定路径strm任务==", ctx.chatId());
+                        IStrmService strmService = SpringUtils.getBean("strmService");
+                        strmService.strmDir(parameter);
+                        silent.send("==执行指定路径strm任务完成==", ctx.chatId());
+                    } finally {
+                        MDC.clear();
                     }
-                    if (StringUtils.isBlank(parameter)) {
-                        silent.forceReply("请输入路径", ctx.chatId());
-                        return;
-                    }
-                    silent.send("==开始执行指定路径strm任务==", ctx.chatId());
-                    IStrmService strmService = SpringUtils.getBean("strmService");
-                    strmService.strmDir(parameter);
-                    silent.send("==执行指定路径strm任务完成==", ctx.chatId());
                 })
                 .reply((bot, upd) -> responseHandler.replyToStrmDir(getChatId(upd), upd.getMessage().getText(), upd.getMessage().getMessageId()), Flag.REPLY,//回复
                         upd -> upd.getMessage().getReplyToMessage().hasText(), upd -> upd.getMessage().getReplyToMessage().getText().equals("请输入路径")//回复的是上面的问题
@@ -111,10 +123,15 @@ public class StrmBot extends AbilityBot {
                 .locality(USER)
                 .input(0)
                 .action(ctx -> {
-                    silent.send("==开始执行同步openlist任务==", ctx.chatId());
-                    OpenListStrmTask openListStrmTask = SpringUtils.getBean("openListStrmTask");
-                    openListStrmTask.copy();
-                    silent.send("==执行同步openlist任务完成==", ctx.chatId());
+                    try {
+                        ThreadTraceIdUtil.initTraceId();
+                        silent.send("==开始执行同步openlist任务==", ctx.chatId());
+                        OpenListStrmTask openListStrmTask = SpringUtils.getBean("openListStrmTask");
+                        openListStrmTask.copy();
+                        silent.send("==执行同步openlist任务完成==", ctx.chatId());
+                    } finally {
+                        MDC.clear();
+                    }
                 })
                 .build();
     }
@@ -127,28 +144,33 @@ public class StrmBot extends AbilityBot {
                 .locality(USER)
                 .input(0)
                 .action(ctx -> {
-                    String parameter;
                     try {
-                        parameter = ctx.firstArg();
-                    } catch (Exception e) {
-                        silent.forceReply("请输入路径(格式：源路径#目标路径)", ctx.chatId());
-                        return;
+                        ThreadTraceIdUtil.initTraceId();
+                        String parameter;
+                        try {
+                            parameter = ctx.firstArg();
+                        } catch (Exception e) {
+                            silent.forceReply("请输入路径(格式：源路径#目标路径)", ctx.chatId());
+                            return;
+                        }
+                        if (StringUtils.isBlank(parameter)) {
+                            silent.forceReply("请输入路径(格式：源路径#目标路径)", ctx.chatId());
+                            return;
+                        }
+                        if (!parameter.contains("#")) {
+                            silent.send("请输入正确的参数，例如：/阿里云盘/电影#/115网盘/电影", ctx.chatId());
+                        }
+                        String[] strings = parameter.split("#");
+                        if (strings.length != 2) {
+                            silent.send("请输入正确的参数，例如：/阿里云盘/电影#/115网盘/电影", ctx.chatId());
+                        }
+                        silent.send("==开始执行同步openlist指定目录任务==", ctx.chatId());
+                        ICopyService copyService = SpringUtils.getBean("copyService");
+                        copyService.syncFiles(strings[0], strings[1]);
+                        silent.send("==执行同步openlist指定目录任务完成==", ctx.chatId());
+                    } finally {
+                        MDC.clear();
                     }
-                    if (StringUtils.isBlank(parameter)) {
-                        silent.forceReply("请输入路径(格式：源路径#目标路径)", ctx.chatId());
-                        return;
-                    }
-                    if (!parameter.contains("#")) {
-                        silent.send("请输入正确的参数，例如：/阿里云盘/电影#/115网盘/电影", ctx.chatId());
-                    }
-                    String[] strings = parameter.split("#");
-                    if (strings.length != 2) {
-                        silent.send("请输入正确的参数，例如：/阿里云盘/电影#/115网盘/电影", ctx.chatId());
-                    }
-                    silent.send("==开始执行同步openlist指定目录任务==", ctx.chatId());
-                    ICopyService copyService = SpringUtils.getBean("copyService");
-                    copyService.syncFiles(strings[0], strings[1]);
-                    silent.send("==执行同步openlist指定目录任务完成==", ctx.chatId());
                 })
                 .reply((bot, upd) -> responseHandler.replyToSyncDir(getChatId(upd), upd.getMessage().getText(), upd.getMessage().getMessageId()), Flag.REPLY,//回复
                         upd -> upd.getMessage().getReplyToMessage().hasText(), upd -> upd.getMessage().getReplyToMessage().getText().equals("请输入路径(格式：源路径#目标路径)")//回复的是上面的问题

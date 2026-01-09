@@ -83,7 +83,7 @@ public class StrmServiceImpl implements IStrmService {
 
         //判断是否处理过
         if (strmHelper.exitStrm(filePath, name)) {
-            log.info("文件已处理过，跳过处理{}", path);
+            log.debug("文件已处理过，跳过处理{}", path);
             return;
         }
         String fileName = path.substring(path.lastIndexOf("/") + 1, path.lastIndexOf(".")).replaceAll("[\\\\/:*?\"<>|]", "");

@@ -99,19 +99,7 @@ public class ThreadPoolConfig {
 
     // 统一包装Runnable任务
     private Runnable wrap(Runnable task) {
-        Map<String, String> context = MDC.getCopyOfContextMap();
-        return () -> {
-            try {
-                if (context != null) {
-                    MDC.setContextMap(context);
-                    String childTraceId = ThreadTraceIdUtil.createChildTraceId();
-                    MDC.put(ThreadTraceIdUtil.TRACE_ID_KEY, childTraceId);
-                }
-                task.run();
-            } finally {
-                MDC.clear();
-            }
-        };
+        return Threads.wrap(task);
     }
 
 }

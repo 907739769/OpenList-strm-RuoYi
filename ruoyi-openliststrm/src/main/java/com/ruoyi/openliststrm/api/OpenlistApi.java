@@ -38,7 +38,7 @@ public class OpenlistApi {
                 .writeTimeout(90, TimeUnit.SECONDS)
                 .connectionPool(new ConnectionPool(5, 5, TimeUnit.SECONDS))
                 .build();
-        log.info("OkHttpClient initialized successfully.");
+        log.debug("OkHttpClient initialized successfully.");
     }
 
     public JSONObject getOpenlist(String path) {
@@ -87,7 +87,7 @@ public class OpenlistApi {
                         log.debug("获取openlist目录成功{}", path);
                         return jsonResponse;
                     } else {
-                        log.info("Response Body: " + jsonResponse.toJSONString());
+                        log.debug("Response Body: " + jsonResponse.toJSONString());
                         log.warn("获取openlist目录{}第{}次失败", path, i + 1);
                         Threads.sleep(1000);
                     }

@@ -38,7 +38,7 @@ public class NotifyController {
 
     @PostMapping("/notifyByDir")
     public void notifyByDir(@RequestBody @Valid NotifyReq req, HttpServletRequest request) {
-        log.info("req: {}" , req);
+        log.debug("req: {}" , req);
         if (StringUtils.isBlank(request.getHeader("X-API-KEY"))) {
             log.warn("没有设置参数openlist.api.apikey");
             return;

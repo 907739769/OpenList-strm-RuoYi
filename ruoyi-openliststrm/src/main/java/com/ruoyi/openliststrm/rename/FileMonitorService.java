@@ -1,6 +1,7 @@
 package com.ruoyi.openliststrm.rename;
 
 import com.ruoyi.common.utils.StringUtils;
+import com.ruoyi.common.utils.Threads;
 import com.ruoyi.openliststrm.openai.OpenAIClient;
 import com.ruoyi.openliststrm.rename.model.MediaInfo;
 import com.ruoyi.openliststrm.tmdb.TMDbClient;
@@ -108,7 +109,7 @@ public class FileMonitorService {
         });
 
         // poll thread - run the watch loop on watcherExecutor so it won't block file processing
-        watcherExecutor.scheduleWithFixedDelay(() -> {
+        watcherExecutor.scheduleWithFixedDelay(Threads.wrap(() -> {
             try {
                 WatchKey key;
                 while ((key = this.watchService.poll()) != null) {
@@ -143,7 +144,7 @@ public class FileMonitorService {
                                                 Path p2 = file.toAbsolutePath().normalize();
                                                 if (!Files.isDirectory(p2) && shouldSchedule(p2)) {
                                                     processing.add(p2);
-                                                    workerExecutor.schedule(() -> {
+                                                    workerExecutor.schedule(Threads.wrap(() -> {
                                                         try {
                                                             try {
                                                                 handleFileIfReady(p2);
@@ -159,7 +160,7 @@ public class FileMonitorService {
                                                         } catch (Exception e) {
                                                             log.error("Unexpected error scheduling file from new dir {}: {}", p2, e.getMessage());
                                                         }
-                                                    }, 2, TimeUnit.SECONDS);
+                                                    }), 2, TimeUnit.SECONDS);
                                                 }
                                                 return FileVisitResult.CONTINUE;
                                             }
@@ -178,7 +179,7 @@ public class FileMonitorService {
                         // schedule processing after short delay so file writes finish
                         if (shouldSchedule(full)) {
                             processing.add(full); // mark as in-flight to avoid duplicate scheduling
-                            workerExecutor.schedule(() -> {
+                            workerExecutor.schedule(Threads.wrap(() -> {
                                 try {
                                     boolean finished = false;
                                     try {
@@ -196,7 +197,7 @@ public class FileMonitorService {
                                 } finally {
                                     // nothing here; cleanup done above
                                 }
-                            }, 2, TimeUnit.SECONDS);
+                            }), 2, TimeUnit.SECONDS);
                         } else {
                             log.debug("Skipping duplicate scheduling for {}", full);
                         }
@@ -206,7 +207,7 @@ public class FileMonitorService {
             } catch (Exception e) {
                 log.error("watcher loop error", e);
             }
-        }, 0, 1, TimeUnit.SECONDS);
+        }), 0, 1, TimeUnit.SECONDS);
     }
 
     public void stop() {
@@ -342,7 +343,7 @@ public class FileMonitorService {
             keepProcessing.add(p);
 
             // schedule a retry that bypasses dedupe checks (it's an intentional retry)
-            workerExecutor.schedule(() -> {
+            workerExecutor.schedule(Threads.wrap(() -> {
                 try {
                     // ensure we have an in-flight marker while retrying
                     processing.add(p);
@@ -371,7 +372,7 @@ public class FileMonitorService {
                 } finally {
                     processing.remove(p);
                 }
-            }, 2, TimeUnit.SECONDS);
+            }), 2, TimeUnit.SECONDS);
 
             // indicate not finished to caller so caller won't clear state
             return false;

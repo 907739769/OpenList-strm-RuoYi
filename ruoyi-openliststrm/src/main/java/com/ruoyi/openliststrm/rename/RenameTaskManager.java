@@ -2,6 +2,7 @@ package com.ruoyi.openliststrm.rename;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.ruoyi.common.utils.StringUtils;
+import com.ruoyi.common.utils.ThreadTraceIdUtil;
 import com.ruoyi.openliststrm.config.OpenlistConfig;
 import com.ruoyi.openliststrm.mybatisplus.domain.RenameDetailPlus;
 import com.ruoyi.openliststrm.mybatisplus.domain.RenameTaskPlus;
@@ -12,6 +13,7 @@ import com.ruoyi.openliststrm.rename.model.MediaInfo;
 import com.ruoyi.openliststrm.tmdb.TMDbClient;
 import com.ruoyi.openliststrm.helper.OpenListHelper;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -83,6 +85,7 @@ public class RenameTaskManager {
 
     @PostConstruct
     public void init() {
+        ThreadTraceIdUtil.initTraceId();
         // schedule polling every 10 seconds
         scheduler.scheduleWithFixedDelay(this::pollTasks, 0, 10, TimeUnit.SECONDS);
         log.info("RenameTaskManager started polling tasks (dynamic TMDb/OpenAI config)");
@@ -102,6 +105,7 @@ public class RenameTaskManager {
         tmdbClient = null;
         openAIClient = null;
         log.info("RenameTaskManager stopped");
+        MDC.clear();
     }
 
     private void pollTasks() {
