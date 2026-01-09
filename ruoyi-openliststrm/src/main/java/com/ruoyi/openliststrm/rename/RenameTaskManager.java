@@ -3,6 +3,7 @@ package com.ruoyi.openliststrm.rename;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.common.utils.ThreadTraceIdUtil;
+import com.ruoyi.common.utils.Threads;
 import com.ruoyi.openliststrm.config.OpenlistConfig;
 import com.ruoyi.openliststrm.mybatisplus.domain.RenameDetailPlus;
 import com.ruoyi.openliststrm.mybatisplus.domain.RenameTaskPlus;
@@ -87,7 +88,7 @@ public class RenameTaskManager {
     public void init() {
         ThreadTraceIdUtil.initTraceId();
         // schedule polling every 10 seconds
-        scheduler.scheduleWithFixedDelay(this::pollTasks, 0, 10, TimeUnit.SECONDS);
+        scheduler.scheduleWithFixedDelay(Threads.wrap(this::pollTasks), 0, 10, TimeUnit.SECONDS);
         log.info("RenameTaskManager started polling tasks (dynamic TMDb/OpenAI config)");
     }
 
