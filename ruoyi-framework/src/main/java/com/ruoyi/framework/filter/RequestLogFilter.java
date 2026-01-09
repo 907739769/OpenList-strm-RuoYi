@@ -101,7 +101,7 @@ public class RequestLogFilter implements Filter {
                 logMessage.append(" [Body: ").append(requestBody).append("]");
             }
 
-            log.info(logMessage.toString());
+            log.debug(logMessage.toString());
 
         } catch (Exception e) {
             log.warn("记录请求日志出错", e);
@@ -194,7 +194,7 @@ public class RequestLogFilter implements Filter {
 
     private void logElapsedTime(HttpServletRequest request, long startTime) {
         long elapsedTime = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime);
-        log.info("Response <= {} {} [Time: {}ms]",
+        log.debug("Response <= {} {} [Time: {}ms]",
                 request.getMethod(),
                 request.getRequestURI(),
                 elapsedTime);
