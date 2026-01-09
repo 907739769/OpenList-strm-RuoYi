@@ -91,6 +91,8 @@
     <logger name="org.apache" level="warn" />
     <logger name="com.ruoyi.framework.shiro.web.session" level="warn" />
     <logger name="com.ruoyi.openliststrm" level="debug" />
+    <logger name="com.ruoyi.openliststrm.mybatisplus" level="info" />
+    <logger name="com.ruoyi.openliststrm.mapper" level="info" />
 
     <!-- 系统日志输出 -->
     <root level="info">
@@ -120,6 +122,8 @@
         <logger name="org.apache" level="warn" />
         <logger name="com.ruoyi.framework.shiro.web.session" level="warn" />
         <logger name="com.ruoyi.openliststrm" level="debug" />
+        <logger name="com.ruoyi.openliststrm.mybatisplus" level="debug" />
+        <logger name="com.ruoyi.openliststrm.mapper" level="debug" />
 
         <!-- root logger dev 环境 -->
         <root level="info">
