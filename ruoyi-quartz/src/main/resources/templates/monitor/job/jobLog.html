@@ -15,13 +15,6 @@
 								任务名称：<input type="text" name="jobName" th:value="${job!=null?job.jobName:''}"/>
 							</li>
 							<li>
-								任务分组：<select name="jobGroup" th:with="type=${@dict.getType('sys_job_group')}">
-									<option value="">所有</option>
-									<th:block th:if="${job==null}"><option th:each="dict : ${type}" th:text="${dict.dictLabel}" th:value="${dict.dictValue}"></option></th:block>
-									<th:block th:if="${job!=null}"><option th:each="dict : ${type}" th:text="${dict.dictLabel}" th:value="${dict.dictValue}" th:field="*{job.jobGroup}"></option></th:block>
-								</select>
-							</li>
-							<li>
 								执行状态：<select name="status" th:with="type=${@dict.getType('sys_common_status')}">
 									<option value="">所有</option>
 									<option th:each="dict : ${type}" th:text="${dict.dictLabel}" th:value="${dict.dictValue}"></option>
@@ -49,9 +42,6 @@
 	            <a class="btn btn-danger" onclick="$.operate.clean()" shiro:hasPermission="monitor:job:remove">
 	                <i class="fa fa-trash"></i> 清空
 	            </a>
-	            <a class="btn btn-warning" onclick="$.table.exportExcel()" shiro:hasPermission="monitor:job:export">
-		            <i class="fa fa-download"></i> 导出
-		        </a>
 		        <a class="btn btn-danger" onclick="closeItem()">
 		            <i class="fa fa-reply-all"></i> 关闭
 		        </a>
@@ -84,6 +74,7 @@
 		        },
 		        {
 		            field: 'jobLogId',
+                    visible: false,
 		            title: '日志编号'
 		        },
 		        {
@@ -92,6 +83,7 @@
 		        },
 		        {
 		            field: 'jobGroup',
+                    visible: false,
 		            title: '任务分组',
 		            formatter: function(value, row, index) {
 		            	return $.table.selectDictLabel(groupDatas, value);
@@ -100,6 +92,7 @@
 		        {
 		            field: 'invokeTarget',
 		            title: '调用目标字符串',
+                    visible: false,
 		            formatter: function(value, row, index) {
                     	return $.table.tooltip(value);
                     }
