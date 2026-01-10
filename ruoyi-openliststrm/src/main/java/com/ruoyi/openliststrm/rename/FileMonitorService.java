@@ -457,12 +457,13 @@ public class FileMonitorService {
         String lockKey = destFile.toAbsolutePath().normalize().toString();
         Object lock = FILE_LOCKS.computeIfAbsent(lockKey, k -> new Object());
         synchronized (lock) {
+            Path tmpFile = finalDestDir.resolve(fileNameOnly + ".tmp");
             try {
-                Path tmpFile = finalDestDir.resolve(fileNameOnly + ".tmp");
                 Files.copy(p, tmpFile, StandardCopyOption.REPLACE_EXISTING);
                 Files.move(tmpFile, destFile, StandardCopyOption.ATOMIC_MOVE);
                 log.info("已复制并重命名 {} -> {}", p, destFile);
             } finally {
+                Files.deleteIfExists(tmpFile);
                 FILE_LOCKS.remove(lockKey);
             }
         }
