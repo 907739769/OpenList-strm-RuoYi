@@ -35,12 +35,6 @@
             </div>
 
             <div class="btn-group-sm" id="toolbar" role="group">
-<!--                <a class="btn btn-success" onclick="$.operate.add()" shiro:hasPermission="openliststrm:strm:add">-->
-<!--                    <i class="fa fa-plus"></i> 添加-->
-<!--                </a>-->
-<!--                <a class="btn btn-primary single disabled" onclick="$.operate.edit()" shiro:hasPermission="openliststrm:strm:edit">-->
-<!--                    <i class="fa fa-edit"></i> 修改-->
-<!--                </a>-->
                 <a class="btn btn-danger multiple disabled" onclick="$.operate.removeAll()" shiro:hasPermission="openliststrm:strm:remove">
                     <i class="fa fa-remove"></i> 删除
                 </a>
@@ -50,9 +44,6 @@
                 <a class="btn btn-primary multiple disabled" onclick="javascript:batchRetryStrm()" shiro:hasPermission="openliststrm:strm:edit">
                     <i class="fa fa-refresh"></i> 重试
                 </a>
-<!--                <a class="btn btn-warning" onclick="$.table.exportExcel()" shiro:hasPermission="openliststrm:strm:export">-->
-<!--                    <i class="fa fa-download"></i> 导出-->
-<!--                </a>-->
             </div>
             <div class="col-sm-12 select-table table-striped">
                 <table id="bootstrap-table"></table>
@@ -107,7 +98,6 @@
                     align: 'center',
                     formatter: function(value, row, index) {
                         var actions = [];
-                        actions.push('<a class="btn btn-success btn-xs ' + editFlag + '" href="javascript:void(0)" onclick="$.operate.edit(\'' + row.strmId + '\')"><i class="fa fa-edit"></i>编辑</a> ');
                         actions.push('<a class="btn btn-danger btn-xs ' + removeFlag + '" href="javascript:void(0)" onclick="$.operate.remove(\'' + row.strmId + '\')"><i class="fa fa-remove"></i>删除</a>');
                         var more = [];
                         more.push("<a class='btn btn-default btn-xs " + removeFlag + "' href='javascript:void(0)' onclick='delNetDisk(" + row.strmId + ")'><i class='fa fa-remove'></i>删除网盘资源</a> ");
