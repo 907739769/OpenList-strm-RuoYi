@@ -325,6 +325,7 @@ public class FileMonitorService {
             }
         }
 
+        long size1 = Files.size(p);
         // 等待文件写入完成，避免处理未完成的文件
         try {
             TimeUnit.SECONDS.sleep(3);
@@ -332,10 +333,11 @@ public class FileMonitorService {
             Thread.currentThread().interrupt();
             log.warn("文件处理等待被中断: {}", p);
         }
+        long size2 = Files.size(p);
         // only process files that haven't been modified for a short window
         BasicFileAttributes attr = Files.readAttributes(p, BasicFileAttributes.class);
         Instant modified = attr.lastModifiedTime().toInstant();
-        if (Instant.now().minusSeconds(3).isBefore(modified)) {
+        if (Instant.now().minusSeconds(3).isBefore(modified) || size1 != size2) {
             // still being written
             log.debug("文件仍在写入，稍后再试：{}", p);
 
@@ -456,7 +458,9 @@ public class FileMonitorService {
         Object lock = FILE_LOCKS.computeIfAbsent(lockKey, k -> new Object());
         synchronized (lock) {
             try {
-                Files.copy(p, destFile, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
+                Path tmpFile = finalDestDir.resolve(fileNameOnly + ".tmp");
+                Files.copy(p, tmpFile, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
+                Files.move(tmpFile, destFile, StandardCopyOption.ATOMIC_MOVE);
                 log.info("已复制并重命名 {} -> {}", p, destFile);
             } finally {
                 FILE_LOCKS.remove(lockKey);
