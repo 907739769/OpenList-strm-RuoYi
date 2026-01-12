@@ -5,14 +5,17 @@ import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.common.utils.ThreadTraceIdUtil;
 import com.ruoyi.common.utils.Threads;
 import com.ruoyi.openliststrm.config.OpenlistConfig;
+import com.ruoyi.openliststrm.helper.OpenListHelper;
+import com.ruoyi.openliststrm.monitor.FileMonitorService;
+import com.ruoyi.openliststrm.monitor.WatchServiceMonitor;
 import com.ruoyi.openliststrm.mybatisplus.domain.RenameDetailPlus;
 import com.ruoyi.openliststrm.mybatisplus.domain.RenameTaskPlus;
 import com.ruoyi.openliststrm.mybatisplus.service.IRenameDetailPlusService;
 import com.ruoyi.openliststrm.mybatisplus.service.IRenameTaskPlusService;
 import com.ruoyi.openliststrm.openai.OpenAIClient;
+import com.ruoyi.openliststrm.processor.MediaRenameProcessor;
 import com.ruoyi.openliststrm.rename.model.MediaInfo;
 import com.ruoyi.openliststrm.tmdb.TMDbClient;
-import com.ruoyi.openliststrm.helper.OpenListHelper;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,7 +27,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -257,18 +259,12 @@ public class RenameTaskManager {
                 log.warn("Task {} missing source or target, skipping", task.getId());
                 return;
             }
-            long minSize = 10 * 1024 * 1024L; // default 10MB in bytes
-            try {
-                String cfg = openlistConfig != null ? openlistConfig.getOpenListMinFileSize() : null;
-                if (cfg != null && !cfg.isEmpty()) minSize = Long.parseLong(cfg) * 1024L * 1024L; // cfg treated as MB
-            } catch (Exception ignored) {
-            }
 
-            // Create FileMonitorService with listener that persists rename details
-            FileMonitorService svc = new FileMonitorService(Paths.get(src), Paths.get(tgt), tmdbClient, openAIClient, minSize, null, createPersistingListener(task.getId()), openListHelper);
-
-            svc.start();
-            monitors.put(task.getId(), new MonitorInfo(svc, src, tgt));
+            MediaRenameProcessor processor = new MediaRenameProcessor(Paths.get(tgt), tmdbClient, openAIClient, openListHelper, openlistConfig, createPersistingListener(task.getId()));
+            WatchServiceMonitor monitor = new WatchServiceMonitor(Paths.get(src));
+            FileMonitorService fileMonitorService = new FileMonitorService(monitor, processor);
+            fileMonitorService.start();
+            monitors.put(task.getId(), new MonitorInfo(fileMonitorService, src, tgt));
             log.info("Started monitor for task {}: {} -> {}", task.getId(), src, tgt);
         } catch (Exception e) {
             log.error("Failed to start monitor for task {}", task != null ? task.getId() : null, e);
@@ -291,67 +287,50 @@ public class RenameTaskManager {
      * 立即执行单个任务一次（用于页面手动触发）。
      * 返回 true 表示已成功触发处理（不代表全部文件处理成功）。
      */
-    public boolean executeTaskNow(Integer taskId) {
+    public void executeTaskNow(Integer taskId) {
         try {
-            if (taskId == null) return false;
+            if (taskId == null) return;
             RenameTaskPlus task = renameTaskService.getById(taskId);
             if (task == null) {
                 log.warn("executeTaskNow: task {} not found", taskId);
-                return false;
+                return;
             }
             if (currentTmdbKey == null || tmdbClient == null) {
                 log.warn("executeTaskNow: TMDb client not initialized - cannot execute task {}", taskId);
-                return false;
+                return;
             }
             String src = task.getSourceFolder();
             String tgt = task.getTargetRoot();
             if (src == null || tgt == null) {
                 log.warn("executeTaskNow: task {} missing source/target", taskId);
-                return false;
+                return;
             }
-            long minSize = 10 * 1024 * 1024L; // default 10MB in bytes
-            try {
-                String cfg = openlistConfig != null ? openlistConfig.getOpenListMinFileSize() : null;
-                if (cfg != null && !cfg.isEmpty()) minSize = Long.parseLong(cfg) * 1024L * 1024L; // cfg treated as MB
-            } catch (Exception ignored) {
-            }
-
-            FileMonitorService svc = new FileMonitorService(Paths.get(src), Paths.get(tgt), tmdbClient, openAIClient, minSize, null, createPersistingListener(taskId), openListHelper);
-
-            try {
-                svc.processOnce();
-            } finally {
-                svc.stop();
-            }
-            return true;
+            MediaRenameProcessor processor = new MediaRenameProcessor(Paths.get(tgt), tmdbClient, openAIClient, openListHelper, openlistConfig, createPersistingListener(taskId));
+            processor.processOnce(Paths.get(src));
         } catch (Exception e) {
             log.error("executeTaskNow error for {}: {}", taskId, e.getMessage(), e);
-            return false;
         }
     }
 
     /**
      * 批量立即执行任务（以逗号分隔的 id 字符串或整数列表）。
      */
-    public Map<Integer, String> executeTasksBatch(List<Integer> ids) {
-        Map<Integer, String> res = new HashMap<>();
-        if (ids == null || ids.isEmpty()) return res;
+    public void executeTasksBatch(List<Integer> ids) {
+        if (ids == null || ids.isEmpty()) return;
         for (Integer id : ids) {
-            boolean ok = executeTaskNow(id);
-            res.put(id, ok ? "ok" : "failed");
+            executeTaskNow(id);
         }
-        return res;
     }
 
-    public boolean executeRenameDetails(Integer id, String title, String year) {
+    public void executeRenameDetails(Integer id, String title, String year) {
         RenameDetailPlus rd = renameDetailService.getById(id);
         if (rd == null) {
             log.warn("executeRenameDetails: rename detail {} not found", id);
-            return false;
+            return;
         }
         if (currentTmdbKey == null || tmdbClient == null) {
             log.warn("executeRenameDetails: TMDb client not initialized - cannot execute rename detail {}", id);
-            return false;
+            return;
         }
         String src = rd.getOriginalPath();
         String tgt = rd.getNewPath();
@@ -367,23 +346,11 @@ public class RenameTaskManager {
         tgt = target.toString();
         if (src == null || tgt == null) {
             log.warn("executeRenameDetails: RenameDetails {} missing source/target", id);
-            return false;
-        }
-        long minSize = 10 * 1024 * 1024L; // default 10MB in bytes
-        try {
-            String cfg = openlistConfig != null ? openlistConfig.getOpenListMinFileSize() : null;
-            if (cfg != null && !cfg.isEmpty()) minSize = Long.parseLong(cfg) * 1024L * 1024L; // cfg treated as MB
-        } catch (Exception ignored) {
+            return;
         }
 
-        FileMonitorService svc = new FileMonitorService(Paths.get(src), Paths.get(tgt), tmdbClient, openAIClient, minSize, null, createPersistingListener(id), openListHelper);
-        boolean result;
-        try {
-            result = svc.handleOneFile(Paths.get(rd.getOriginalPath()).resolve(rd.getOriginalName()), StringUtils.isNotBlank(title) ? title : rd.getTitle(), StringUtils.isNotBlank(year) ? year : rd.getYear(), rd.getSeason(), rd.getEpisode());
-        } finally {
-            svc.stop();
-        }
-        return result;
+        MediaRenameProcessor processor = new MediaRenameProcessor(Paths.get(tgt), tmdbClient, openAIClient, openListHelper, openlistConfig, createPersistingListener(id));
+        processor.handleOneFile(Paths.get(rd.getOriginalPath()).resolve(rd.getOriginalName()), StringUtils.isNotBlank(title) ? title : rd.getTitle(), StringUtils.isNotBlank(year) ? year : rd.getYear(), rd.getSeason(), rd.getEpisode());
 
     }
 

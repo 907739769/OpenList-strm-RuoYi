@@ -17,7 +17,6 @@ import java.io.*;
 import java.net.URL;
 import java.net.URLConnection;
 import java.net.URLEncoder;
-import java.time.LocalDateTime;
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.TimerTask;
@@ -58,13 +57,13 @@ public class StrmServiceImpl implements IStrmService {
      * @param path
      */
     public void strmDir(String path) {
-        log.info("开始执行指定路径strm任务:{}", path);
+        log.info("开始执行指定路径strm任务: {}", path);
         try {
             getData(path, outputDir);
         } catch (Exception e) {
             log.error("", e);
         } finally {
-            log.info("strm任务执行完成{}:", path);
+            log.info("strm任务执行完成: {}", path);
         }
     }
 
@@ -91,7 +90,7 @@ public class StrmServiceImpl implements IStrmService {
         if (!file.exists()) {
             file.mkdirs();
         }
-        String finalPath=filePath;
+        String finalPath = filePath;
         try (FileWriter writer = new FileWriter(outputDir + File.separator + finalPath.replace("/", File.separator) + File.separator + (fileName.length() > 255 ? fileName.substring(0, 250) : fileName) + ".strm")) {
             String encodePath = path;
             if ("1".equals(encode)) {
