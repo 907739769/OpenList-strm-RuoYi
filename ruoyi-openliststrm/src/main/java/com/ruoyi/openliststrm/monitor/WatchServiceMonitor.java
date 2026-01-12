@@ -60,6 +60,8 @@ public class WatchServiceMonitor implements FileMonitor {
                 }
                 key.reset();
             }
+        } catch (ClosedWatchServiceException e) {
+            log.info("WatchService closed, monitor exiting");
         } catch (Exception e) {
             log.error("watch loop error", e);
         }
@@ -67,11 +69,11 @@ public class WatchServiceMonitor implements FileMonitor {
 
     @Override
     public void stop() {
-        executor.shutdownNow();
         try {
             if (watchService != null) watchService.close();
         } catch (IOException ignored) {
         }
+        executor.shutdown();
     }
 
     private void handleCreate(Path path) {

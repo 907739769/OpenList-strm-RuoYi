@@ -35,7 +35,7 @@ public class FileMonitorService {
 
     public void stop() {
         monitor.stop();
-        executor.shutdownNow();
+        executor.shutdown();
     }
 }
 
