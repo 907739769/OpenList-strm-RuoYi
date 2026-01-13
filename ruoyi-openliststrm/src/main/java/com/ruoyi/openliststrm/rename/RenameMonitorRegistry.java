@@ -1,0 +1,129 @@
+package com.ruoyi.openliststrm.rename;
+
+import com.ruoyi.openliststrm.config.OpenlistConfig;
+import com.ruoyi.openliststrm.helper.OpenListHelper;
+import com.ruoyi.openliststrm.monitor.FileMonitorService;
+import com.ruoyi.openliststrm.monitor.WatchServiceMonitor;
+import com.ruoyi.openliststrm.mybatisplus.domain.RenameTaskPlus;
+import com.ruoyi.openliststrm.processor.MediaRenameProcessor;
+import lombok.extern.slf4j.Slf4j;
+
+import java.nio.file.Paths;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+/**
+ * @author: Jack
+ * @creat: 2026/1/13 11:07
+ */
+@Slf4j
+public class RenameMonitorRegistry {
+
+    private static class MonitorInfo {
+        final FileMonitorService service;
+        final String source;
+        final String target;
+
+        MonitorInfo(FileMonitorService service, String source, String target) {
+            this.service = service;
+            this.source = source;
+            this.target = target;
+        }
+
+        boolean changed(RenameTaskPlus t) {
+            return !source.equals(t.getSourceFolder()) || !target.equals(t.getTargetRoot());
+        }
+    }
+
+
+    private final Map<Integer, MonitorInfo> monitors = new ConcurrentHashMap<>();
+
+
+    /**
+     * 判断配置是否修改 修改则更新监控任务
+     *
+     * @param tasks           the tasks
+     * @param clientProvider  the client provider
+     * @param helper          the helper
+     * @param config          the config
+     * @param listenerFactory the listener factory
+     */
+    public void reconcile(Map<Integer, RenameTaskPlus> tasks,
+                          RenameClientProvider clientProvider,
+                          OpenListHelper helper,
+                          OpenlistConfig config,
+                          RenameEventListenerFactory listenerFactory) {
+
+        tasks.forEach((id, task) -> {
+            MonitorInfo mi = monitors.get(id);
+            if (mi == null || mi.changed(task)) {
+                restart(task, clientProvider, helper, config, listenerFactory);
+            }
+        });
+
+
+        monitors.keySet().removeIf(id -> {
+            if (!tasks.containsKey(id)) {
+                stop(id);
+                return true;
+            }
+            return false;
+        });
+    }
+
+
+    private void restart(RenameTaskPlus task,
+                         RenameClientProvider clientProvider,
+                         OpenListHelper helper,
+                         OpenlistConfig config,
+                         RenameEventListenerFactory listenerFactory) {
+        stop(task.getId());
+        start(task, clientProvider, helper, config, listenerFactory);
+    }
+
+
+    private void start(RenameTaskPlus task,
+                       RenameClientProvider clientProvider,
+                       OpenListHelper helper,
+                       OpenlistConfig config,
+                       RenameEventListenerFactory listenerFactory) {
+        try {
+            MediaRenameProcessor processor = new MediaRenameProcessor(
+                    Paths.get(task.getTargetRoot()),
+                    clientProvider,
+                    helper,
+                    config,
+                    listenerFactory.create(task.getId())
+            );
+
+
+            FileMonitorService svc = new FileMonitorService(
+                    new WatchServiceMonitor(Paths.get(task.getSourceFolder())),
+                    processor
+            );
+            svc.start();
+            monitors.put(task.getId(), new MonitorInfo(svc, task.getSourceFolder(), task.getTargetRoot()));
+            log.info("Started monitor for task {}", task.getId());
+        } catch (
+                Exception e) {
+            log.error("Failed to start monitor for task {}", task.getId(), e);
+        }
+    }
+
+
+    public void stop(Integer id) {
+        MonitorInfo mi = monitors.remove(id);
+        if (mi != null) {
+            try {
+                mi.service.stop();
+            } catch (Exception ignored) {
+            }
+            log.info("Stopped monitor for task {}", id);
+        }
+    }
+
+
+    public void stopAll() {
+        monitors.keySet().forEach(this::stop);
+    }
+}

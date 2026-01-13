@@ -3,12 +3,11 @@ package com.ruoyi.openliststrm.processor;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.openliststrm.config.OpenlistConfig;
 import com.ruoyi.openliststrm.helper.OpenListHelper;
-import com.ruoyi.openliststrm.openai.OpenAIClient;
 import com.ruoyi.openliststrm.rename.CategoryRule;
 import com.ruoyi.openliststrm.rename.MediaParser;
+import com.ruoyi.openliststrm.rename.RenameClientProvider;
 import com.ruoyi.openliststrm.rename.RenameEventListener;
 import com.ruoyi.openliststrm.rename.model.MediaInfo;
-import com.ruoyi.openliststrm.tmdb.TMDbClient;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -32,7 +31,8 @@ public class MediaRenameProcessor implements FileProcessor {
     private final RenameEventListener renameListener;
     private final OpenListHelper openListHelper;
     private final long minFileSizeBytes;
-    private final MediaParser parser;
+
+    private final RenameClientProvider clientProvider;
 
     private static final Map<String, List<CategoryRule>> rules = defaultRules();
     private static final String DEFAULT_FILENAME_TEMPLATE = "{{ title }} {% if year %} ({{ year }}) {% endif %}/{% if season %}Season {{ season }}/{% endif %}{{ title }} {% if year and not season %} ({{ year }}) {% endif %}{% if season %}S{{ season }}{% endif %}{% if episode %}E{{ episode }}{% endif %}{% if resolution %} - {{ resolution }}{% endif %}{% if source %}.{{ source }}{% endif %}{% if videoCodec %}.{{ videoCodec }}{% endif %}{% if audioCodec %}.{{ audioCodec }}{% endif %}{% if tags is not empty %}.{{ tags|join('.') }}{% endif %}{% if releaseGroup %}-{{ releaseGroup }}{% endif %}.{{ extension }}";
@@ -43,8 +43,7 @@ public class MediaRenameProcessor implements FileProcessor {
 
     public MediaRenameProcessor(
             Path targetRoot,
-            TMDbClient tmdbClient,
-            OpenAIClient openAIClient,
+            RenameClientProvider clientProvider,
             OpenListHelper openListHelper,
             OpenlistConfig config,
             RenameEventListener renameListener
@@ -52,13 +51,13 @@ public class MediaRenameProcessor implements FileProcessor {
         this.targetRoot = targetRoot;
         this.renameListener = renameListener;
         this.openListHelper = openListHelper;
-        this.parser = new MediaParser(tmdbClient, openAIClient);
         this.minFileSizeBytes =
                 Optional.ofNullable(config)
                         .map(OpenlistConfig::getOpenListMinFileSize)
                         .filter(StringUtils::isNotBlank)
                         .map(v -> Long.parseLong(v) * 1024 * 1024)
                         .orElse(10 * 1024 * 1024L);
+        this.clientProvider = clientProvider;
     }
 
     @Override
@@ -158,6 +157,7 @@ public class MediaRenameProcessor implements FileProcessor {
             return;
         }
 
+        MediaParser parser = new MediaParser(clientProvider.tmdb(), clientProvider.openAI());
         MediaInfo info = parser.parse(filename, title, year);
         if (StringUtils.isNotEmpty(season)) {
             info.setSeason(season);
