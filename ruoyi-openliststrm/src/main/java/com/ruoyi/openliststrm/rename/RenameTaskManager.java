@@ -36,7 +36,6 @@ import java.util.stream.Collectors;
 public class RenameTaskManager {
 
 
-    private final IRenameTaskPlusService taskService;
     private final OpenlistConfig config;
     private final OpenListHelper helper;
     private final RenameClientProvider clientProvider;
@@ -50,12 +49,10 @@ public class RenameTaskManager {
     );
 
 
-    public RenameTaskManager(IRenameTaskPlusService taskService,
-                             OpenlistConfig config,
+    public RenameTaskManager(OpenlistConfig config,
                              OpenListHelper helper,
                              RenameClientProvider clientProvider,
                              RenameEventListenerFactory listenerFactory, IRenameTaskPlusService renameTaskService, IRenameDetailPlusService renameDetailService) {
-        this.taskService = taskService;
         this.config = config;
         this.helper = helper;
         this.clientProvider = clientProvider;
@@ -175,7 +172,7 @@ public class RenameTaskManager {
     private Map<Integer, RenameTaskPlus> loadActiveTasks() {
         QueryWrapper<RenameTaskPlus> qw = new QueryWrapper<>();
         qw.eq("status", "1");
-        List<RenameTaskPlus> list = taskService.list(qw);
+        List<RenameTaskPlus> list = renameTaskService.list(qw);
         return list.stream().collect(Collectors.toMap(RenameTaskPlus::getId, t -> t));
     }
 }
