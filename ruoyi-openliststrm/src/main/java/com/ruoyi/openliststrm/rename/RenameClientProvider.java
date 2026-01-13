@@ -8,6 +8,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 /**
+ *
+ * 客户端维护者
+ *
  * @author: Jack
  * @creat: 2026/1/13 11:05
  */

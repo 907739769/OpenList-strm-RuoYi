@@ -1,27 +1,27 @@
-package com.ruoyi.openliststrm.monitor;
+package com.ruoyi.openliststrm.monitor.service;
 
-import com.ruoyi.common.utils.Threads;
 import com.ruoyi.framework.manager.AsyncManager;
-import com.ruoyi.openliststrm.processor.FileProcessor;
+import com.ruoyi.openliststrm.monitor.FileMonitor;
+import com.ruoyi.openliststrm.monitor.processor.FileProcessor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.nio.file.Path;
 import java.util.TimerTask;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 /**
+ * 文件监控协调者
+ * 文件监控的运行与事件编排器
+ *
  * @author: Jack
  * @creat: 2026/1/12 14:46
  */
 @Slf4j
-public class FileMonitorService {
+public class FileMonitorCoordinator {
 
     private final FileMonitor monitor;
     private final FileProcessor processor;
 
-    public FileMonitorService(FileMonitor monitor, FileProcessor processor) {
+    public FileMonitorCoordinator(FileMonitor monitor, FileProcessor processor) {
         this.monitor = monitor;
         this.processor = processor;
     }

@@ -1,6 +1,8 @@
 package com.ruoyi.openliststrm.rename;
 
 /**
+ * 重命名事件监听器工厂
+ *
  * @author: Jack
  * @creat: 2026/1/13 11:13
  */

@@ -12,6 +12,8 @@ import java.util.function.Consumer;
 import static java.nio.file.StandardWatchEventKinds.*;
 
 /**
+ * 基于WatchService的文件实时监控实现
+ *
  * @author: Jack
  * @creat: 2026/1/12 14:40
  */

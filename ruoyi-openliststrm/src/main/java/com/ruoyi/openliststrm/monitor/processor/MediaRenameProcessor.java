@@ -1,4 +1,4 @@
-package com.ruoyi.openliststrm.processor;
+package com.ruoyi.openliststrm.monitor.processor;
 
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.openliststrm.config.OpenlistConfig;
@@ -21,6 +21,8 @@ import java.util.concurrent.TimeUnit;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
 /**
+ * 媒体文件重命名处理器
+ *
  * @author: Jack
  * @creat: 2026/1/12 14:45
  */

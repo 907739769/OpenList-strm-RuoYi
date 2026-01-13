@@ -9,7 +9,7 @@ import com.ruoyi.openliststrm.mybatisplus.domain.RenameDetailPlus;
 import com.ruoyi.openliststrm.mybatisplus.domain.RenameTaskPlus;
 import com.ruoyi.openliststrm.mybatisplus.service.IRenameDetailPlusService;
 import com.ruoyi.openliststrm.mybatisplus.service.IRenameTaskPlusService;
-import com.ruoyi.openliststrm.processor.MediaRenameProcessor;
+import com.ruoyi.openliststrm.monitor.processor.MediaRenameProcessor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -26,11 +26,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
- * Manager that polls rename_task table and keeps FileMonitorService instances running for active tasks.
- * <p>
- * Behavior changes:
- * - TMDb/OpenAI keys are read from `OpenlistConfig` every poll. If TMDb key is missing, tasks will not start.
- * - If TMDb key is removed at runtime, all monitors are stopped until a valid key appears.
+ * 管理重命名任务的类。
+ * 轮询重命名任务表并保持FileMonitorService实例运行的类。
  */
 @Slf4j
 @Component

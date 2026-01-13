@@ -17,6 +17,8 @@ import java.nio.file.Paths;
 import java.util.List;
 
 /**
+ * 重命名事件监听器实现类
+ *
  * @author: Jack
  * @creat: 2026/1/13 11:13
  */

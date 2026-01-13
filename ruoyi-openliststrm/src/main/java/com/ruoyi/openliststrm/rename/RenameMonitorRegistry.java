@@ -2,10 +2,10 @@ package com.ruoyi.openliststrm.rename;
 
 import com.ruoyi.openliststrm.config.OpenlistConfig;
 import com.ruoyi.openliststrm.helper.OpenListHelper;
-import com.ruoyi.openliststrm.monitor.FileMonitorService;
+import com.ruoyi.openliststrm.monitor.service.FileMonitorCoordinator;
 import com.ruoyi.openliststrm.monitor.WatchServiceMonitor;
 import com.ruoyi.openliststrm.mybatisplus.domain.RenameTaskPlus;
-import com.ruoyi.openliststrm.processor.MediaRenameProcessor;
+import com.ruoyi.openliststrm.monitor.processor.MediaRenameProcessor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.nio.file.Paths;
@@ -13,6 +13,8 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
+ * 重命名监控注册表
+ *
  * @author: Jack
  * @creat: 2026/1/13 11:07
  */
@@ -20,11 +22,11 @@ import java.util.concurrent.ConcurrentHashMap;
 public class RenameMonitorRegistry {
 
     private static class MonitorInfo {
-        final FileMonitorService service;
+        final FileMonitorCoordinator service;
         final String source;
         final String target;
 
-        MonitorInfo(FileMonitorService service, String source, String target) {
+        MonitorInfo(FileMonitorCoordinator service, String source, String target) {
             this.service = service;
             this.source = source;
             this.target = target;
@@ -97,7 +99,7 @@ public class RenameMonitorRegistry {
             );
 
 
-            FileMonitorService svc = new FileMonitorService(
+            FileMonitorCoordinator svc = new FileMonitorCoordinator(
                     new WatchServiceMonitor(Paths.get(task.getSourceFolder())),
                     processor
             );

@@ -27,10 +27,6 @@ public class MediaParser {
     private final OpenAIClient openAIClient; // may be null
     private final PebbleRenderer renderer = new PebbleRenderer();
 
-    public MediaParser(TMDbClient tmdbClient) {
-        this(tmdbClient, null);
-    }
-
     public MediaParser(TMDbClient tmdbClient, OpenAIClient openAIClient) {
         this.tmdbClient = tmdbClient;
         this.openAIClient = openAIClient;
@@ -50,7 +46,7 @@ public class MediaParser {
         return parse(filename, null, null);
     }
 
-    public MediaInfo parse(String filename,String title,String year) {
+    public MediaInfo parse(String filename, String title, String year) {
         log.info("开始重命名文件名: {}", filename);
         String extension = "";
         String baseName = filename;
