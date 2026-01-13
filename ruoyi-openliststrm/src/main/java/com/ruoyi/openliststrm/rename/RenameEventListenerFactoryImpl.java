@@ -7,6 +7,7 @@ import com.ruoyi.openliststrm.mybatisplus.service.IRenameDetailPlusService;
 import com.ruoyi.openliststrm.rename.model.MediaInfo;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -21,10 +22,10 @@ import java.util.List;
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class RenameEventListenerFactoryImpl implements RenameEventListenerFactory {
 
-    private final IRenameDetailPlusService renameDetailService;
+    @Autowired
+    private IRenameDetailPlusService renameDetailService;
 
     @Override
     public RenameEventListener create(final Integer taskId) {

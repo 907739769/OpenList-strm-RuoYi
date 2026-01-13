@@ -11,6 +11,7 @@ import com.ruoyi.openliststrm.mybatisplus.service.IRenameDetailPlusService;
 import com.ruoyi.openliststrm.mybatisplus.service.IRenameTaskPlusService;
 import com.ruoyi.openliststrm.processor.MediaRenameProcessor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
@@ -36,30 +37,23 @@ import java.util.stream.Collectors;
 public class RenameTaskManager {
 
 
-    private final OpenlistConfig config;
-    private final OpenListHelper helper;
-    private final RenameClientProvider clientProvider;
-    private final RenameEventListenerFactory listenerFactory;
-    private final IRenameTaskPlusService renameTaskService;
-    private final IRenameDetailPlusService renameDetailService;
+    @Autowired
+    private OpenlistConfig config;
+    @Autowired
+    private OpenListHelper helper;
+    @Autowired
+    private RenameClientProvider clientProvider;
+    @Autowired
+    private RenameEventListenerFactory listenerFactory;
+    @Autowired
+    private IRenameTaskPlusService renameTaskService;
+    @Autowired
+    private IRenameDetailPlusService renameDetailService;
 
     private final RenameMonitorRegistry registry = new RenameMonitorRegistry();
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(
             r -> new Thread(r, "rename-task-manager")
     );
-
-
-    public RenameTaskManager(OpenlistConfig config,
-                             OpenListHelper helper,
-                             RenameClientProvider clientProvider,
-                             RenameEventListenerFactory listenerFactory, IRenameTaskPlusService renameTaskService, IRenameDetailPlusService renameDetailService) {
-        this.config = config;
-        this.helper = helper;
-        this.clientProvider = clientProvider;
-        this.listenerFactory = listenerFactory;
-        this.renameTaskService = renameTaskService;
-        this.renameDetailService = renameDetailService;
-    }
 
     @PostConstruct
     public void start() {
