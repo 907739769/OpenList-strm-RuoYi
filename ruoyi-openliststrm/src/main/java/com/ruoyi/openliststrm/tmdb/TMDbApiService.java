@@ -3,15 +3,13 @@ package com.ruoyi.openliststrm.tmdb;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
-import okhttp3.HttpUrl;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.Response;
+import okhttp3.*;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 
 /**
  * TMDb 网络请求封装为 Spring Bean，方法上使用 @Cacheable 做缓存。
@@ -21,7 +19,12 @@ import java.util.Objects;
 public class TMDbApiService {
     private static final String BASE = "https://api.tmdb.org/3";
     private static final String LANGUAGE = "zh-CN";
-    private final OkHttpClient http = new OkHttpClient();
+    private final OkHttpClient http = new OkHttpClient.Builder()
+            .connectTimeout(90, TimeUnit.SECONDS)
+            .readTimeout(90, TimeUnit.SECONDS)
+            .writeTimeout(90, TimeUnit.SECONDS)
+            .connectionPool(new ConnectionPool(5, 5, TimeUnit.SECONDS))
+            .build();
     private final ObjectMapper mapper = new ObjectMapper();
 
     /**

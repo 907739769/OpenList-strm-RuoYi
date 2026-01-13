@@ -3,13 +3,13 @@ package com.ruoyi.openliststrm.openai;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ruoyi.openliststrm.rename.model.MediaInfo;
-import com.ruoyi.openliststrm.config.OpenlistConfig;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.*;
 
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Simple OpenAI Chat client used to extract metadata when film/tv title cannot be reliably determined by heuristics/TMDb.
@@ -21,7 +21,12 @@ public class OpenAIClient {
     // default OpenAI chat completions endpoint
     private static final String DEFAULT_ENDPOINT = "https://api.openai.com";
 
-    private final OkHttpClient http = new OkHttpClient();
+    private final OkHttpClient http = new OkHttpClient.Builder()
+            .connectTimeout(90, TimeUnit.SECONDS)
+            .readTimeout(90, TimeUnit.SECONDS)
+            .writeTimeout(90, TimeUnit.SECONDS)
+            .connectionPool(new ConnectionPool(5, 5, TimeUnit.SECONDS))
+            .build();
     private final ObjectMapper mapper = new ObjectMapper();
     private final String apiKey;
     private final String model;
@@ -71,7 +76,7 @@ public class OpenAIClient {
         if (apiKey == null || apiKey.isEmpty()) return false;
         try {
             String prompt = buildPrompt(info, filename);
-            RequestBody body = RequestBody.create(mapper.writeValueAsBytes(buildRequestPayload(prompt)), MediaType.parse("application/json; charset=utf-8"));
+            RequestBody body = RequestBody.create(MediaType.parse("application/json; charset=utf-8"), mapper.writeValueAsBytes(buildRequestPayload(prompt)));
             Request req = new Request.Builder()
                     .url(endpoint + "/v1/chat/completions")
                     .addHeader("Authorization", "Bearer " + apiKey)
