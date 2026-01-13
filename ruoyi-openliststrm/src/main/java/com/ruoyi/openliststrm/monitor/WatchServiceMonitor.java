@@ -86,8 +86,8 @@ public class WatchServiceMonitor implements FileMonitor {
                 Files.walkFileTree(path, new SimpleFileVisitor<Path>() {
                     @Override
                     public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
-                        if (!Files.isDirectory(file)) {
-                            listener.accept(new FileEvent(path, FileEvent.Type.CREATE));
+                        if (listener != null && Files.isRegularFile(file)) {
+                            listener.accept(new FileEvent(file, FileEvent.Type.CREATE));
                         }
                         return FileVisitResult.CONTINUE;
                     }
