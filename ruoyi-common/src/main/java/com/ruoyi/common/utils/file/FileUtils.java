@@ -9,6 +9,9 @@ import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.concurrent.TimeUnit;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import org.apache.commons.io.FilenameUtils;
@@ -298,5 +301,18 @@ public class FileUtils
         }
         String baseName = FilenameUtils.getBaseName(fileName);
         return baseName;
+    }
+
+    public static boolean isFileStable(Path p) {
+        try {
+            long s1 = Files.size(p);
+            long t1 = Files.getLastModifiedTime(p).toMillis();
+            TimeUnit.SECONDS.sleep(2);
+            long s2 = Files.size(p);
+            long t2 = Files.getLastModifiedTime(p).toMillis();
+            return s1 == s2 && t1 == t2;
+        } catch (Exception ignored) {
+        }
+        return false;
     }
 }

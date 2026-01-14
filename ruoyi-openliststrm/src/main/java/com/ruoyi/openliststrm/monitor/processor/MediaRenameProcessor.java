@@ -1,6 +1,7 @@
 package com.ruoyi.openliststrm.monitor.processor;
 
 import com.ruoyi.common.utils.StringUtils;
+import com.ruoyi.common.utils.file.FileUtils;
 import com.ruoyi.openliststrm.config.OpenlistConfig;
 import com.ruoyi.openliststrm.helper.OpenListHelper;
 import com.ruoyi.openliststrm.rename.CategoryRule;
@@ -16,7 +17,6 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.TimeUnit;
 
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
@@ -154,7 +154,7 @@ public class MediaRenameProcessor implements FileProcessor {
             }
         }
         //判断文件是否还在写入中
-        if (!isFileStable(p)) {
+        if (!FileUtils.isFileStable(p)) {
             log.debug("文件仍在写入，稍后再试：{}", p);
             return;
         }
@@ -263,19 +263,6 @@ public class MediaRenameProcessor implements FileProcessor {
             if (r.matches(info)) return r.getName();
         }
         return null;
-    }
-
-    private boolean isFileStable(Path p) {
-        try {
-            long s1 = Files.size(p);
-            long t1 = Files.getLastModifiedTime(p).toMillis();
-            TimeUnit.SECONDS.sleep(2);
-            long s2 = Files.size(p);
-            long t2 = Files.getLastModifiedTime(p).toMillis();
-            return s1 == s2 && t1 == t2;
-        } catch (Exception ignored) {
-        }
-        return false;
     }
 
     private static Map<String, List<CategoryRule>> defaultRules() {

@@ -42,6 +42,12 @@ public class OpenlistCopyTaskPlus extends BaseEntity {
     private String copyTaskDst;
 
     /**
+     * 监控目录
+     */
+    @TableField("monitor_dir")
+    private String monitorDir;
+
+    /**
      * 状态0-停用1-启用
      */
     @TableField("copy_task_status")

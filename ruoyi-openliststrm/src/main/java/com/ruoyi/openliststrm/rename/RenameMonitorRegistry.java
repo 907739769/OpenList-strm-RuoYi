@@ -105,10 +105,10 @@ public class RenameMonitorRegistry {
             );
             svc.start();
             monitors.put(task.getId(), new MonitorInfo(svc, task.getSourceFolder(), task.getTargetRoot()));
-            log.info("Started monitor for task {}", task.getId());
+            log.info("Started monitor for rename task {}", task.getId());
         } catch (
                 Exception e) {
-            log.error("Failed to start monitor for task {}", task.getId(), e);
+            log.error("Failed to start monitor for rename task {}", task.getId(), e);
         }
     }
 
@@ -120,7 +120,7 @@ public class RenameMonitorRegistry {
                 mi.service.stop();
             } catch (Exception ignored) {
             }
-            log.info("Stopped monitor for task {}", id);
+            log.info("Stopped monitor for rename task {}", id);
         }
     }
 

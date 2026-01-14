@@ -1,9 +1,9 @@
 package com.ruoyi.openliststrm.domain;
 
-import org.apache.commons.lang3.builder.ToStringBuilder;
-import org.apache.commons.lang3.builder.ToStringStyle;
 import com.ruoyi.common.annotation.Excel;
 import com.ruoyi.common.core.domain.BaseEntity;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 /**
  * 文件同步任务对象 openlist_copy_task
@@ -11,6 +11,8 @@ import com.ruoyi.common.core.domain.BaseEntity;
  * @author Jack
  * @date 2025-07-17
  */
+@EqualsAndHashCode(callSuper = true)
+@Data
 public class OpenlistCopyTask extends BaseEntity
 {
     private static final long serialVersionUID = 1L;
@@ -26,59 +28,12 @@ public class OpenlistCopyTask extends BaseEntity
     @Excel(name = "目标目录")
     private String copyTaskDst;
 
+    /** 监控目录 */
+    @Excel(name = "监控目录")
+    private String monitorDir;
+
     /** 状态0-停用1-启用 */
     @Excel(name = "状态0-停用1-启用")
     private String copyTaskStatus;
 
-    public void setCopyTaskId(Integer copyTaskId) 
-    {
-        this.copyTaskId = copyTaskId;
-    }
-
-    public Integer getCopyTaskId() 
-    {
-        return copyTaskId;
-    }
-
-    public void setCopyTaskSrc(String copyTaskSrc) 
-    {
-        this.copyTaskSrc = copyTaskSrc;
-    }
-
-    public String getCopyTaskSrc() 
-    {
-        return copyTaskSrc;
-    }
-
-    public void setCopyTaskDst(String copyTaskDst) 
-    {
-        this.copyTaskDst = copyTaskDst;
-    }
-
-    public String getCopyTaskDst() 
-    {
-        return copyTaskDst;
-    }
-
-    public void setCopyTaskStatus(String copyTaskStatus) 
-    {
-        this.copyTaskStatus = copyTaskStatus;
-    }
-
-    public String getCopyTaskStatus() 
-    {
-        return copyTaskStatus;
-    }
-
-    @Override
-    public String toString() {
-        return new ToStringBuilder(this,ToStringStyle.MULTI_LINE_STYLE)
-            .append("copyTaskId", getCopyTaskId())
-            .append("copyTaskSrc", getCopyTaskSrc())
-            .append("copyTaskDst", getCopyTaskDst())
-            .append("copyTaskStatus", getCopyTaskStatus())
-            .append("createTime", getCreateTime())
-            .append("updateTime", getUpdateTime())
-            .toString();
-    }
 }

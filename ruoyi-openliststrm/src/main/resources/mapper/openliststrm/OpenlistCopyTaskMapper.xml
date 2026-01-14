@@ -8,13 +8,14 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="copyTaskId"    column="copy_task_id"    />
         <result property="copyTaskSrc"    column="copy_task_src"    />
         <result property="copyTaskDst"    column="copy_task_dst"    />
+        <result property="monitorDir"    column="monitor_dir"    />
         <result property="copyTaskStatus"    column="copy_task_status"    />
         <result property="createTime"    column="create_time"    />
         <result property="updateTime"    column="update_time"    />
     </resultMap>
 
     <sql id="selectOpenlistCopyTaskVo">
-        select copy_task_id, copy_task_src, copy_task_dst, copy_task_status, create_time, update_time from openlist_copy_task
+        select copy_task_id, copy_task_src, copy_task_dst, monitor_dir, copy_task_status, create_time, update_time from openlist_copy_task
     </sql>
 
     <select id="selectOpenlistCopyTaskList" parameterType="OpenlistCopyTask" resultMap="OpenlistCopyTaskResult">
@@ -22,6 +23,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <where>  
             <if test="copyTaskSrc != null  and copyTaskSrc != ''"> and copy_task_src = #{copyTaskSrc}</if>
             <if test="copyTaskDst != null  and copyTaskDst != ''"> and copy_task_dst = #{copyTaskDst}</if>
+            <if test="monitorDir != null  and monitorDir != ''"> and monitor_dir = #{monitorDir}</if>
             <if test="copyTaskStatus != null  and copyTaskStatus != ''"> and copy_task_status = #{copyTaskStatus}</if>
         </where>
     </select>
@@ -36,6 +38,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <trim prefix="(" suffix=")" suffixOverrides=",">
             <if test="copyTaskSrc != null and copyTaskSrc != ''">copy_task_src,</if>
             <if test="copyTaskDst != null and copyTaskDst != ''">copy_task_dst,</if>
+            <if test="monitorDir != null and monitorDir != ''">monitor_dir,</if>
             <if test="copyTaskStatus != null">copy_task_status,</if>
             <if test="createTime != null">create_time,</if>
             <if test="updateTime != null">update_time,</if>
@@ -43,6 +46,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <trim prefix="values (" suffix=")" suffixOverrides=",">
             <if test="copyTaskSrc != null and copyTaskSrc != ''">#{copyTaskSrc},</if>
             <if test="copyTaskDst != null and copyTaskDst != ''">#{copyTaskDst},</if>
+            <if test="monitorDir != null and monitorDir != ''">#{monitorDir},</if>
             <if test="copyTaskStatus != null">#{copyTaskStatus},</if>
             <if test="createTime != null">#{createTime},</if>
             <if test="updateTime != null">#{updateTime},</if>
@@ -54,6 +58,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <trim prefix="SET" suffixOverrides=",">
             <if test="copyTaskSrc != null and copyTaskSrc != ''">copy_task_src = #{copyTaskSrc},</if>
             <if test="copyTaskDst != null and copyTaskDst != ''">copy_task_dst = #{copyTaskDst},</if>
+            <if test="monitorDir != null">monitor_dir = #{monitorDir},</if>
             <if test="copyTaskStatus != null">copy_task_status = #{copyTaskStatus},</if>
             <if test="createTime != null">create_time = #{createTime},</if>
             <if test="updateTime != null">update_time = #{updateTime},</if>

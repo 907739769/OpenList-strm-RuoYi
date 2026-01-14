@@ -19,6 +19,10 @@
                                 <input type="text" name="copyTaskDst"/>
                             </li>
                             <li>
+                                <label>监控目录：</label>
+                                <input type="text" name="monitorDir"/>
+                            </li>
+                            <li>
                                 <label>状态：</label>
                                 <select name="copyTaskStatus" th:with="type=${@dict.getType('openlist_copy_task_status')}">
                                     <option value="">所有</option>
@@ -86,6 +90,10 @@
                 {
                     field: 'copyTaskDst',
                     title: '目标目录'
+                },
+                {
+                    field: 'monitorDir',
+                    title: '监控目录'
                 },
                 {
                     field: 'copyTaskStatus',
