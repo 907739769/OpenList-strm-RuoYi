@@ -58,6 +58,7 @@ public class CopyServiceImpl implements ICopyService {
      * 队列方式同步目录（完全替代递归）
      */
     private void syncFilesByQueue(String srcDir, String dstDir, String startRelativePath) {
+        log.info("开始同步目录: {} {} {}", srcDir, dstDir, startRelativePath);
         if (StringUtils.isAnyBlank(srcDir, dstDir)) {
             return;
         }
@@ -187,6 +188,7 @@ public class CopyServiceImpl implements ICopyService {
      */
     @Override
     public void syncOneFile(String srcDir, String dstDir, String relativePath) {
+        log.info("开始同步文件: {}", relativePath);
         if (!openListHelper.isVideo(relativePath)) {
             return;
         }

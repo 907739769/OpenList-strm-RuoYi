@@ -1,11 +1,13 @@
 package com.ruoyi.openliststrm.upload;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.ruoyi.common.utils.ThreadTraceIdUtil;
 import com.ruoyi.common.utils.Threads;
 import com.ruoyi.openliststrm.mybatisplus.domain.OpenlistCopyTaskPlus;
 import com.ruoyi.openliststrm.mybatisplus.service.IOpenlistCopyTaskPlusService;
 import com.ruoyi.openliststrm.service.ICopyService;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -39,6 +41,7 @@ public class UploadTaskManager {
     @PostConstruct
     public void start() {
         //轮询调用
+        ThreadTraceIdUtil.initTraceId();
         scheduler.scheduleWithFixedDelay(Threads.wrap(this::poll), 0, 10, TimeUnit.SECONDS);
         log.info("UploadTaskManager started");
     }
@@ -48,6 +51,7 @@ public class UploadTaskManager {
         scheduler.shutdown();
         registry.stopAll();
         log.info("UploadTaskManager stopped");
+        MDC.clear();
     }
 
     private void poll() {

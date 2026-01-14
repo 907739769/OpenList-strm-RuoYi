@@ -2,6 +2,7 @@ package com.ruoyi.openliststrm.rename;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.ruoyi.common.utils.StringUtils;
+import com.ruoyi.common.utils.ThreadTraceIdUtil;
 import com.ruoyi.common.utils.Threads;
 import com.ruoyi.openliststrm.config.OpenlistConfig;
 import com.ruoyi.openliststrm.helper.OpenListHelper;
@@ -11,6 +12,7 @@ import com.ruoyi.openliststrm.mybatisplus.service.IRenameDetailPlusService;
 import com.ruoyi.openliststrm.mybatisplus.service.IRenameTaskPlusService;
 import com.ruoyi.openliststrm.monitor.processor.MediaRenameProcessor;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -55,6 +57,7 @@ public class RenameTaskManager {
     @PostConstruct
     public void start() {
         //轮询调用
+        ThreadTraceIdUtil.initTraceId();
         scheduler.scheduleWithFixedDelay(Threads.wrap(this::poll), 0, 10, TimeUnit.SECONDS);
         log.info("RenameTaskManager started");
     }
@@ -64,6 +67,7 @@ public class RenameTaskManager {
         scheduler.shutdown();
         registry.stopAll();
         log.info("RenameTaskManager stopped");
+        MDC.clear();
     }
 
     public void executeRenameDetails(Integer id, String title, String year) {

@@ -106,9 +106,9 @@ public class Threads
             try {
                 if (context != null) {
                     MDC.setContextMap(context);
-                    String childTraceId = ThreadTraceIdUtil.createChildTraceId();
-                    MDC.put(ThreadTraceIdUtil.TRACE_ID_KEY, childTraceId);
                 }
+                String childTraceId = ThreadTraceIdUtil.createChildTraceId();
+                MDC.put(ThreadTraceIdUtil.TRACE_ID_KEY, childTraceId);
                 task.run();
             } finally {
                 MDC.clear();

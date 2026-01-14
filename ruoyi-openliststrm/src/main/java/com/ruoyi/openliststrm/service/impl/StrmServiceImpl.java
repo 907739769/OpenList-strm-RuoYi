@@ -73,6 +73,7 @@ public class StrmServiceImpl implements IStrmService {
      * @param path
      */
     public void strmOneFile(String path) {
+        log.info("开始执行指定文件strm任务: {}", path);
         String filePath = "";
         String name = path;
         if (path.contains("/")) {
@@ -102,6 +103,7 @@ public class StrmServiceImpl implements IStrmService {
             log.error("", e);
             strmHelper.addStrm(filePath, name, "0");
         }
+        log.info("执行指定文件strm任务完成: {}", path);
     }
 
     public void getData(String rootPath, String localRootPath) {
