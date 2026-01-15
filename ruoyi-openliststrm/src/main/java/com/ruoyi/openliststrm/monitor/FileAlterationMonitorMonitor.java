@@ -96,7 +96,6 @@ public class FileAlterationMonitorMonitor implements FileMonitor {
 
         @Override
         public void onDirectoryCreate(File directory) {
-            log.debug("Directory created: {}", directory);
         }
 
         @Override
@@ -106,7 +105,6 @@ public class FileAlterationMonitorMonitor implements FileMonitor {
 
         @Override
         public void onDirectoryDelete(File directory) {
-            log.debug("Directory deleted: {}", directory);
         }
 
         private void fire(Path path, FileEvent.Type type) {
