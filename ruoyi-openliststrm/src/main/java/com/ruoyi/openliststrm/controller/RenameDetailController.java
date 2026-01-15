@@ -1,12 +1,18 @@
 package com.ruoyi.openliststrm.controller;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.TimerTask;
+import java.time.LocalDate;
+import java.util.*;
 import java.util.stream.Collectors;
 
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.ruoyi.common.core.text.Convert;
+import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.framework.manager.AsyncManager;
+import com.ruoyi.openliststrm.enums.CopyStatusEnum;
+import com.ruoyi.openliststrm.enums.StrmStatusEnum;
+import com.ruoyi.openliststrm.mybatisplus.domain.OpenlistCopyPlus;
+import com.ruoyi.openliststrm.mybatisplus.domain.RenameDetailPlus;
+import com.ruoyi.openliststrm.mybatisplus.service.IRenameDetailPlusService;
 import com.ruoyi.openliststrm.rename.RenameTaskManager;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,6 +49,9 @@ public class RenameDetailController extends BaseController
 
     @Autowired
     private RenameTaskManager renameTaskManager;
+
+    @Autowired
+    private IRenameDetailPlusService renameDetailPlusService;
 
     @RequiresPermissions("openliststrm:renameDetail:view")
     @GetMapping()
@@ -176,4 +185,32 @@ public class RenameDetailController extends BaseController
         });
         return AjaxResult.success();
     }
+
+    /**
+     * 统计信息
+     */
+    @RequiresPermissions("openliststrm:renameDetail:list")
+    @PostMapping("/stats")
+    @ResponseBody
+    public AjaxResult stats(String range) {
+        LocalDate today = LocalDate.now();
+        // 这里替换为实际业务数据，可以从service层获取
+        QueryWrapper<RenameDetailPlus> wrapper = new QueryWrapper<>();
+        wrapper.select("status as status, count(*) as count")
+                .between(StringUtils.isEmpty(range) || "today".equals(range), "create_time", today.atStartOfDay(), today.plusDays(1).atStartOfDay())
+                .between("yesterday".equals(range), "create_time", today.minusDays(1).atStartOfDay(), today.atStartOfDay())
+                .groupBy("status");
+
+        List<Map<String, Object>> maps = renameDetailPlusService.listMaps(wrapper);
+        Map<String, Long> result = new LinkedHashMap<>();
+        for (Map<String, Object> map : maps) {
+            String status = String.valueOf(map.get("status"));
+            Long count = Long.parseLong(map.get("count").toString());
+
+            String statusChinese = StrmStatusEnum.getDescByCode(status);
+            result.put(statusChinese, count);
+        }
+        return success(result);
+    }
+
 }

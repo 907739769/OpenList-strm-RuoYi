@@ -88,6 +88,23 @@
                 </div>
             </div>
         </div>
+
+        <!-- Rename 图表 -->
+        <div class="col-md-3">
+            <div class="chart-container">
+                <div class="chart-header">
+                    <strong id="title-rename">Rename任务</strong>
+                    <select onchange="updateChart('rename-pie-chart', 'openliststrm/renameDetail/stats', this.value, 'rename')">
+                        <option value="today" selected>今日</option>
+                        <option value="yesterday">昨日</option>
+                        <option value="all">全部</option>
+                    </select>
+                </div>
+                <div class="chart-wrapper">
+                    <div class="echarts" id="rename-pie-chart"></div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -98,10 +115,12 @@
     $(function () {
         updateChart('copy-pie-chart', 'openliststrm/copy/stats', 'today', 'copy');
         updateChart('strm-pie-chart', 'openliststrm/strm/stats', 'today', 'strm');
+        updateChart('rename-pie-chart', 'openliststrm/renameDetail/stats', 'today', 'rename');
 
         $(window).on('resize', function () {
             echarts.getInstanceByDom(document.getElementById('copy-pie-chart'))?.resize();
             echarts.getInstanceByDom(document.getElementById('strm-pie-chart'))?.resize();
+            echarts.getInstanceByDom(document.getElementById('rename-pie-chart'))?.resize();
         });
     });
 
