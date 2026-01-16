@@ -17,11 +17,11 @@ spring:
                 username: 
                 password: 
             # 初始连接数
-            initialSize: 5
+            initialSize: 10
             # 最小连接池数量
             minIdle: 10
             # 最大连接池数量
-            maxActive: 20
+            maxActive: 50
             # 配置获取连接等待超时的时间
             maxWait: 60000
             # 配置连接超时时间
@@ -62,4 +62,4 @@ spring:
                     merge-sql: true
                 wall:
                     config:
-                        multi-statement-allow: true
+                        multi-statement-allow: false
