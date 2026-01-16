@@ -17,6 +17,8 @@ import java.io.*;
 import java.net.URL;
 import java.net.URLConnection;
 import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.*;
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.TimerTask;
@@ -92,15 +94,21 @@ public class StrmServiceImpl implements IStrmService {
             file.mkdirs();
         }
         String finalPath = filePath;
-        try (FileWriter writer = new FileWriter(outputDir + File.separator + finalPath.replace("/", File.separator) + File.separator + (fileName.length() > 255 ? fileName.substring(0, 250) : fileName) + ".strm")) {
+        Path strmFile = Paths.get(outputDir)
+                .resolve(finalPath.replace("/", File.separator))
+                .resolve((fileName.length() > 255 ? fileName.substring(0, 250) : fileName) + ".strm");
+        try {
             String encodePath = path;
             if ("1".equals(encode)) {
-                encodePath = URLEncoder.encode(path, "UTF-8").replace("+", "%20").replace("%2F", "/");
+                encodePath = URLEncoder.encode(path, StandardCharsets.UTF_8.name())
+                        .replace("+", "%20")
+                        .replace("%2F", "/");
             }
-            writer.write(config.getOpenListUrl() + "/d" + encodePath);
+            String content = config.getOpenListUrl() + "/d" + encodePath;
+            writeAtomically(strmFile, content);
             strmHelper.addStrm(filePath, name, "1");
         } catch (Exception e) {
-            log.error("", e);
+            log.error("生成 .strm 文件失败 {}", strmFile, e);
             strmHelper.addStrm(filePath, name, "0");
         }
         log.info("执行指定文件strm任务完成: {}", path);
@@ -171,16 +179,19 @@ public class StrmServiceImpl implements IStrmService {
                                     return;
                                 }
 
-                                File outFile = new File(currentLocalPath + File.separator + fileName + ".strm");
-                                try (BufferedWriter writer = new BufferedWriter(new FileWriter(outFile))) {
+                                Path strmFile = Paths.get(currentLocalPath).resolve(fileName + ".strm");
+                                try {
                                     String encodePath = finalCurrentPath + "/" + rawName;
                                     if ("1".equals(encode)) {
-                                        encodePath = URLEncoder.encode(encodePath, "UTF-8").replace("+", "%20").replace("%2F", "/");
+                                        encodePath = URLEncoder.encode(encodePath, StandardCharsets.UTF_8.name())
+                                                .replace("+", "%20")
+                                                .replace("%2F", "/");
                                     }
-                                    writer.write(config.getOpenListUrl() + "/d" + encodePath);
+                                    String content = config.getOpenListUrl() + "/d" + encodePath;
+                                    writeAtomically(strmFile, content);
                                     strmHelper.addStrm(finalCurrentPath, rawName, "1");
-                                } catch (IOException e) {
-                                    log.error("写入 .strm 文件失败 {}", outFile.getAbsolutePath(), e);
+                                } catch (Exception e) {
+                                    log.error("写入 .strm 文件失败 {}", strmFile, e);
                                     strmHelper.addStrm(finalCurrentPath, rawName, "0");
                                 }
                             }
@@ -243,6 +254,55 @@ public class StrmServiceImpl implements IStrmService {
             log.error("文件{}下载失败3", fileURL);
             log.error("", ex);
             throw new RuntimeException(ex);
+        }
+    }
+
+    /**
+     * 原子方式写入文本文件
+     *
+     * @param target  最终文件路径
+     * @param content 写入内容（UTF-8）
+     */
+    private static void writeAtomically(Path target, String content) throws IOException {
+        Path parent = target.getParent();
+        if (parent != null) {
+            Files.createDirectories(parent);
+        }
+
+        Path tmpFile = target.resolveSibling(
+                target.getFileName().toString() + ".tmp"
+        );
+
+        boolean moved = false;
+        try {
+            // 写入临时文件
+            Files.write(
+                    tmpFile,
+                    content.getBytes(StandardCharsets.UTF_8),
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING
+            );
+
+            // 优先使用原子移动
+            Files.move(
+                    tmpFile,
+                    target,
+                    StandardCopyOption.REPLACE_EXISTING,
+                    StandardCopyOption.ATOMIC_MOVE
+            );
+            moved = true;
+        } catch (AtomicMoveNotSupportedException e) {
+            // NAS / 某些文件系统不支持 ATOMIC_MOVE
+            Files.move(
+                    tmpFile,
+                    target,
+                    StandardCopyOption.REPLACE_EXISTING
+            );
+            moved = true;
+        } finally {
+            if (!moved) {
+                Files.deleteIfExists(tmpFile);
+            }
         }
     }
 

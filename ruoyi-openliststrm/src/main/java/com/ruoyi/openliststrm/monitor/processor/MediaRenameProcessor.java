@@ -65,6 +65,16 @@ public class MediaRenameProcessor implements FileProcessor {
     @Override
     public void process(Path file) {
         Path p = file.toAbsolutePath().normalize();
+        String fileName = p.toString();
+        // 1. 忽略常见的临时文件后缀 (根据你的下载软件调整，如 .!qB, .part, .downloading)
+        if (fileName.endsWith(".!qB") || fileName.endsWith(".part") || fileName.endsWith(".tmp")) {
+            return;
+        }
+        //判断文件是否还在写入中
+        if (!FileUtils.isFileStable(p)) {
+            log.debug("文件仍在写入，稍后再试：{}", p);
+            return;
+        }
         if (!processing.add(p)) {
             log.debug("Skip duplicate processing {}", p);
             return;
