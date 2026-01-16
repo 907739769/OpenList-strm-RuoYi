@@ -93,9 +93,11 @@ public class StrmServiceImpl implements IStrmService {
         if (!file.exists()) {
             file.mkdirs();
         }
-        String finalPath = filePath;
+        String relative = filePath.startsWith("/")
+                ? filePath.substring(1)
+                : filePath;
         Path strmFile = Paths.get(outputDir)
-                .resolve(finalPath.replace("/", File.separator))
+                .resolve(relative.replace("/", File.separator))
                 .resolve((fileName.length() > 255 ? fileName.substring(0, 250) : fileName) + ".strm");
         try {
             String encodePath = path;
