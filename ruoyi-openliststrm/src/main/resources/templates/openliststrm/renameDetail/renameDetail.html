@@ -2,307 +2,363 @@
 <html lang="zh" xmlns:th="http://www.thymeleaf.org" xmlns:shiro="http://www.pollix.at/thymeleaf/shiro">
 <head>
     <th:block th:include="include :: header('重命名明细列表')" />
+    <style>
+        /* ================== 核心布局修复 ================== */
+        #bootstrap-table {
+            table-layout: fixed !important;
+            width: 100% !important;
+        }
+        #bootstrap-table td {
+            white-space: normal !important;
+            word-wrap: break-word !important;
+            word-break: break-all !important;
+            vertical-align: top;
+        }
+
+        /* ================== 内容样式优化 ================== */
+        .file-change-box {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+        }
+        .file-row {
+            margin-bottom: 6px;
+            width: 100%;
+        }
+        .file-info-line {
+            display: flex;
+            align-items: baseline;
+            width: 100%;
+        }
+        .file-label {
+            display: inline-block;
+            padding: 1px 4px;
+            font-size: 10px;
+            font-weight: bold;
+            color: #fff;
+            border-radius: 3px;
+            margin-right: 4px;
+            flex-shrink: 0;
+            line-height: 1.2;
+        }
+        .label-old { background-color: #f8ac59; }
+        .label-new { background-color: #1ab394; }
+
+        .file-name {
+            font-size: 13px;
+            color: #333;
+            font-weight: 600;
+            line-height: 1.4;
+        }
+        .file-name-old { color: #666; font-weight: normal; }
+
+        .file-path {
+            color: #999;
+            font-size: 11px;
+            margin-top: 2px;
+            line-height: 1.2;
+            padding-left: 0;
+            font-family: Consolas, monospace;
+        }
+
+        .media-info-title {
+            font-size: 13px;
+            font-weight: bold;
+            color: #333;
+            line-height: 1.3;
+            margin-bottom: 2px;
+        }
+        .media-info-meta {
+            font-size: 11px;
+            color: #888;
+        }
+
+        .tech-badge {
+            font-size: 10px;
+            padding: 2px 4px;
+            margin-right: 2px;
+            margin-bottom: 2px;
+            display: inline-block;
+        }
+
+        /* ================== 移动端适配 ================== */
+        @media (max-width: 768px) {
+            .table-striped > tbody > tr > td { padding: 8px 4px !important; }
+            .file-path { font-size: 10px; color: #aaa; }
+            .media-info-title { font-size: 12px; }
+            .layui-layer { width: 95% !important; left: 2.5% !important; }
+        }
+    </style>
 </head>
 <body class="gray-bg">
-     <div class="container-div">
-        <div class="row">
-            <div class="col-sm-12 search-collapse">
-                <form id="formId">
-                    <div class="select-list">
-                        <ul>
-                            <li>
-                                <label>原文件路径：</label>
-                                <input type="text" name="originalPath"/>
-                            </li>
-                            <li>
-                                <label>原文件名称：</label>
-                                <input type="text" name="originalName"/>
-                            </li>
-                            <li>
-                                <label>新文件路径：</label>
-                                <input type="text" name="newPath"/>
-                            </li>
-                            <li>
-                                <label>新文件名称：</label>
-                                <input type="text" name="newName"/>
-                            </li>
-                            <li>
-                                <label>状态：</label>
-                                <select name="status" th:with="type=${@dict.getType('rename_status')}">
-                                    <option value="">所有</option>
-                                    <option th:each="dict : ${type}" th:text="${dict.dictLabel}" th:value="${dict.dictValue}"></option>
-                                </select>
-                            </li>
-                            <li>
-                                <a class="btn btn-primary btn-rounded btn-sm" onclick="$.table.search()"><i class="fa fa-search"></i>&nbsp;搜索</a>
-                                <a class="btn btn-warning btn-rounded btn-sm" onclick="$.form.reset()"><i class="fa fa-refresh"></i>&nbsp;重置</a>
-                            </li>
-                        </ul>
-                    </div>
-                </form>
-            </div>
+<div class="container-div">
+    <div class="row">
+        <div class="col-sm-12 search-collapse">
+            <form id="formId">
+                <div class="select-list">
+                    <ul>
+                        <li>
+                            <label>原文件名：</label>
+                            <input type="text" name="originalName"/>
+                        </li>
+                        <li>
+                            <label>新文件名：</label>
+                            <input type="text" name="newName"/>
+                        </li>
+                        <li>
+                            <label>影视名称：</label>
+                            <input type="text" name="title"/>
+                        </li>
+                        <li>
+                            <label>状态：</label>
+                            <select name="status" th:with="type=${@dict.getType('rename_status')}">
+                                <option value="">所有</option>
+                                <option th:each="dict : ${type}" th:text="${dict.dictLabel}" th:value="${dict.dictValue}"></option>
+                            </select>
+                        </li>
+                        <li class="select-time">
+                            <label>创建时间：</label>
+                            <input type="text" class="time-input" id="startTime" placeholder="开始时间" name="params[beginTime]"/>
+                            <span>-</span>
+                            <input type="text" class="time-input" id="endTime" placeholder="结束时间" name="params[endTime]"/>
+                        </li>
+                        <li>
+                            <a class="btn btn-primary btn-rounded btn-sm" onclick="$.table.search()"><i class="fa fa-search"></i>&nbsp;搜索</a>
+                            <a class="btn btn-warning btn-rounded btn-sm" onclick="$.form.reset()"><i class="fa fa-refresh"></i>&nbsp;重置</a>
+                        </li>
+                    </ul>
+                </div>
+            </form>
+        </div>
 
-            <div class="btn-group-sm" id="toolbar" role="group">
-<!--                <a class="btn btn-success" onclick="$.operate.add()" shiro:hasPermission="openliststrm:renameDetail:add">-->
-<!--                    <i class="fa fa-plus"></i> 添加-->
-<!--                </a>-->
-<!--                <a class="btn btn-primary single disabled" onclick="$.operate.edit()" shiro:hasPermission="openliststrm:renameDetail:edit">-->
-<!--                    <i class="fa fa-edit"></i> 修改-->
-<!--                </a>-->
-                <a class="btn btn-danger multiple disabled" onclick="$.operate.removeAll()" shiro:hasPermission="openliststrm:renameDetail:remove">
-                    <i class="fa fa-remove"></i> 删除
-                </a>
-                <a class="btn btn-primary multiple disabled" id="btnExecute" onclick="javascript:executeSelected()">
-                    <i class="fa fa-refresh"></i> 重试
-                </a>
-<!--                <a class="btn btn-warning" onclick="$.table.exportExcel()" shiro:hasPermission="openliststrm:renameDetail:export">-->
-<!--                    <i class="fa fa-download"></i> 导出-->
-<!--                </a>-->
-            </div>
-            <div class="col-sm-12 select-table table-striped">
-                <table id="bootstrap-table"></table>
-            </div>
+        <div class="btn-group-sm" id="toolbar" role="group">
+            <a class="btn btn-danger multiple disabled" onclick="$.operate.removeAll()" shiro:hasPermission="openliststrm:renameDetail:remove">
+                <i class="fa fa-remove"></i> 批量删除
+            </a>
+            <a class="btn btn-info multiple disabled" id="btnExecute" onclick="javascript:executeSelected()">
+                <i class="fa fa-refresh"></i> 批量执行
+            </a>
+        </div>
+
+        <div class="col-sm-12 select-table table-striped table-responsive" style="border: 0; overflow-x: hidden;">
+            <table id="bootstrap-table"></table>
         </div>
     </div>
-    <th:block th:include="include :: footer" />
-    <script th:inline="javascript">
-        var editFlag = [[${@permission.hasPermi('openliststrm:renameDetail:edit')}]];
-        var removeFlag = [[${@permission.hasPermi('openliststrm:renameDetail:remove')}]];
-        var mediaTypeDatas = [[${@dict.getType('media_type')}]];
-        var resolutionDatas = [[${@dict.getType('rename_resolution')}]];
-        var statusDatas = [[${@dict.getType('rename_status')}]];
-        var prefix = ctx + "openliststrm/renameDetail";
+</div>
+<th:block th:include="include :: footer" />
+<script th:inline="javascript">
+    var editFlag = [[${@permission.hasPermi('openliststrm:renameDetail:edit')}]];
+    var removeFlag = [[${@permission.hasPermi('openliststrm:renameDetail:remove')}]];
+    var mediaTypeDatas = [[${@dict.getType('media_type')}]];
+    var resolutionDatas = [[${@dict.getType('rename_resolution')}]];
+    var statusDatas = [[${@dict.getType('rename_status')}]];
+    var prefix = ctx + "openliststrm/renameDetail";
 
-        $(function() {
-            var options = {
-                url: prefix + "/list",
-                createUrl: prefix + "/add",
-                updateUrl: prefix + "/edit/{id}",
-                removeUrl: prefix + "/remove",
-                exportUrl: prefix + "/export",
-                modalName: "重命名明细",
-                columns: [{
-                    checkbox: true
-                },
+    $(function() {
+        var options = {
+            url: prefix + "/list",
+            createUrl: prefix + "/add",
+            updateUrl: prefix + "/edit/{id}",
+            removeUrl: prefix + "/remove",
+            exportUrl: prefix + "/export",
+            modalName: "重命名明细",
+            fixedColumns: false,
+            classes: 'table table-hover table-striped',
+            columns: [{
+                checkbox: true,
+                width: '3%'
+            },
                 {
                     field: 'id',
-                    title: '自增主键',
-                    visible: false
+                    title: 'ID',
+                    visible: false,
+                    width: '5%'
                 },
                 {
-                    field: 'originalPath',
-                    title: '原文件路径'
-                },
-                {
-                    field: 'originalName',
-                    title: '原文件名称'
-                },
-                {
-                    field: 'newPath',
-                    title: '新文件路径'
-                },
-                {
-                    field: 'newName',
-                    title: '新文件名称'
-                },
-                {
-                    field: 'mediaType',
-                    title: '媒体类型',
+                    title: '媒体信息',
+                    width: '15%', // 调整宽度
                     formatter: function(value, row, index) {
-                       return $.table.selectDictLabel(mediaTypeDatas, value);
-                    },
-                    visible: false
+                        var html = [];
+                        var title = row.title ? row.title : '<span style="color:#ccc">未识别</span>';
+                        var year = row.year ? ' (' + row.year + ')' : '';
+                        html.push('<div class="media-info-title">' + title + year + '</div>');
+
+                        var meta = [];
+                        if (row.mediaType) meta.push($.table.selectDictLabel(mediaTypeDatas, row.mediaType));
+                        if (row.season) meta.push('S' + row.season);
+                        if (row.episode) meta.push('E' + row.episode);
+
+                        if (meta.length > 0) {
+                            html.push('<div class="media-info-meta">' + meta.join(' · ') + '</div>');
+                        }
+                        return html.join('');
+                    }
                 },
                 {
-                    field: 'title',
-                    title: '标题',
-                    visible: false
-                },
-                {
-                    field: 'year',
-                    title: '年份',
-                    visible: false
-                },
-                {
-                    field: 'season',
-                    title: '季',
-                    visible: false
-                },
-                {
-                    field: 'episode',
-                    title: '集',
-                    visible: false
-                },
-                {
-                    field: 'tmdbId',
-                    title: 'tmdbId',
-                    visible: false
-                },
-                {
-                    field: 'resolution',
-                    title: '分辨率',
+                    title: '文件变更对比',
+                    width: '35%', // 调整宽度
                     formatter: function(value, row, index) {
-                       return $.table.selectDictLabel(resolutionDatas, value);
-                    },
-                    visible: false
+                        var html = '<div class="file-change-box">';
+
+                        // 原文件
+                        html += '<div class="file-row">';
+                        html += '  <div class="file-info-line"><span class="file-label label-old">原</span> <span class="file-name file-name-old">' + row.originalName + '</span></div>';
+                        html += '  <div class="file-path">' + row.originalPath + '</div>';
+                        html += '</div>';
+
+                        // 新文件
+                        var newName = row.newName ? row.newName : '<span style="color:#ccc">...</span>';
+                        var newPath = row.newPath ? row.newPath : '';
+                        html += '<div class="file-row">';
+                        html += '  <div class="file-info-line"><span class="file-label label-new">新</span> <span class="file-name">' + newName + '</span></div>';
+                        if(newPath) {
+                            html += '  <div class="file-path">' + newPath + '</div>';
+                        }
+                        html += '</div>';
+
+                        html += '</div>';
+                        return html;
+                    }
                 },
                 {
-                    field: 'videoCodec',
-                    title: '视频编码',
-                    visible: false
-                },
-                {
-                    field: 'audioCodec',
-                    title: '音频编码',
-                    visible: false
-                },
-                {
-                    field: 'source',
-                    title: '来源',
-                    visible: false
-                },
-                {
-                    field: 'releaseGroup',
-                    title: '发布组',
-                    visible: false
+                    title: '参数',
+                    width: '12%',
+                    formatter: function(value, row, index) {
+                        var badges = [];
+                        if (row.resolution) badges.push('<span class="badge badge-info tech-badge">' + row.resolution + '</span>');
+                        if (row.videoCodec) badges.push('<span class="badge badge-primary tech-badge">' + row.videoCodec + '</span>');
+                        if (row.source) badges.push('<span class="badge badge-warning tech-badge">' + row.source + '</span>');
+                        if (row.releaseGroup) badges.push('<span class="badge badge-default tech-badge">' + row.releaseGroup + '</span>');
+                        return badges.join(' ');
+                    }
                 },
                 {
                     field: 'status',
                     title: '状态',
+                    width: '8%', // 调整宽度
+                    align: 'center',
                     formatter: function(value, row, index) {
-                       return $.table.selectDictLabel(statusDatas, value);
+                        return $.table.selectDictLabel(statusDatas, value);
                     }
                 },
                 {
                     field: 'createTime',
                     title: '创建时间',
-                    sortable: true
+                    width: '12%', // 新增显示
+                    sortable: true,
+                    align: 'center'
                 },
                 {
                     title: '操作',
                     align: 'center',
+                    width: '10%',
                     formatter: function(value, row, index) {
                         var actions = [];
-                        actions.push('<a class="btn btn-success btn-xs ' + editFlag + '" href="javascript:void(0)" onclick="$.operate.edit(\'' + row.id + '\')"><i class="fa fa-edit"></i>编辑</a> ');
-                        actions.push('<a class="btn btn-danger btn-xs ' + removeFlag + '" href="javascript:void(0)" onclick="$.operate.remove(\'' + row.id + '\')"><i class="fa fa-remove"></i>删除</a>');
-                        actions.push('<a class="btn btn-primary btn-xs" href="javascript:void(0)" onclick="executeOne(\'' + row.id + '\')"><i class="fa fa-refresh"></i>重试</a> ');
+                        actions.push('<a class="btn btn-success btn-xs ' + editFlag + '" href="javascript:void(0)" onclick="$.operate.edit(\'' + row.id + '\')" title="编辑"><i class="fa fa-edit"></i></a> ');
+                        actions.push('<a class="btn btn-danger btn-xs ' + removeFlag + '" href="javascript:void(0)" onclick="$.operate.remove(\'' + row.id + '\')" title="删除"><i class="fa fa-remove"></i></a> ');
+                        actions.push('<a class="btn btn-primary btn-xs" href="javascript:void(0)" onclick="executeOne(\'' + row.id + '\', \'' + (row.title || '') + '\', \'' + (row.year || '') + '\')" title="执行"><i class="fa fa-play"></i></a>');
                         return actions.join('');
                     }
                 }]
-            };
-            $.table.init(options);
-        });
+        };
+        $.table.init(options);
+    });
 
-        // 手动触发选中任务的批量执行
-        function executeSelected() {
-            var ids = $.table.selectColumns("id");
-            if (!ids || ids.length === 0) {
-                $.modal.msgError('请选择要执行的任务');
-                return;
+    // 提取通用的Layer弹窗逻辑
+    function openExecuteLayer(titleVal, yearVal, callback) {
+        var width = $(window).width() > 768 ? '400px' : '90%';
+        layer.open({
+            type: 1,
+            title: '<i class="fa fa-cog"></i> 确认信息',
+            area: [width, 'auto'],
+            shadeClose: true,
+            content: '<div style="padding: 20px 20px 10px 20px;">' +
+                '<div class="alert alert-info" style="margin-bottom:15px; padding:8px;"><i class="fa fa-info-circle"></i> 执行前，您可以手动修正识别信息。</div>' +
+                '<form id="executeForm" class="form-horizontal">' +
+                '<div class="form-group" style="margin-bottom: 10px;">' +
+                '<label class="control-label" style="text-align:left; font-weight:bold; margin-bottom:5px;">影视剧名称 (Title)</label>' +
+                '<input type="text" class="form-control" id="mediaTitle" name="title" value="' + titleVal + '" placeholder="例如：Inception">' +
+                '</div>' +
+                '<div class="form-group" style="margin-bottom: 0;">' +
+                '<label class="control-label" style="text-align:left; font-weight:bold; margin-bottom:5px;">年份 (Year)</label>' +
+                '<input type="text" class="form-control" id="mediaYear" name="year" value="' + yearVal + '" placeholder="例如：2010">' +
+                '</div>' +
+                '</form>' +
+                '</div>',
+            btn: ['<i class="fa fa-check"></i> 执行', '取消'],
+            btnClass: ['btn btn-primary', 'btn btn-default'],
+            yes: function(index, layero) {
+                var title = $('#mediaTitle').val().trim();
+                var year = $('#mediaYear').val().trim();
+                callback(title, year);
+                layer.close(index);
             }
-            // 使用layer弹窗让用户输入影视剧名称和年份
-            layer.open({
-                type: 1,
-                title: '影视剧信息',
-                area: ['320px', '280px'],
-                content: '<div style="padding: 20px;">' +
-                    '<form id="executeForm" class="form-horizontal">' +
-                    '<div class="form-group">' +
-                    '<label class="col-sm-3 control-label">影视剧名称：</label>' +
-                    '<div class="col-sm-9">' +
-                    '<input type="text" class="form-control" id="mediaTitle" name="title" placeholder="请输入影视剧名称（可选）">' +
-                    '</div>' +
-                    '</div>' +
-                    '<div class="form-group">' +
-                    '<label class="col-sm-3 control-label">年份：</label>' +
-                    '<div class="col-sm-9">' +
-                    '<input type="text" class="form-control" id="mediaYear" name="year" placeholder="请输入年份（可选）">' +
-                    '</div>' +
-                    '</div>' +
-                    '</form>' +
-                    '</div>',
-                btn: ['确定', '取消'],
-                yes: function(index, layero) {
-                    var title = $('#mediaTitle').val().trim();
-                    var year = $('#mediaYear').val().trim();
-                    
-                    $.ajax({
-                        url: prefix + '/executeBatch',
-                        method: 'POST',
-                        data: { 
-                            ids: ids,
-                            title: title,
-                            year: year
-                        },
-                        traditional: true,
-                        success: function(res) {
-                            if (res && res.code === 0) {
-                                $.modal.msgSuccess('执行成功');
-                                layer.close(index);
-                                $.table.refresh();
-                            } else {
-                                $.modal.msgError(res && res.msg ? res.msg : '执行失败');
-                            }
-                        },
-                        error: function() { 
-                            $.modal.msgError('请求服务器失败'); 
-                        }
-                    });
-                }
-            });
-        }
+        });
+    }
 
-        // 单个任务执行
-        function executeOne(id) {
-            // 使用layer弹窗让用户输入影视剧名称和年份
-            layer.open({
-                type: 1,
-                title: '影视剧信息',
-                area: ['320px', '280px'],
-                content: '<div style="padding: 20px;">' +
-                    '<form id="executeForm" class="form-horizontal">' +
-                    '<div class="form-group">' +
-                    '<label class="col-sm-3 control-label">影视剧名称：</label>' +
-                    '<div class="col-sm-9">' +
-                    '<input type="text" class="form-control" id="mediaTitle" name="title" placeholder="请输入影视剧名称（可选）">' +
-                    '</div>' +
-                    '</div>' +
-                    '<div class="form-group">' +
-                    '<label class="col-sm-3 control-label">年份：</label>' +
-                    '<div class="col-sm-9">' +
-                    '<input type="text" class="form-control" id="mediaYear" name="year" placeholder="请输入年份（可选）">' +
-                    '</div>' +
-                    '</div>' +
-                    '</form>' +
-                    '</div>',
-                btn: ['确定', '取消'],
-                yes: function(index, layero) {
-                    var title = $('#mediaTitle').val().trim();
-                    var year = $('#mediaYear').val().trim();
-                    
-                    $.ajax({
-                        url: prefix + '/execute/' + id,
-                        method: 'POST',
-                        data: { 
-                            title: title,
-                            year: year
-                        },
-                        success: function(res) {
-                            if (res && res.code === 0) {
-                                $.modal.msgSuccess('执行成功');
-                                layer.close(index);
-                                $.table.refresh();
-                            } else {
-                                $.modal.msgError(res && res.msg ? res.msg : '执行失败');
-                            }
-                        },
-                        error: function() { 
-                            $.modal.msgError('请求服务器失败'); 
-                        }
-                    });
+    function executeSelected() {
+        var ids = $.table.selectColumns("id");
+        if (!ids || ids.length === 0) {
+            $.modal.msgError('请选择要执行的任务');
+            return;
+        }
+        openExecuteLayer("", "", function(title, year) {
+            $.modal.loading("正在处理中...");
+            $.ajax({
+                url: prefix + '/executeBatch',
+                method: 'POST',
+                data: {
+                    ids: ids,
+                    title: title,
+                    year: year
+                },
+                traditional: true,
+                success: function(res) {
+                    $.modal.closeLoading();
+                    if (res && res.code === 0) {
+                        $.modal.msgSuccess('执行成功');
+                        $.table.refresh();
+                    } else {
+                        $.modal.msgError(res && res.msg ? res.msg : '执行失败');
+                    }
+                },
+                error: function() {
+                    $.modal.closeLoading();
+                    $.modal.msgError('请求服务器失败');
                 }
             });
-        }
-    </script>
+        });
+    }
+
+    function executeOne(id, currentTitle, currentYear) {
+        if(currentTitle === 'null' || !currentTitle) currentTitle = '';
+        if(currentYear === 'null' || !currentYear) currentYear = '';
+
+        openExecuteLayer(currentTitle, currentYear, function(title, year) {
+            var loadIndex = layer.load(2, {shade: [0.1,'#fff']});
+            $.ajax({
+                url: prefix + '/execute/' + id,
+                method: 'POST',
+                data: {
+                    title: title,
+                    year: year
+                },
+                success: function(res) {
+                    layer.close(loadIndex);
+                    if (res && res.code === 0) {
+                        $.modal.msgSuccess('执行成功');
+                        $.table.refresh();
+                    } else {
+                        $.modal.msgError(res && res.msg ? res.msg : '执行失败');
+                    }
+                },
+                error: function() {
+                    layer.close(loadIndex);
+                    $.modal.msgError('请求服务器失败');
+                }
+            });
+        });
+    }
+</script>
 </body>
 </html>

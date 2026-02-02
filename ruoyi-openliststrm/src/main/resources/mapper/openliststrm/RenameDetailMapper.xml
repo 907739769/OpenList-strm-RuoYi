@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper
-PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
-"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.ruoyi.openliststrm.mapper.RenameDetailMapper">
-    
+
     <resultMap type="RenameDetail" id="RenameDetailResult">
         <result property="id"    column="id"    />
         <result property="originalPath"    column="original_path"    />
@@ -32,16 +32,23 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 
     <select id="selectRenameDetailList" parameterType="RenameDetail" resultMap="RenameDetailResult">
         <include refid="selectRenameDetailVo"/>
-        <where>  
+        <where>
             <if test="originalPath != null  and originalPath != ''"> and original_path like concat(#{originalPath}, '%')</if>
             <if test="originalName != null  and originalName != ''"> and original_name like concat('%', #{originalName}, '%')</if>
             <if test="newPath != null  and newPath != ''"> and new_path like concat(#{newPath}, '%')</if>
             <if test="newName != null  and newName != ''"> and new_name like concat('%', #{newName}, '%')</if>
+            <if test="title != null  and title != ''"> and title like concat('%', #{title}, '%')</if>
             <if test="status != null  and status != ''"> and status = #{status}</if>
+            <if test="params.beginTime != null and params.beginTime != ''">
+                and date_format(create_time,'%y%m%d') &gt;= date_format(#{params.beginTime},'%y%m%d')
+            </if>
+            <if test="params.endTime != null and params.endTime != ''">
+                and date_format(create_time,'%y%m%d') &lt;= date_format(#{params.endTime},'%y%m%d')
+            </if>
         </where>
         order by create_time desc
     </select>
-    
+
     <select id="selectRenameDetailById" parameterType="Integer" resultMap="RenameDetailResult">
         <include refid="selectRenameDetailVo"/>
         where id = #{id}
@@ -68,7 +75,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="status != null">status,</if>
             <if test="createTime != null">create_time,</if>
             <if test="updateTime != null">update_time,</if>
-         </trim>
+        </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
             <if test="originalPath != null and originalPath != ''">#{originalPath},</if>
             <if test="originalName != null and originalName != ''">#{originalName},</if>
@@ -88,7 +95,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="status != null">#{status},</if>
             <if test="createTime != null">#{createTime},</if>
             <if test="updateTime != null">#{updateTime},</if>
-         </trim>
+        </trim>
     </insert>
 
     <update id="updateRenameDetail" parameterType="RenameDetail">
@@ -121,7 +128,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </delete>
 
     <delete id="deleteRenameDetailByIds" parameterType="String">
-        delete from rename_detail where id in 
+        delete from rename_detail where id in
         <foreach item="id" collection="array" open="(" separator="," close=")">
             #{id}
         </foreach>

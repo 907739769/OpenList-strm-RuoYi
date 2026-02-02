@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper
-PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
-"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.ruoyi.openliststrm.mapper.OpenlistStrmMapper">
-    
+
     <resultMap type="OpenlistStrm" id="OpenlistStrmResult">
         <result property="strmId"    column="strm_id"    />
         <result property="strmPath"    column="strm_path"    />
@@ -19,14 +19,20 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 
     <select id="selectOpenlistStrmList" parameterType="OpenlistStrm" resultMap="OpenlistStrmResult">
         <include refid="selectOpenlistStrmVo"/>
-        <where>  
+        <where>
             <if test="strmPath != null  and strmPath != ''"> and strm_path like concat(#{strmPath}, '%')</if>
             <if test="strmFileName != null  and strmFileName != ''"> and strm_file_name like concat('%', #{strmFileName}, '%')</if>
             <if test="strmStatus != null  and strmStatus != ''"> and strm_status = #{strmStatus}</if>
+            <if test="params.beginTime != null and params.beginTime != ''">
+                and date_format(create_time,'%y%m%d') &gt;= date_format(#{params.beginTime},'%y%m%d')
+            </if>
+            <if test="params.endTime != null and params.endTime != ''">
+                and date_format(create_time,'%y%m%d') &lt;= date_format(#{params.endTime},'%y%m%d')
+            </if>
         </where>
         order by create_time desc
     </select>
-    
+
     <select id="selectOpenlistStrmByStrmId" parameterType="Integer" resultMap="OpenlistStrmResult">
         <include refid="selectOpenlistStrmVo"/>
         where strm_id = #{strmId}
@@ -40,14 +46,14 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="strmStatus != null">strm_status,</if>
             <if test="createTime != null">create_time,</if>
             <if test="updateTime != null">update_time,</if>
-         </trim>
+        </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
             <if test="strmPath != null and strmPath != ''">#{strmPath},</if>
             <if test="strmFileName != null and strmFileName != ''">#{strmFileName},</if>
             <if test="strmStatus != null">#{strmStatus},</if>
             <if test="createTime != null">#{createTime},</if>
             <if test="updateTime != null">#{updateTime},</if>
-         </trim>
+        </trim>
     </insert>
 
     <update id="updateOpenlistStrm" parameterType="OpenlistStrm">
@@ -67,7 +73,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </delete>
 
     <delete id="deleteOpenlistStrmByStrmIds" parameterType="String">
-        delete from openlist_strm where strm_id in 
+        delete from openlist_strm where strm_id in
         <foreach item="strmId" collection="array" open="(" separator="," close=")">
             #{strmId}
         </foreach>
