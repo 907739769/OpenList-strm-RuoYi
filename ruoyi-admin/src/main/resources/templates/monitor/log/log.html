@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org" xmlns:shiro="http://www.pollix.at/thymeleaf/shiro">
+<head>
+    <th:block th:include="include :: header('实时日志')" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    <style>
+        /* ================= 基础布局 (解决H5滑动问题的核心) ================= */
+        body.gray-bg {
+            background-color: #f3f3f4;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden; /* 禁止 Body 滚动，完全由内部容器接管 */
+            margin: 0; padding: 0;
+        }
+
+        .terminal-window {
+            background-color: #1e1e1e;
+            color: #f8f8f2;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 13px;
+            /* 绝对定位撑满屏幕，留出缝隙 */
+            position: absolute;
+            top: 10px; bottom: 10px; left: 10px; right: 10px;
+            border-radius: 4px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* ================= 头部工具栏 (Flex布局) ================= */
+        .log-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px 10px;
+            border-bottom: 1px dashed #444;
+            background-color: #252526;
+            flex-shrink: 0;
+            min-height: 40px;
+        }
+
+        /* 左侧区域：标题 + 下拉框 + 状态 */
+        .header-left {
+            display: flex;
+            align-items: center;
+            flex: 1;
+            overflow: hidden; /* 防止内容过长溢出 */
+        }
+
+        .log-title-text {
+            font-weight: bold;
+            color: #ccc;
+            margin-right: 8px;
+            white-space: nowrap;
+        }
+
+        /* 下拉框样式优化 */
+        .log-select {
+            background-color: #3c3c3c;
+            color: #e0e0e0;
+            border: 1px solid #555;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-size: 12px;
+            outline: none;
+            margin-right: 8px;
+            max-width: 120px; /* 限制宽度防止撑破手机屏 */
+        }
+
+        /* 右侧区域：过滤器 + 按钮 */
+        .header-right {
+            display: flex;
+            align-items: center;
+            white-space: nowrap;
+        }
+
+        /* 过滤器复选框区域 */
+        .filter-group {
+            margin-right: 10px;
+            padding-right: 10px;
+            border-right: 1px solid #444;
+        }
+        .filter-label {
+            color: #999;
+            margin-right: 5px;
+            font-weight: normal;
+            font-size: 12px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .filter-checkbox {
+            vertical-align: middle;
+            margin: -2px 2px 0 0 !important;
+        }
+
+        /* 按钮微调 */
+        .btn-action {
+            margin-left: 5px;
+            padding: 2px 8px;
+            font-size: 12px;
+            border: none;
+        }
+
+        /* ================= 日志内容区域 ================= */
+        .log-content {
+            flex: 1;
+            padding: 10px;
+            overflow-y: auto;
+            overflow-x: hidden; /* 禁止横向滚动 */
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            word-break: break-all; /* 强制换行 */
+            line-height: 1.5;
+        }
+
+        /* 滚动条美化 */
+        .log-content::-webkit-scrollbar { width: 6px; background: #2b2b2b; }
+        .log-content::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
+
+        /* ================= 移动端适配 (H5) ================= */
+        @media (max-width: 768px) {
+            .terminal-window {
+                top: 0; bottom: 0; left: 0; right: 0; /* 手机全屏无边距 */
+                border-radius: 0;
+            }
+            .log-content {
+                font-size: 11px;
+                padding: 5px;
+            }
+            /* 隐藏 PC 端才需要的长文字和过滤器 */
+            .hidden-xs-custom { display: none !important; }
+
+            /* 手机端下拉框稍微缩短 */
+            .log-select { max-width: 80px; }
+        }
+
+        /* 状态颜色 */
+        .status-connected { color: #a6e22e; }
+        .status-disconnected { color: #f92672; }
+        .status-connecting { color: #e6db74; }
+
+        /* 日志级别颜色 */
+        .log-debug { color: #a6e22e; }
+        .log-info  { color: #f8f8f2; }
+        .log-warn  { color: #e6db74; }
+        .log-error { color: #f92672; }
+    </style>
+</head>
+<body class="gray-bg">
+<div class="terminal-window" id="log-container">
+
+    <div class="log-header">
+        <div class="header-left">
+            <i class="fa fa-terminal" style="margin-right: 5px; color:#888"></i>
+            <span class="log-title-text hidden-xs-custom">系统日志</span>
+
+            <select id="logSource" class="log-select" onchange="changeLogSource()">
+                <option value="info" selected>Info</option>
+                <option value="debug">Debug</option>
+                <option value="error">Error</option>
+            </select>
+
+            <span id="status" class="status-connecting" style="font-size: 12px;">...</span>
+        </div>
+
+        <div class="header-right">
+            <div class="filter-group hidden-xs-custom">
+                <label class="filter-label"><input type="checkbox" class="filter-checkbox" value="log-debug" checked onclick="toggleFilter()">Debug</label>
+                <label class="filter-label"><input type="checkbox" class="filter-checkbox" value="log-info" checked onclick="toggleFilter()">Info</label>
+                <label class="filter-label"><input type="checkbox" class="filter-checkbox" value="log-warn" checked onclick="toggleFilter()">Warn</label>
+                <label class="filter-label"><input type="checkbox" class="filter-checkbox" value="log-error" checked onclick="toggleFilter()">Err</label>
+            </div>
+
+            <button class="btn btn-primary btn-action" onclick="toggleScroll()" id="scrollBtn">
+                <i class="fa fa-pause"></i><span class="hidden-xs-custom"> 滚动</span>
+            </button>
+            <button class="btn btn-danger btn-action" onclick="clearLog()">
+                <i class="fa fa-trash"></i><span class="hidden-xs-custom"> 清屏</span>
+            </button>
+        </div>
+    </div>
+
+    <div id="log-content" class="log-content"></div>
+</div>
+
+<th:block th:include="include :: footer" />
+<script th:inline="javascript">
+    var socket = null;
+    var autoScroll = true;
+    var logContent = $("#log-content");
+
+    $(function () {
+        // 默认加载 Info 日志
+        connectWebSocket("info");
+    });
+
+    // 切换日志源
+    function changeLogSource() {
+        var type = $("#logSource").val();
+        logContent.empty();
+        connectWebSocket(type);
+    }
+
+    function connectWebSocket(logType) {
+        if (socket != null) {
+            socket.close();
+            socket = null;
+        }
+
+        var protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+        var socketUrl = protocol + window.location.host + ctx + "websocket/log/" + logType;
+
+        if (typeof (WebSocket) == "undefined") {
+            updateStatus("不支持WS", "status-disconnected");
+        } else {
+            updateStatus("连接中...", "status-connecting");
+            socket = new WebSocket(socketUrl);
+
+            socket.onopen = function () {
+                updateStatus("运行中", "status-connected");
+            };
+
+            socket.onmessage = function (msg) {
+                logContent.append(msg.data);
+
+                // 性能保护
+                if (logContent.children().length > 3000) {
+                    var children = logContent.children();
+                    for(var i=0; i<500; i++) children[i].remove();
+                }
+
+                if (autoScroll) {
+                    logContent.scrollTop(logContent[0].scrollHeight);
+                }
+            };
+
+            socket.onclose = function () {
+                updateStatus("已断开", "status-disconnected");
+            };
+        }
+    }
+
+    // 客户端 CSS 过滤
+    function toggleFilter() {
+        var checkedClasses = [];
+        $(".filter-checkbox:checked").each(function() {
+            checkedClasses.push($(this).val());
+        });
+
+        var styleId = 'dynamic-log-filter';
+        var css = "#log-content .log-item { display: none; } ";
+        for (var i = 0; i < checkedClasses.length; i++) {
+            css += "#log-content ." + checkedClasses[i] + " { display: block; } "; // 这里用 flex 或 block 都可以
+        }
+
+        // 手机端特殊处理：如果用了flex显示时间，需要确保display属性正确
+        // 但为了简单，block 在手机端通常也够用，或者配合之前的 .hidden-xs 逻辑
+
+        var styleTag = document.getElementById(styleId);
+        if (!styleTag) {
+            styleTag = document.createElement('style');
+            styleTag.id = styleId;
+            document.head.appendChild(styleTag);
+        }
+        styleTag.innerHTML = css;
+
+        if (autoScroll) logContent.scrollTop(logContent[0].scrollHeight);
+    }
+
+    function updateStatus(text, cssClass) {
+        $("#status").text(text).removeClass().addClass(cssClass);
+    }
+
+    function clearLog() {
+        logContent.empty();
+    }
+
+    function toggleScroll() {
+        autoScroll = !autoScroll;
+        var btn = $("#scrollBtn");
+        if (autoScroll) {
+            btn.removeClass("btn-warning").addClass("btn-primary");
+            btn.find("i").removeClass("fa-play").addClass("fa-pause");
+            logContent.scrollTop(logContent[0].scrollHeight);
+        } else {
+            btn.removeClass("btn-primary").addClass("btn-warning");
+            btn.find("i").removeClass("fa-pause").addClass("fa-play");
+        }
+    }
+</script>
+</body>
+</html>
