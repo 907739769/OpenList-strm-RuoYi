@@ -1,55 +1,512 @@
 <!DOCTYPE html>
 <html lang="zh" xmlns:th="http://www.thymeleaf.org" xmlns:shiro="http://www.pollix.at/thymeleaf/shiro">
 <head>
-	<th:block th:include="include :: header('参数列表')" />
+    <th:block th:include="include :: header('系统设置中心')" />
+    <th:block th:include="include :: bootstrap-select-css" />
+    <style>
+        /* ================== 基础布局 ================== */
+        .settings-container { padding: 15px; background: #f3f3f4; min-height: 100vh; }
+        .settings-card { background: #fff; border-radius: 4px; box-shadow: 0 1px 1px rgba(0,0,0,.05); margin-bottom: 20px; position: relative; }
+
+        /* ================== Tab 导航栏 ================== */
+        /* 适配移动端滑动，同时隐藏丑陋的滚动条 */
+        .nav-tabs-custom {
+            background: #fff;
+            padding: 10px 5px 0;
+            border-bottom: 1px solid #ddd;
+            white-space: nowrap;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none; /* Firefox */
+            -ms-overflow-style: none; /* IE 10+ */
+        }
+        .nav-tabs-custom::-webkit-scrollbar { display: none; /* Chrome/Safari */ }
+
+        .nav-tabs-custom > li { float: none; display: inline-block; }
+        .nav-tabs-custom > li > a {
+            color: #555;
+            font-weight: 500;
+            border: none;
+            margin-right: 2px;
+            padding: 12px 20px;
+            border-radius: 4px 4px 0 0;
+            transition: all 0.3s;
+        }
+        .nav-tabs-custom > li.active > a { color: #605ca8; border-bottom: 2px solid #605ca8; background: #f9f9f9; font-weight: bold; }
+
+        /* ================== 表单区域 ================== */
+        .settings-body { padding: 20px; min-height: 400px; }
+
+        /* 分块标题 */
+        .form-header {
+            color: #605ca8;
+            font-size: 15px;
+            font-weight: 700;
+            margin: 10px 0 20px;
+            border-left: 4px solid #605ca8;
+            padding-left: 12px;
+            line-height: 1.2;
+        }
+
+        .form-group { margin-bottom: 25px; }
+        .control-label { font-weight: 600; padding-top: 7px; text-align: left !important; color: #333; }
+        .help-block { font-size: 12px; color: #888; margin-top: 6px; margin-bottom: 0; line-height: 1.5; }
+
+        /* ================== 组件样式 ================== */
+
+        /* 漂亮的开关样式 (Checkbox) */
+        .toggle-switch { display: inline-block; position: relative; width: 52px; height: 26px; cursor: pointer; -webkit-tap-highlight-color: transparent; vertical-align: middle; }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .toggle-switch span { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #e4e4e4; transition: .3s; border-radius: 34px; }
+        .toggle-switch span:before { position: absolute; content: ""; height: 18px; width: 18px; left: 4px; bottom: 4px; background-color: white; transition: .3s; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+        .toggle-switch input:checked + span { background-color: #605ca8; }
+        .toggle-switch input:checked + span:before { transform: translateX(26px); }
+
+        /* 密码查看眼睛图标 */
+        .input-group-addon.reveal-password { cursor: pointer; background-color: #fff; color: #999; border-left: 0; transition: color 0.3s; }
+        .input-group-addon.reveal-password:hover { color: #605ca8; }
+        /* 让输入框右侧边框消失，与图标融合 */
+        input[type="password"] + .reveal-password, input[type="text"] + .reveal-password { border-left: none; }
+
+        /* ================== 响应式适配 (H5) ================== */
+
+        /* 移动端按钮全宽 */
+        .btn-block-xs { width: 100%; display: block; margin-top: 15px; padding: 10px; font-size: 16px; }
+        @media (min-width: 768px) {
+            .btn-block-xs { width: auto; display: inline-block; margin-top: 0; padding: 6px 12px; font-size: 14px; }
+        }
+
+        /* 高级配置搜索栏移动端重构 */
+        @media (max-width: 768px) {
+            #config-form .select-list > ul { display: flex; flex-direction: column; }
+            #config-form .select-list > ul > li {
+                display: block;
+                margin: 0 0 15px 0;
+                width: 100%;
+            }
+            #config-form .select-list > ul > li label {
+                display: block;
+                margin-bottom: 5px;
+                font-weight: bold;
+            }
+            #config-form input {
+                display: block;
+                width: 100%;
+                margin-left: 0 !important;
+            }
+            /* 搜索按钮组居中并增加间距 */
+            .search-btn-group { text-align: center; margin-top: 10px; }
+            .search-btn-group .btn { width: 45%; margin: 0 2%; display: inline-block; }
+
+            /* 表格容器修正 */
+            .select-table { overflow-x: auto; }
+        }
+    </style>
 </head>
 <body class="gray-bg">
-     <div class="container-div">
-		<div class="row">
-			<div class="col-sm-12 search-collapse">
-				<form id="config-form">
-					<div class="select-list">
-						<ul>
-							<li>
-								参数名称：<input type="text" name="configName"/>
-							</li>
-							<li>
-								<a class="btn btn-primary btn-rounded btn-sm" onclick="$.table.search()"><i class="fa fa-search"></i>&nbsp;搜索</a>
-								<a class="btn btn-warning btn-rounded btn-sm" onclick="$.form.reset()"><i class="fa fa-refresh"></i>&nbsp;重置</a>
-							</li>
-						</ul>
-					</div>
-				</form>
-			</div>
-			
-	        <div class="btn-group-sm" id="toolbar" role="group">
-		        <a class="btn btn-danger" onclick="refreshCache()" shiro:hasPermission="system:config:remove">
-		            <i class="fa fa-refresh"></i> 刷新缓存
-		        </a>
-	        </div>
-	        <div class="col-sm-12 select-table table-striped">
-	            <table id="bootstrap-table"></table>
-	        </div>
-	    </div>
-	</div>
-    <th:block th:include="include :: footer" />
-    <script th:inline="javascript">
-        var editFlag = [[${@permission.hasPermi('system:config:edit')}]];
-        var removeFlag = [[${@permission.hasPermi('system:config:remove')}]];
-        var datas = [[${@dict.getType('sys_yes_no')}]];
-        var prefix = ctx + "system/config";
+<div class="settings-container">
+    <div class="row">
+        <div class="col-xs-12">
+            <div class="settings-card">
+                <ul class="nav nav-tabs nav-tabs-custom" id="settingTabs">
+                    <li class="active"><a href="#tab-basic" data-toggle="tab"><i class="fa fa-link"></i> 基础连接</a></li>
+                    <li><a href="#tab-strategy" data-toggle="tab"><i class="fa fa-tasks"></i> 任务策略</a></li>
+                    <li><a href="#tab-notify" data-toggle="tab"><i class="fa fa-bell"></i> 消息通知</a></li>
+                    <li><a href="#tab-api" data-toggle="tab"><i class="fa fa-plug"></i> 外部 API</a></li>
+                    <li><a href="#tab-advanced" data-toggle="tab"><i class="fa fa-list"></i> 高级配置</a></li>
+                </ul>
 
-        $(function() {
-            var options = {
-                url: prefix + "/list",
-                createUrl: prefix + "/add",
-                updateUrl: prefix + "/edit/{id}",
-                removeUrl: prefix + "/remove",
-                exportUrl: prefix + "/export",
-                sortName: "configId",
-		        sortOrder: "asc",
-                modalName: "参数",
-                columns: [
+                <div class="settings-body" id="settings-content">
+                    <div class="tab-content">
+
+                        <div class="tab-pane active" id="tab-basic">
+                            <form class="form-horizontal" id="form-basic" autocomplete="off">
+                                <div class="form-header">OpenList 连接信息</div>
+                                <div class="form-group">
+                                    <label class="col-sm-2 col-xs-12 control-label">访问地址</label>
+                                    <div class="col-sm-6 col-xs-12">
+                                        <input type="text" class="form-control" name="openlist.server.url" placeholder="例如：http://127.0.0.1:5244" autocomplete="off">
+                                        <p class="help-block"><i class="fa fa-info-circle"></i> OpenList 服务端的完整访问 URL</p>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="col-sm-2 col-xs-12 control-label">访问 Token</label>
+                                    <div class="col-sm-6 col-xs-12">
+                                        <div class="input-group">
+                                            <input type="password" class="form-control" name="openlist.server.token" placeholder="输入 API 访问 Token" autocomplete="new-password">
+                                            <span class="input-group-addon reveal-password" title="点击查看/隐藏"><i class="fa fa-eye"></i></span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="col-sm-2 col-xs-12 control-label">OSR API Key</label>
+                                    <div class="col-sm-6 col-xs-12">
+                                        <div class="input-group">
+                                            <input type="password" class="form-control" name="openlist.api.apikey" autocomplete="new-password">
+                                            <span class="input-group-addon reveal-password" title="点击查看/隐藏"><i class="fa fa-eye"></i></span>
+                                        </div>
+                                        <p class="help-block">OSR 接口专用 Apikey</p>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <div class="col-sm-offset-2 col-sm-10 col-xs-12">
+                                        <button type="button" class="btn btn-primary btn-block-xs" onclick="saveForm('form-basic')"><i class="fa fa-save"></i> 保存连接设置</button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+
+                        <div class="tab-pane" id="tab-strategy">
+                            <form class="form-horizontal" id="form-strategy">
+                                <div class="form-header">同步与生成策略</div>
+                                <div class="form-group">
+                                    <label class="col-sm-2 col-xs-12 control-label">处理文件阈值</label>
+                                    <div class="col-sm-4 col-xs-12">
+                                        <div class="input-group">
+                                            <input type="tel" class="form-control" name="openlist.copy.minfilesize" min="0">
+                                            <span class="input-group-addon">MB</span>
+                                        </div>
+                                        <p class="help-block">小于此大小的文件将被忽略，跳过执行（strm文件例外）</p>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="col-sm-2 col-xs-12 control-label">自动生成STRM</label>
+                                    <div class="col-sm-6 col-xs-12">
+                                        <label class="toggle-switch">
+                                            <input type="checkbox" name="openlist.copy.strm" value="1" data-unchecked-value="0">
+                                            <span></span>
+                                        </label>
+                                        <span class="help-block" style="display:inline-block; margin-left: 10px; vertical-align: middle;">
+                                                同步完成后是否自动生成 .strm 文件
+                                            </span>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <div class="col-sm-offset-2 col-sm-10 col-xs-12">
+                                        <button type="button" class="btn btn-primary btn-block-xs" onclick="saveForm('form-strategy')"><i class="fa fa-save"></i> 保存策略设置</button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+
+                        <div class="tab-pane" id="tab-notify">
+                            <form class="form-horizontal" id="form-notify" autocomplete="off">
+                                <div class="form-header">Telegram 机器人</div>
+                                <div class="form-group">
+                                    <label class="col-sm-2 col-xs-12 control-label">Bot Token</label>
+                                    <div class="col-sm-6 col-xs-12">
+                                        <div class="input-group">
+                                            <input type="password" class="form-control" name="openlist.tg.token" placeholder="123456:ABC-DEF..." autocomplete="new-password">
+                                            <span class="input-group-addon reveal-password" title="点击查看/隐藏"><i class="fa fa-eye"></i></span>
+                                        </div>
+                                        <p class="help-block">从 Telegram @BotFather 获取的 API Token</p>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="col-sm-2 col-xs-12 control-label">接收用户 ID</label>
+                                    <div class="col-sm-6 col-xs-12">
+                                        <input type="text" class="form-control" name="openlist.tg.userid" placeholder="Chat ID (e.g. 123456789)" autocomplete="off">
+                                        <p class="help-block">接收通知的 Telegram 用户 ID (Chat ID)</p>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <div class="col-sm-offset-2 col-sm-10 col-xs-12">
+                                        <button type="button" class="btn btn-primary btn-block-xs" onclick="saveForm('form-notify')"><i class="fa fa-save"></i> 保存通知设置</button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+
+                        <div class="tab-pane" id="tab-api">
+                            <form class="form-horizontal" id="form-api" autocomplete="off">
+                                <div class="form-header">影视元数据 (Meta)</div>
+                                <div class="form-group">
+                                    <label class="col-sm-2 col-xs-12 control-label">TMDB API Key</label>
+                                    <div class="col-sm-6 col-xs-12">
+                                        <div class="input-group">
+                                            <input type="password" class="form-control" name="openlist.tmdb.apikey" autocomplete="new-password">
+                                            <span class="input-group-addon reveal-password" title="点击查看/隐藏"><i class="fa fa-eye"></i></span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="form-header">人工智能 (OpenAI)</div>
+                                <div class="form-group">
+                                    <label class="col-sm-2 col-xs-12 control-label">API 接口地址</label>
+                                    <div class="col-sm-6 col-xs-12">
+                                        <input type="text" class="form-control" name="openlist.openai.endpoint" placeholder="留空默认使用官方接口" autocomplete="off">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="col-sm-2 col-xs-12 control-label">模型名称</label>
+                                    <div class="col-sm-4 col-xs-12">
+                                        <input type="text" class="form-control" name="openlist.openai.model" placeholder="例如：gpt-4o, gpt-3.5-turbo" autocomplete="off">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="col-sm-2 col-xs-12 control-label">API Key</label>
+                                    <div class="col-sm-6 col-xs-12">
+                                        <div class="input-group">
+                                            <input type="password" class="form-control" name="openlist.openai.apikey" autocomplete="new-password">
+                                            <span class="input-group-addon reveal-password" title="点击查看/隐藏"><i class="fa fa-eye"></i></span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <div class="col-sm-offset-2 col-sm-10 col-xs-12">
+                                        <button type="button" class="btn btn-primary btn-block-xs" onclick="saveForm('form-api')"><i class="fa fa-save"></i> 保存 API 设置</button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+
+                        <div class="tab-pane" id="tab-advanced">
+                            <div class="row">
+                                <div class="col-xs-12 search-collapse">
+                                    <form id="config-form">
+                                        <div class="select-list">
+                                            <ul>
+                                                <li>
+                                                    <label>参数名称：</label>
+                                                    <input type="text" name="configName"/>
+                                                </li>
+                                                <li class="search-btn-group">
+                                                    <a class="btn btn-primary btn-rounded btn-sm" onclick="$.table.search('config-form', 'bootstrap-table')"><i class="fa fa-search"></i> 搜索</a>
+                                                    <a class="btn btn-warning btn-rounded btn-sm" onclick="$.form.reset('config-form', 'bootstrap-table')"><i class="fa fa-refresh"></i> 重置</a>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </form>
+                                </div>
+
+                                <div class="btn-group-sm" id="toolbar" role="group">
+                                    <a class="btn btn-danger" onclick="refreshCache()" shiro:hasPermission="system:config:remove">
+                                        <i class="fa fa-refresh"></i> 刷新缓存
+                                    </a>
+                                </div>
+                                <div class="col-xs-12 select-table table-striped">
+                                    <table id="bootstrap-table"></table>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<th:block th:include="include :: footer" />
+<th:block th:include="include :: bootstrap-select-js" />
+
+<script th:inline="javascript">
+    var editFlag = [[${@permission.hasPermi('system:config:edit')}]];
+    var removeFlag = [[${@permission.hasPermi('system:config:remove')}]];
+    var datas = [[${@dict.getType('sys_yes_no')}]];
+    var prefix = ctx + "system/config";
+
+    var configMap = {};
+
+    $(function() {
+        // 1. 先显示 Loading，提升体验
+        $.modal.loading("正在加载配置...");
+
+        // 2. 初始化高级表格
+        initAdvancedTable();
+
+        // 3. 加载所有配置数据
+        loadAllConfigs();
+
+        // 4. 绑定通用事件
+        bindEvents();
+
+        // 5. 恢复上次选中的 Tab
+        restoreActiveTab();
+    });
+
+    function bindEvents() {
+        // 密码查看/隐藏
+        $(document).on('click', '.reveal-password', function() {
+            var $btn = $(this);
+            var $input = $btn.prev('input');
+            var $icon = $btn.find('i');
+
+            if ($input.attr('type') === 'password') {
+                $input.attr('type', 'text');
+                $icon.removeClass('fa-eye').addClass('fa-eye-slash');
+            } else {
+                $input.attr('type', 'password');
+                $icon.removeClass('fa-eye-slash').addClass('fa-eye');
+            }
+        });
+
+        // 记录当前选中的 Tab
+        $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+            var target = $(e.target).attr("href");
+            localStorage.setItem('activeConfigTab', target);
+        });
+    }
+
+    function restoreActiveTab() {
+        var activeTab = localStorage.getItem('activeConfigTab');
+        if (activeTab) {
+            $('#settingTabs a[href="' + activeTab + '"]').tab('show');
+        }
+    }
+
+    function loadAllConfigs() {
+        $.post(prefix + "/list", { pageSize: 1000, pageNum: 1 }, function(res) {
+            $.modal.closeLoading(); // 关闭 Loading
+            if (res.rows && res.rows.length > 0) {
+                for (var i = 0; i < res.rows.length; i++) {
+                    var item = res.rows[i];
+                    configMap[item.configKey] = {
+                        id: item.configId,
+                        value: item.configValue,
+                        configName: item.configName
+                    };
+                    fillFormInput(item.configKey, item.configValue);
+                }
+            }
+        }).fail(function() {
+            $.modal.closeLoading();
+            $.modal.msgError("配置加载失败，请检查网络");
+        });
+    }
+
+    function fillFormInput(key, value) {
+        var $inputs = $('[name="' + key + '"]');
+        if ($inputs.length === 0) return;
+
+        $inputs.each(function() {
+            var $input = $(this);
+            var type = $input.attr('type');
+            var tagName = $input.prop('tagName').toLowerCase();
+
+            if (tagName === 'select' || tagName === 'textarea') {
+                $input.val(value);
+            } else if (type === 'radio') {
+                if ($input.val() === value) {
+                    $input.prop('checked', true);
+                }
+            } else if (type === 'checkbox') {
+                // 兼容 true/1/Y
+                var checked = (value === 'true' || value === '1' || value === 'Y');
+                $input.prop('checked', checked);
+            } else {
+                $input.val(value);
+            }
+        });
+    }
+
+    function saveForm(formId) {
+        var formData = $('#' + formId).serializeArray();
+        var updateReqs = [];
+
+        // 处理未选中的 Checkbox
+        $('#' + formId + ' input[type="checkbox"]').each(function() {
+            if (!this.checked) {
+                var name = this.name;
+                // 检查是否已存在于 formData (浏览器标准行为是不提交未选中的 checkbox)
+                var exists = false;
+                for (var k = 0; k < formData.length; k++) {
+                    if (formData[k].name === name) {
+                        exists = true;
+                        break;
+                    }
+                }
+                if (!exists) {
+                    // 获取 data-unchecked-value，默认为 '0'
+                    var uncheckedVal = $(this).data('unchecked-value') || '0';
+                    formData.push({ name: name, value: uncheckedVal });
+                }
+            }
+        });
+
+        // 遍历并对比数据，仅提交变更项
+        for (var i = 0; i < formData.length; i++) {
+            var field = formData[i];
+            var key = field.name;
+            var newValue = field.value;
+
+            // 特殊处理：部分开关组件可能传 'on'，转为 '1'
+            if (key === 'openlist.copy.strm' && newValue === 'on') newValue = '1';
+
+            var configItem = configMap[key];
+
+            if (configItem) {
+                if (configItem.value !== newValue) {
+                    (function(cId, cKey, cVal, cName) {
+                        var def = $.Deferred();
+                        $.ajax({
+                            url: prefix + "/edit",
+                            type: "post",
+                            dataType: "json",
+                            data: {
+                                configId: cId,
+                                configKey: cKey,
+                                configValue: cVal,
+                                configName: cName
+                            },
+                            success: function(result) {
+                                if (result.code === 0) {
+                                    configMap[cKey].value = cVal; // 更新本地缓存
+                                    def.resolve();
+                                } else {
+                                    def.reject(result.msg);
+                                }
+                            },
+                            error: function() {
+                                def.reject("网络错误");
+                            }
+                        });
+                        updateReqs.push(def);
+                    })(configItem.id, key, newValue, configItem.configName);
+                }
+            } else {
+                console.warn("配置项缺失或未入库: " + key);
+            }
+        }
+
+        if (updateReqs.length === 0) {
+            $.modal.msgSuccess("没有检测到数据变更");
+            return;
+        }
+
+        $.modal.loading("正在保存...");
+
+        // 使用 jQuery.when 并发处理所有请求
+        $.when.apply($, updateReqs).then(function() {
+            $.modal.closeLoading();
+            $.modal.msgSuccess("保存成功，缓存已刷新");
+            refreshCache();
+            // 如果高级配置表正在显示，刷新它
+            if($('#bootstrap-table').length > 0) {
+                $.table.refresh('bootstrap-table');
+            }
+        }).fail(function(errMsg) {
+            $.modal.closeLoading();
+            $.modal.alertError("保存失败: " + (errMsg || "未知错误"));
+        });
+    }
+
+    function initAdvancedTable() {
+        var options = {
+            id: "bootstrap-table",
+            url: prefix + "/list",
+            formId: "config-form", // 【关键】锁定查询表单
+            createUrl: prefix + "/add",
+            updateUrl: prefix + "/edit/{id}",
+            removeUrl: prefix + "/remove",
+            exportUrl: prefix + "/export",
+            sortName: "configId",
+            sortOrder: "asc",
+            modalName: "参数",
+            columns: [
+                {
+                    checkbox: true
+                },
                 {
                     field: 'configId',
                     visible: false,
@@ -109,14 +566,14 @@
                         return actions.join('');
                     }
                 }]
-            };
-            $.table.init(options);
-        });
-        
-        /** 刷新参数缓存 */
-        function refreshCache() {
-            $.operate.get(prefix + "/refreshCache");
-        }
-    </script>
+        };
+        $.table.init(options);
+    }
+
+    /** 刷新参数缓存 */
+    function refreshCache() {
+        $.operate.get(prefix + "/refreshCache");
+    }
+</script>
 </body>
 </html>
