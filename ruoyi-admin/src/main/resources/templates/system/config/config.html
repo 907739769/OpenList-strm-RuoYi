@@ -10,19 +10,37 @@
 
         /* ================== Tab 导航栏 ================== */
         /* 适配移动端滑动，同时隐藏丑陋的滚动条 */
+        /* ================== Tab 导航栏 ================== */
+        /* 适配移动端滑动，强制仅横向滚动 */
         .nav-tabs-custom {
             background: #fff;
             padding: 10px 5px 0;
             border-bottom: 1px solid #ddd;
-            white-space: nowrap;
+
+            /* 改用 Flex 布局，比 inline-block 更稳定 */
+            display: flex;
+            flex-wrap: nowrap;
+
+            /* 核心修改：明确开启X轴滚动，隐藏Y轴滚动 */
             overflow-x: auto;
+            overflow-y: hidden;
+
+            /* iOS 惯性滚动支持 */
             -webkit-overflow-scrolling: touch;
+
+            /* 隐藏滚动条 */
             scrollbar-width: none; /* Firefox */
             -ms-overflow-style: none; /* IE 10+ */
         }
         .nav-tabs-custom::-webkit-scrollbar { display: none; /* Chrome/Safari */ }
 
-        .nav-tabs-custom > li { float: none; display: inline-block; }
+        .nav-tabs-custom > li {
+            float: none;
+            /* 关键：防止 Flex 子元素被压缩，确保能横向撑开 */
+            flex: 0 0 auto;
+            display: block;
+        }
+
         .nav-tabs-custom > li > a {
             color: #555;
             font-weight: 500;
@@ -31,9 +49,10 @@
             padding: 12px 20px;
             border-radius: 4px 4px 0 0;
             transition: all 0.3s;
+            /* 防止文字换行影响高度 */
+            white-space: nowrap;
         }
         .nav-tabs-custom > li.active > a { color: #605ca8; border-bottom: 2px solid #605ca8; background: #f9f9f9; font-weight: bold; }
-
         /* ================== 表单区域 ================== */
         .settings-body { padding: 20px; min-height: 400px; }
 
@@ -58,7 +77,7 @@
         .toggle-switch { display: inline-block; position: relative; width: 52px; height: 26px; cursor: pointer; -webkit-tap-highlight-color: transparent; vertical-align: middle; }
         .toggle-switch input { opacity: 0; width: 0; height: 0; }
         .toggle-switch span { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #e4e4e4; transition: .3s; border-radius: 34px; }
-        .toggle-switch span:before { position: absolute; content: ""; height: 18px; width: 18px; left: 4px; bottom: 4px; background-color: white; transition: .3s; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+        .toggle-switch span:before { content: ""; height: 18px; width: 18px; left: 4px; bottom: 4px; background-color: white; transition: .3s; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
         .toggle-switch input:checked + span { background-color: #605ca8; }
         .toggle-switch input:checked + span:before { transform: translateX(26px); }
 
