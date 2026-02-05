@@ -64,7 +64,7 @@ public class RenameTaskManager {
 
     @PreDestroy
     public void stop() {
-        scheduler.shutdown();
+        Threads.shutdownAndAwaitTermination(scheduler);
         registry.stopAll();
         log.info("RenameTaskManager stopped");
         MDC.clear();

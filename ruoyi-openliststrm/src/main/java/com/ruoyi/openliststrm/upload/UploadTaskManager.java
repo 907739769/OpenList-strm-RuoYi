@@ -48,7 +48,7 @@ public class UploadTaskManager {
 
     @PreDestroy
     public void stop() {
-        scheduler.shutdown();
+        Threads.shutdownAndAwaitTermination(scheduler);
         registry.stopAll();
         log.info("UploadTaskManager stopped");
         MDC.clear();

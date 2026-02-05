@@ -2,6 +2,7 @@ package com.ruoyi.openliststrm.helper;
 
 import com.alibaba.fastjson.JSONObject;
 import com.ruoyi.common.utils.StringUtils;
+import com.ruoyi.common.utils.Threads;
 import com.ruoyi.openliststrm.api.OpenlistApi;
 import com.ruoyi.openliststrm.mybatisplus.domain.OpenlistCopyPlus;
 import com.ruoyi.openliststrm.mybatisplus.service.IOpenlistCopyPlusService;
@@ -228,16 +229,6 @@ public class AsynHelper {
     // 容器销毁时关闭线程池，防止内存泄漏
     @PreDestroy
     public void destroy() {
-        if (scheduler != null && !scheduler.isShutdown()) {
-            scheduler.shutdown();
-            try {
-                if (!scheduler.awaitTermination(5, TimeUnit.SECONDS)) {
-                    scheduler.shutdownNow();
-                }
-            } catch (InterruptedException e) {
-                scheduler.shutdownNow();
-                Thread.currentThread().interrupt();
-            }
-        }
+        Threads.shutdownAndAwaitTermination(scheduler);
     }
 }

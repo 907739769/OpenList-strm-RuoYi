@@ -1,5 +1,6 @@
 package com.ruoyi.openliststrm.monitor;
 
+import com.ruoyi.common.utils.Threads;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -75,7 +76,7 @@ public class WatchServiceMonitor implements FileMonitor {
             if (watchService != null) watchService.close();
         } catch (IOException ignored) {
         }
-        executor.shutdown();
+        Threads.shutdownAndAwaitTermination(executor);
     }
 
     private void handleCreate(Path path) {
