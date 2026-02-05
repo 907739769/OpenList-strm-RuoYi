@@ -250,7 +250,7 @@ public class CopyServiceImpl implements ICopyService {
             copyHelper.addCopy(copy);
         }
 
-        if (flag.get() && "1".equals(config.getOpenListCopyStrm())) {
+        if (flag.get()) {
             asynHelper.isCopyDoneOneFile(dstDir + "/" + relativePath, copy);
         }
     }
@@ -258,16 +258,11 @@ public class CopyServiceImpl implements ICopyService {
     @Override
     public void syncFiles(String srcDir, String dstDir, String relativePath) {
         syncFilesByQueue(srcDir, dstDir, relativePath);
-        if ("1".equals(config.getOpenListCopyStrm())) {
-            asynHelper.isCopyDone(dstDir, relativePath);
-        }
+        asynHelper.isCopyDone(dstDir, relativePath);
     }
 
     @Override
     public void syncFiles(String srcDir, String dstDir) {
-        syncFilesByQueue(srcDir, dstDir, "");
-        if ("1".equals(config.getOpenListCopyStrm())) {
-            asynHelper.isCopyDone(dstDir, "");
-        }
+        syncFiles(srcDir, dstDir, "");
     }
 }

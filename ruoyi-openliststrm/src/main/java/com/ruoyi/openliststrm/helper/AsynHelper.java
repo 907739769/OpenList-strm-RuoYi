@@ -4,6 +4,7 @@ import com.alibaba.fastjson.JSONObject;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.common.utils.Threads;
 import com.ruoyi.openliststrm.api.OpenlistApi;
+import com.ruoyi.openliststrm.config.OpenlistConfig;
 import com.ruoyi.openliststrm.mybatisplus.domain.OpenlistCopyPlus;
 import com.ruoyi.openliststrm.mybatisplus.service.IOpenlistCopyPlusService;
 import com.ruoyi.openliststrm.service.IStrmService;
@@ -43,7 +44,7 @@ public class AsynHelper {
     private IOpenlistCopyPlusService openlistCopyPlusService;
 
     @Autowired
-    private TgHelper tgHelper;
+    private OpenlistConfig config;
 
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(4);
 
@@ -79,8 +80,6 @@ public class AsynHelper {
      */
     private void processCopyListRecursive(List<OpenlistCopyPlus> copyList, String dstDir, String strmDir) {
         Iterator<OpenlistCopyPlus> iterator = copyList.iterator();
-        boolean hasError = false;
-
         while (iterator.hasNext()) {
             OpenlistCopyPlus copy = iterator.next();
             String taskId = copy.getCopyTaskId();
@@ -112,11 +111,10 @@ public class AsynHelper {
                     if (state == 7) {
                         // 失败不重试了
                         updateCopyStatus(copy, "2");
-                        tgHelper.sendMsg("*复制任务失败*\n" +
+                        TgHelper.sendMsg("*复制任务失败*\n" +
                                 "源目录：" + StringUtils.escapeMarkdownV2(copy.getCopySrcPath()) + "\n" +
                                 "源文件名：" + StringUtils.escapeMarkdownV2(copy.getCopySrcFileName()));
                         iterator.remove(); // 移除失败任务
-                        hasError = true;
                     }
                     // 其他状态（如1运行中）则保留在列表中继续监控
                 } else if (404 == code || state == 2) {
@@ -149,7 +147,9 @@ public class AsynHelper {
      */
     public void isCopyDoneOneFile(String path, OpenlistCopyPlus copy) {
         if (StringUtils.isBlank(copy.getCopyTaskId())) {
-            strmService.strmOneFile(path);// 生成 STRM 文件
+            if ("1".equals(config.getOpenListCopyStrm())) {
+                strmService.strmOneFile(path);// 生成 STRM 文件
+            }
             return;
         }
 
@@ -183,13 +183,15 @@ public class AsynHelper {
                 if (state == 2) {
                     updateCopyStatus(copy, "3");
                     // 成功后生成 strm
-                    strmService.strmOneFile(path);
+                    if ("1".equals(config.getOpenListCopyStrm())) {
+                        strmService.strmOneFile(path);
+                    }
                 }
                 return; // 任务完成，退出递归
             } else if (state == 7) {
                 // 失败状态
                 updateCopyStatus(copy, "2");
-                tgHelper.sendMsg("*复制任务失败*\n" +
+                TgHelper.sendMsg("*复制任务失败*\n" +
                         "源目录：" + StringUtils.escapeMarkdownV2(copy.getCopySrcPath()) + "\n" +
                         "源文件名：" + StringUtils.escapeMarkdownV2(copy.getCopySrcFileName()));
                 return; // 任务失败，退出递归
@@ -211,6 +213,9 @@ public class AsynHelper {
 
     // 辅助方法：处理目录 strm 生成逻辑 (保持原有逻辑不变)
     private void finishStrmDir(String dstDir, String strmDir) {
+        if (!"1".equals(config.getOpenListCopyStrm())) {
+            return;
+        }
         try {
             String newStrmDir = strmDir;
             if (strmDir.startsWith("/")) {

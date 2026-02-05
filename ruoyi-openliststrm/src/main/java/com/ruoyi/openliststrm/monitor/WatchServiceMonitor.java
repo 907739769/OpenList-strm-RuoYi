@@ -1,6 +1,8 @@
 package com.ruoyi.openliststrm.monitor;
 
+import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.common.utils.Threads;
+import com.ruoyi.openliststrm.helper.TgHelper;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -60,7 +62,9 @@ public class WatchServiceMonitor implements FileMonitor {
                     } else if (kind == ENTRY_DELETE) {
                         handleDelete(fullPath);
                     } else if (kind == OVERFLOW) {
-                        log.warn("文件系统事件溢出，可能丢失了部分文件变更！建议手动触发全量扫描。");
+                        log.warn("文件系统事件溢出，可能丢失了部分文件变更: {}！建议手动触发全量扫描。", root.toString());
+                        TgHelper.sendMsg("*监控任务丢失文件事件*\n" +
+                                "文件系统事件溢出，可能丢失了部分文件变更: " + StringUtils.escapeMarkdownV2(root.toString()) + "！建议手动触发全量扫描。");
                     }
                 }
                 key.reset();
