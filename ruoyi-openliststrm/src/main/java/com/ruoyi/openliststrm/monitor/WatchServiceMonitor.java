@@ -59,6 +59,8 @@ public class WatchServiceMonitor implements FileMonitor {
                         handleModify(fullPath);
                     } else if (kind == ENTRY_DELETE) {
                         handleDelete(fullPath);
+                    } else if (kind == OVERFLOW) {
+                        log.warn("文件系统事件溢出，可能丢失了部分文件变更！建议手动触发全量扫描。");
                     }
                 }
                 key.reset();

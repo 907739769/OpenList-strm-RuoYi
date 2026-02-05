@@ -56,7 +56,7 @@ public class UploadTaskManager {
 
     private void poll() {
         try {
-            //查询所有启用的重命名任务
+            //查询所有启用的文件同步任务
             Map<Integer, OpenlistCopyTaskPlus> activeTasks = loadActiveTasks();
             registry.reconcile(activeTasks, copyService);
         } catch (Exception e) {
