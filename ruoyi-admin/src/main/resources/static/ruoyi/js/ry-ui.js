@@ -841,10 +841,11 @@ var table = {
             },
             // 弹出层指定宽度
             open: function (title, url, width, height, callback) {
+                var isMobile = $.common.isMobile();
                 // 如果是移动端，就使用自适应大小弹窗
-                if ($.common.isMobile()) {
-                    width = 'auto';
-                    height = 'auto';
+                if (isMobile) {
+                    width = '100%';
+                    height = ($(window).height()) + 'px';
                 }
                 if ($.common.isEmpty(title)) {
                     title = false;
@@ -856,7 +857,7 @@ var table = {
                     width = 800;
                 }
                 if ($.common.isEmpty(height)) {
-                    height = ($(window).height() - 50);
+                    height = ($(window).height());
                 }
                 if ($.common.isEmpty(callback)) {
                     callback = function(index, layero) {
@@ -864,18 +865,28 @@ var table = {
                         iframeWin.contentWindow.submitHandler(index, layero);
                     }
                 }
+                var _width = width;
+                var _height = height;
+                // 处理宽度单位
+                if (typeof width === 'number' || (typeof width === 'string' && width.indexOf('%') === -1 && width.indexOf('px') === -1)) {
+                    _width = width + 'px';
+                }
+                // 处理高度单位
+                if (typeof height === 'number' || (typeof height === 'string' && height.indexOf('%') === -1 && height.indexOf('px') === -1)) {
+                    _height = height + 'px';
+                }
                 top.layer.open({
                     type: 2,
-                    area: [width + 'px', height + 'px'],
+                    area: [_width, _height],
                     fix: false,
                     //不固定
-                    maxmin: true,
-                    shade: 0.3,
+                    maxmin: !isMobile,
+                    shade: isMobile ? 0 : 0.3,
                     title: title,
                     content: url,
                     btn: ['确定', '关闭'],
                     // 弹层外区域关闭
-                    shadeClose: true,
+                    shadeClose: !isMobile,
                     yes: callback,
                     cancel: function(index) {
                         return true;

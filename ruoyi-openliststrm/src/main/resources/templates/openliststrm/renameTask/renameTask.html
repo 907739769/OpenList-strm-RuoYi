@@ -131,13 +131,13 @@
 
         if (isMobile) {
             // H5端：绕过 $.modal，直接调用 layer.open 确保 100% 生效
-            layer.open({
+            top.layer.open({
                 type: 2,       // 2 代表 iframe 类型
                 title: title,
-                shade: 0.3,    // 遮罩透明度
+                shade: 0,    // 遮罩透明度
                 closeBtn: 1,   // 显示关闭按钮
                 maxmin: false, // 手机端禁止最大化/最小化
-                area: ['100%', '100%'], // 强制全屏
+                area: ['100%', ($(window).height()) + 'px'], // 强制全屏
                 content: url,  // 页面地址
                 fix: true,     // 固定位置
                 scrollbar: false // 禁用父页面滚动
