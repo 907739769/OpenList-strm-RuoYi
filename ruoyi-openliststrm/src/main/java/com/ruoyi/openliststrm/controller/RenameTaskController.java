@@ -6,11 +6,17 @@ import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.enums.BusinessType;
+import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.common.utils.poi.ExcelUtil;
 import com.ruoyi.framework.manager.AsyncManager;
 import com.ruoyi.openliststrm.domain.RenameTask;
+import com.ruoyi.openliststrm.rename.MediaParser;
+import com.ruoyi.openliststrm.rename.RenameClientProvider;
 import com.ruoyi.openliststrm.rename.RenameTaskManager;
+import com.ruoyi.openliststrm.rename.model.MediaInfo;
 import com.ruoyi.openliststrm.service.IRenameTaskService;
+import com.ruoyi.openliststrm.tmdb.TMDbClient;
+import com.ruoyi.openliststrm.openai.OpenAIClient;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
@@ -24,8 +30,7 @@ import java.util.stream.Collectors;
 
 /**
  * 重命名任务配置Controller
- * 
- * @author Jack
+ * * @author Jack
  * @date 2025-09-30
  */
 @Controller
@@ -34,11 +39,17 @@ public class RenameTaskController extends BaseController
 {
     private String prefix = "openliststrm/renameTask";
 
+    // 默认模板配置
+    private static final String DEFAULT_FILENAME_TEMPLATE = "{{ title }} {% if year %} ({{ year }}) {% endif %}/{% if season %}Season {{ season }}/{% endif %}{{ title }} {% if year and not season %} ({{ year }}) {% endif %}{% if season %}S{{ season }}{% endif %}{% if episode %}E{{ episode }}{% endif %}{% if resolution %} - {{ resolution }}{% endif %}{% if source %}.{{ source }}{% endif %}{% if videoCodec %}.{{ videoCodec }}{% endif %}{% if audioCodec %}.{{ audioCodec }}{% endif %}{% if tags is not empty %}.{{ tags|join('.') }}{% endif %}{% if releaseGroup %}-{{ releaseGroup }}{% endif %}.{{ extension }}";
+
     @Autowired
     private IRenameTaskService renameTaskService;
 
     @Autowired
     private RenameTaskManager renameTaskManager;
+
+    @Autowired
+    private RenameClientProvider renameClientProvider;
 
     @RequiresPermissions("openliststrm:renameTask:view")
     @GetMapping()
@@ -171,5 +182,52 @@ public class RenameTaskController extends BaseController
             }
         });
         return AjaxResult.success();
+    }
+
+    /**
+     * 打开测试解析页面
+     */
+    @RequiresPermissions("openliststrm:renameTask:view")
+    @GetMapping("/test")
+    public String test(ModelMap mmap)
+    {
+        mmap.put("defaultTemplate", DEFAULT_FILENAME_TEMPLATE);
+        return prefix + "/test";
+    }
+
+    /**
+     * 执行测试解析
+     */
+    @RequiresPermissions("openliststrm:renameTask:view")
+    @PostMapping("/test/parse")
+    @ResponseBody
+    public AjaxResult testParse(String filename, String template)
+    {
+        if (StringUtils.isEmpty(filename)) {
+            return AjaxResult.error("文件名不能为空");
+        }
+
+        // 1. 获取客户端
+        TMDbClient tmdbClient = renameClientProvider.tmdb();
+        OpenAIClient openAIClient = renameClientProvider.openAI();
+
+        // 2. 实例化解析器
+        MediaParser parser = new MediaParser(tmdbClient, openAIClient);
+
+        try {
+            // 3. 解析
+            MediaInfo info = parser.parse(filename);
+
+            // 4. 渲染重命名结果
+            String renderTemplate = StringUtils.isEmpty(template) ? DEFAULT_FILENAME_TEMPLATE : template;
+            String renamed = parser.render(info, renderTemplate);
+
+            AjaxResult result = AjaxResult.success();
+            result.put("info", info);
+            result.put("renamed", renamed);
+            return result;
+        } catch (Exception e) {
+            return AjaxResult.error("解析失败: " + e.getMessage());
+        }
     }
 }

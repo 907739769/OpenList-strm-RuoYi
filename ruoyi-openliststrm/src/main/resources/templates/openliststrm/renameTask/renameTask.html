@@ -46,6 +46,7 @@
             <a class="btn btn-success" onclick="$.operate.add()" shiro:hasPermission="openliststrm:renameTask:add"><i class="fa fa-plus"></i> 添加</a>
             <a class="btn btn-danger multiple disabled" onclick="$.operate.removeAll()" shiro:hasPermission="openliststrm:renameTask:remove"><i class="fa fa-remove"></i> 删除</a>
             <a class="btn btn-primary multiple disabled" id="btnExecute" onclick="javascript:executeSelected()"><i class="fa fa-play"></i> 批量执行</a>
+            <a class="btn btn-info" onclick="openTest()"><i class="fa fa-flask"></i> 重命名测试</a>
         </div>
         <div class="col-sm-12 select-table table-striped table-responsive" style="border: 0; overflow-x: hidden;">
             <table id="bootstrap-table"></table>
@@ -118,6 +119,33 @@
         $.modal.confirm('确认立即执行该任务吗？', function() {
             $.operate.post(prefix + '/execute/' + id);
         });
+    }
+
+    // 新增：打开测试窗口（智能适配 H5 和 PC）
+    function openTest() {
+        var url = prefix + "/test";
+        var title = "文件名重命名测试";
+
+        // 检测是否为移动端
+        var isMobile = $.common.isMobile() || $(window).width() < 769;
+
+        if (isMobile) {
+            // H5端：绕过 $.modal，直接调用 layer.open 确保 100% 生效
+            layer.open({
+                type: 2,       // 2 代表 iframe 类型
+                title: title,
+                shade: 0.3,    // 遮罩透明度
+                closeBtn: 1,   // 显示关闭按钮
+                maxmin: false, // 手机端禁止最大化/最小化
+                area: ['100%', '100%'], // 强制全屏
+                content: url,  // 页面地址
+                fix: true,     // 固定位置
+                scrollbar: false // 禁用父页面滚动
+            });
+        } else {
+            // PC端：使用框架封装的标准方法
+            $.modal.open(title, url, 800, 600);
+        }
     }
 </script>
 </body>

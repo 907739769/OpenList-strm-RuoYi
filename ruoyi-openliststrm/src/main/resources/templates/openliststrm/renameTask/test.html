@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <th:block th:include="include :: header('文件重命名测试')" />
+    <th:block th:include="include :: jsonview-css" />
+    <style>
+        .result-box {
+            background-color: #f5f5f5;
+            border: 1px solid #e7eaec;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+        .result-title {
+            font-weight: bold;
+            font-size: 14px;
+            margin-bottom: 10px;
+            color: #1ab394;
+        }
+        .result-text {
+            font-family: Consolas, monospace;
+            word-break: break-all;
+            white-space: pre-wrap;
+            font-size: 14px;
+            color: #333;
+        }
+        #json-renderer {
+            padding: 10px;
+            background-color: #fff;
+            border: 1px solid #eee;
+            max-height: 400px;
+            overflow-y: auto;
+            font-size: 12px;
+        }
+
+        /* H5 移动端适配 */
+        @media (max-width: 768px) {
+            .wrapper-content { padding: 10px !important; }
+            .form-group { margin-bottom: 10px !important; }
+            #template { font-size: 12px; }
+        }
+    </style>
+</head>
+<body class="white-bg">
+<div class="wrapper wrapper-content animated fadeInRight ibox-content">
+    <form class="form-horizontal m" id="form-test-parse">
+        <div class="form-group">
+            <label class="col-sm-2 control-label is-required">原文件名：</label>
+            <div class="col-sm-10">
+                <textarea id="filename" name="filename" class="form-control" rows="3" placeholder="例如: The.Movie.2024.1080p.mkv" required></textarea>
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="col-sm-2 control-label">重命名模板：</label>
+            <div class="col-sm-10">
+                <textarea id="template" name="template" class="form-control" rows="4" th:text="${defaultTemplate}"></textarea>
+                <span class="help-block m-b-none" style="font-size: 12px; color: #999;"><i class="fa fa-info-circle"></i> 留空则使用默认配置。</span>
+            </div>
+        </div>
+        <div class="form-group">
+            <div class="col-sm-offset-2 col-sm-10">
+                <button type="button" class="btn btn-sm btn-primary btn-block-xs" onclick="doTest()"><i class="fa fa-flask"></i> 开始分析</button>
+            </div>
+        </div>
+    </form>
+
+    <div id="result-area" style="display: none;">
+        <div class="hr-line-dashed"></div>
+
+        <div class="result-box">
+            <div class="result-title"><i class="fa fa-file-text-o"></i> 重命名结果预览</div>
+            <div id="renamed-result" class="result-text"></div>
+        </div>
+
+        <div class="result-box">
+            <div class="result-title"><i class="fa fa-code"></i> 识别参数详情 (MediaInfo)</div>
+            <div id="json-renderer"></div>
+        </div>
+    </div>
+</div>
+
+<th:block th:include="include :: footer" />
+<th:block th:include="include :: jsonview-js" />
+
+<script type="text/javascript">
+    var prefix = ctx + "openliststrm/renameTask";
+
+    function doTest() {
+        var filename = $("#filename").val();
+        var template = $("#template").val();
+
+        if ($.common.isEmpty(filename)) {
+            $.modal.msgWarning("请输入文件名");
+            return;
+        }
+
+        var config = {
+            url: prefix + "/test/parse",
+            type: "post",
+            dataType: "json",
+            data: {
+                "filename": filename,
+                "template": template
+            },
+            beforeSend: function () {
+                $.modal.loading("正在智能识别中，请稍候...");
+            },
+            success: function(result) {
+                $.modal.closeLoading();
+                if (result.code === 0) {
+                    $("#result-area").show();
+                    $("#renamed-result").text(result.renamed);
+
+                    // 修正点：方法名必须是 JSONView (全大写)
+                    // 移动端默认收起节点
+                    var jsonOptions = { collapsed: $.common.isMobile() };
+
+                    try {
+                        $("#json-renderer").JSONView(result.info, jsonOptions);
+                    } catch (e) {
+                        console.error("JSONView 插件加载失败或调用错误:", e);
+                        $("#json-renderer").text(JSON.stringify(result.info, null, 2));
+                    }
+
+                    // 移动端自动滚动
+                    if ($.common.isMobile()) {
+                        $('html, body').animate({
+                            scrollTop: $("#result-area").offset().top
+                        }, 500);
+                    }
+                } else {
+                    $.modal.alertError(result.msg);
+                }
+            },
+            error: function(xhr, textStatus) {
+                $.modal.closeLoading();
+                $.modal.alertError("请求失败");
+            }
+        };
+        $.ajax(config);
+    }
+</script>
+</body>
+</html>
