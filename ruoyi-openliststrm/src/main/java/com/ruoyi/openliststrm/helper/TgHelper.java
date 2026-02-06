@@ -12,7 +12,6 @@ import org.springframework.stereotype.Component;
  * @Date 2025/7/20 18:49
  * @Version 1.0.0
  */
-@Component
 public class TgHelper {
 
     private static OpenlistConfig config = SpringUtils.getBean(OpenlistConfig.class);
