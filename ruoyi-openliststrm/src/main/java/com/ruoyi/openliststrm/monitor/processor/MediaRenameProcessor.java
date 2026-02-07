@@ -110,12 +110,12 @@ public class MediaRenameProcessor implements FileProcessor {
                 log.warn("processOnce: sourceDir does not exist or not a directory: {}", sourceDir);
                 return;
             }
+            IRenameDetailPlusService renameDetailPlusService = SpringUtils.getBean(IRenameDetailPlusService.class);
             Files.walkFileTree(sourceDir, new SimpleFileVisitor<Path>() {
                 @Override
                 public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
                     Path p = file.toAbsolutePath().normalize();
                     //判断是否有处理成功的数据
-                    IRenameDetailPlusService renameDetailPlusService = SpringUtils.getBean(IRenameDetailPlusService.class);
                     long count = renameDetailPlusService.lambdaQuery().eq(RenameDetailPlus::getOriginalPath, p.getParent().toString())
                             .eq(RenameDetailPlus::getOriginalName, p.getFileName().toString())
                             .eq(RenameDetailPlus::getStatus, "1")
