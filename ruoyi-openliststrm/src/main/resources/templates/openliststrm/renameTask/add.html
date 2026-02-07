@@ -2,23 +2,24 @@
 <html lang="zh" xmlns:th="http://www.thymeleaf.org" >
 <head>
     <th:block th:include="include :: header('新增重命名任务配置')" />
+    <th:block th:include="include :: ztree-css" />
 </head>
 <body class="white-bg">
     <div class="wrapper wrapper-content animated fadeInRight ibox-content">
         <form class="form-horizontal m" id="form-renameTask-add">
             <div class="col-xs-12">
                 <div class="form-group">
-                    <label class="col-sm-3 control-label">源目录：</label>
+                    <label class="col-sm-3 control-label is-required">源目录：</label>
                     <div class="col-sm-8">
-                        <input name="sourceFolder" class="form-control" type="text">
+                        <input id="sourceFolder" name="sourceFolder" class="form-control" type="text" placeholder="点击选择本地目录..." required style="background-color: #fff; cursor: pointer;">
                     </div>
                 </div>
             </div>
             <div class="col-xs-12">
                 <div class="form-group">
-                    <label class="col-sm-3 control-label">目标目录：</label>
+                    <label class="col-sm-3 control-label is-required">目标目录：</label>
                     <div class="col-sm-8">
-                        <input name="targetRoot" class="form-control" type="text">
+                        <input id="targetRoot" name="targetRoot" class="form-control" type="text" placeholder="点击选择本地目录..." required style="background-color: #fff; cursor: pointer;">
                     </div>
                 </div>
             </div>
@@ -36,6 +37,8 @@
         </form>
     </div>
     <th:block th:include="include :: footer" />
+    <th:block th:include="include :: ztree-js" />
+    <script th:src="@{/js/openlist-tree.js}"></script>
     <script th:inline="javascript">
         var prefix = ctx + "openliststrm/renameTask"
         $("#form-renameTask-add").validate({
@@ -47,6 +50,14 @@
                 $.operate.save(prefix + "/add", $('#form-renameTask-add').serialize());
             }
         }
+
+        $(function() {
+            // 初始化源目录下拉树 (local 代表本地目录)
+            initDirectoryTree("#sourceFolder", "local");
+
+            // 初始化目标目录下拉树
+            initDirectoryTree("#targetRoot", "local");
+        });
     </script>
 </body>
 </html>
