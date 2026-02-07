@@ -2,8 +2,11 @@ package com.ruoyi.openliststrm.monitor.processor;
 
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.common.utils.file.FileUtils;
+import com.ruoyi.common.utils.spring.SpringUtils;
 import com.ruoyi.openliststrm.config.OpenlistConfig;
 import com.ruoyi.openliststrm.helper.OpenListHelper;
+import com.ruoyi.openliststrm.mybatisplus.domain.RenameDetailPlus;
+import com.ruoyi.openliststrm.mybatisplus.service.IRenameDetailPlusService;
 import com.ruoyi.openliststrm.rename.CategoryRule;
 import com.ruoyi.openliststrm.rename.MediaParser;
 import com.ruoyi.openliststrm.rename.RenameClientProvider;
@@ -111,6 +114,15 @@ public class MediaRenameProcessor implements FileProcessor {
                 @Override
                 public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
                     Path p = file.toAbsolutePath().normalize();
+                    //判断是否有处理成功的数据
+                    IRenameDetailPlusService renameDetailPlusService = SpringUtils.getBean(IRenameDetailPlusService.class);
+                    long count = renameDetailPlusService.lambdaQuery().eq(RenameDetailPlus::getOriginalPath, p.getParent().toString())
+                            .eq(RenameDetailPlus::getOriginalName, p.getFileName().toString())
+                            .eq(RenameDetailPlus::getStatus, "1")
+                            .count();
+                    if (count > 0) {
+                        return FileVisitResult.CONTINUE;
+                    }
                     processing.add(p);
                     try {
                         handleFileIfReady(p);

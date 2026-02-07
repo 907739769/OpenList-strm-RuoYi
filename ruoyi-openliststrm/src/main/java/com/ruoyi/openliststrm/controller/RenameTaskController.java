@@ -9,6 +9,7 @@ import com.ruoyi.common.enums.BusinessType;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.common.utils.poi.ExcelUtil;
 import com.ruoyi.framework.manager.AsyncManager;
+import com.ruoyi.openliststrm.config.OpenlistConfig;
 import com.ruoyi.openliststrm.domain.RenameTask;
 import com.ruoyi.openliststrm.rename.MediaParser;
 import com.ruoyi.openliststrm.rename.RenameClientProvider;
@@ -50,6 +51,9 @@ public class RenameTaskController extends BaseController
 
     @Autowired
     private RenameClientProvider renameClientProvider;
+
+    @Autowired
+    private OpenlistConfig config;
 
     @RequiresPermissions("openliststrm:renameTask:view")
     @GetMapping()
@@ -208,6 +212,7 @@ public class RenameTaskController extends BaseController
         }
 
         // 1. 获取客户端
+        renameClientProvider.refresh(config);
         TMDbClient tmdbClient = renameClientProvider.tmdb();
         OpenAIClient openAIClient = renameClientProvider.openAI();
 

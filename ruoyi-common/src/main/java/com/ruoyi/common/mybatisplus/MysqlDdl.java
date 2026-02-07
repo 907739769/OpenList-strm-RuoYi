@@ -25,7 +25,8 @@ public class MysqlDdl extends SimpleDdl {
                 "sql/20251010.sql",
                 "sql/20260107.sql",
                 "sql/20260114.sql",
-                "sql/20260203.sql"
+                "sql/20260203.sql",
+                "sql/20260207.sql"
         );
     }
 }

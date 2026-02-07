@@ -2,10 +2,10 @@ package com.ruoyi.openliststrm.task;
 
 import com.ruoyi.openliststrm.domain.OpenlistCopyTask;
 import com.ruoyi.openliststrm.domain.OpenlistStrmTask;
-import com.ruoyi.openliststrm.service.ICopyService;
-import com.ruoyi.openliststrm.service.IOpenlistCopyTaskService;
-import com.ruoyi.openliststrm.service.IOpenlistStrmTaskService;
-import com.ruoyi.openliststrm.service.IStrmService;
+import com.ruoyi.openliststrm.domain.RenameTask;
+import com.ruoyi.openliststrm.mapper.RenameTaskMapper;
+import com.ruoyi.openliststrm.rename.RenameTaskManager;
+import com.ruoyi.openliststrm.service.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -31,6 +31,12 @@ public class OpenListStrmTask {
     @Autowired
     private IStrmService strmService;
 
+    @Autowired
+    private RenameTaskManager renameTaskManager;
+
+    @Autowired
+    private IRenameTaskService renameTaskService;
+
     public void copy() {
         OpenlistCopyTask query = new OpenlistCopyTask();
         query.setCopyTaskStatus("1");
@@ -46,6 +52,15 @@ public class OpenListStrmTask {
         List<OpenlistStrmTask> taskList = strmTaskService.selectOpenlistStrmTaskList(query);
         taskList.forEach(task -> {
             strmService.strmDir(task.getStrmTaskPath());
+        });
+    }
+
+    public void rename() {
+        RenameTask query = new RenameTask();
+        query.setStatus("1");
+        List<RenameTask> taskList = renameTaskService.selectRenameTaskList(query);
+        taskList.forEach(task -> {
+            renameTaskManager.executeTaskNow(task.getId());
         });
     }
 
