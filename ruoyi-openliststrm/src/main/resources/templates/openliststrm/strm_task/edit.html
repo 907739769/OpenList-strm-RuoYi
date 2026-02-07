@@ -2,6 +2,7 @@
 <html lang="zh" xmlns:th="http://www.thymeleaf.org" >
 <head>
     <th:block th:include="include :: header('修改strm任务配置')" />
+    <th:block th:include="include :: ztree-css" />
 </head>
 <body class="white-bg">
     <div class="wrapper wrapper-content animated fadeInRight ibox-content">
@@ -29,6 +30,8 @@
         </form>
     </div>
     <th:block th:include="include :: footer" />
+    <th:block th:include="include :: ztree-js" />
+    <script th:src="@{/js/openlist-tree.js}"></script>
     <script th:inline="javascript">
         var prefix = ctx + "openliststrm/strm_task";
         $("#form-strm_task-edit").validate({
