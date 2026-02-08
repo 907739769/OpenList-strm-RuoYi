@@ -3,7 +3,10 @@ package com.ruoyi.openliststrm.rename;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.openliststrm.openai.OpenAIClient;
 import com.ruoyi.openliststrm.rename.extractor.Extractor;
-import com.ruoyi.openliststrm.rename.extractor.impl.*;
+import com.ruoyi.openliststrm.rename.extractor.impl.CodecExtractor;
+import com.ruoyi.openliststrm.rename.extractor.impl.ResolutionExtractor;
+import com.ruoyi.openliststrm.rename.extractor.impl.SourceAndGroupExtractor;
+import com.ruoyi.openliststrm.rename.extractor.impl.YearSeasonEpisodeExtractor;
 import com.ruoyi.openliststrm.rename.model.MediaInfo;
 import com.ruoyi.openliststrm.rename.processor.TitleProcessor;
 import com.ruoyi.openliststrm.rename.render.PebbleRenderer;
@@ -11,7 +14,6 @@ import com.ruoyi.openliststrm.tmdb.TMDbClient;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -23,14 +25,13 @@ import java.util.List;
 public class MediaParser {
     private final List<Extractor> extractors = new ArrayList<>();
     private final TitleProcessor titleProcessor = new TitleProcessor();
-    private final TMDbClient tmdbClient; // may be null
-    private final OpenAIClient openAIClient; // may be null
+    private final TMDbClient tmdbClient;
+    private final OpenAIClient openAIClient;
     private final PebbleRenderer renderer = new PebbleRenderer();
 
     public MediaParser(TMDbClient tmdbClient, OpenAIClient openAIClient) {
         this.tmdbClient = tmdbClient;
         this.openAIClient = openAIClient;
-        // 默认顺序（可在构造时注入）
         extractors.add(new ResolutionExtractor());
         extractors.add(new CodecExtractor());
         extractors.add(new SourceAndGroupExtractor());
@@ -54,7 +55,10 @@ public class MediaParser {
             extension = filename.substring(filename.lastIndexOf('.') + 1).toLowerCase();
             baseName = filename.substring(0, filename.lastIndexOf('.')).trim();
         }
+
+        // 预处理文件名
         String norm = normalize(baseName);
+
         MediaInfo info = new MediaInfo(filename);
         info.setExtension(extension);
         String remaining = norm;
@@ -62,22 +66,18 @@ public class MediaParser {
             remaining = ex.extract(remaining, info);
         }
         titleProcessor.processTitle(remaining, info);
-        if (StringUtils.isNotEmpty(title)) {
-            info.setTitle(title);
-        }
-        if (StringUtils.isNotEmpty(year)) {
-            info.setYear(year);
-        }
+
+        if (StringUtils.isNotEmpty(title)) info.setTitle(title);
+        if (StringUtils.isNotEmpty(year)) info.setYear(year);
+
         if (tmdbClient != null) {
             tmdbClient.enrich(info);
         }
 
-        // Only call OpenAI when still missing key/accurate fields
         if (openAIClient != null && needsAI(info)) {
             try {
                 log.info("使用AI识别: {}", filename);
                 boolean updated = openAIClient.enrich(info, filename);
-                // If updated, and tmdb client exists, we could re-run tmdb lookup with new titles
                 if (updated && tmdbClient != null) {
                     tmdbClient.enrich(info);
                 }
@@ -91,25 +91,28 @@ public class MediaParser {
         return info;
     }
 
-    /**
-     * 渲染输出，传入 Pebble 模板字符串
-     */
     public String render(MediaInfo info, String template) {
         return renderer.render(info, template);
     }
 
     private String normalize(String s) {
-        // replace _ and . with spaces, but keep 中文
-        String t = s.replace('_', ' ').replaceAll("\\.(?=[A-Za-z0-9])", " ");
-        return t.trim();
+        // 1. 处理特殊字符：将 ￡ (全角英镑)、_ (下划线) 替换为空格
+        // 并且在 . (点) 后面是字母数字时替换为空格
+        String t = s.replace('￡', ' ')
+                .replace('_', ' ')
+                .replaceAll("\\.(?=[A-Za-z0-9])", " ");
+
+        // 2. 在中英文/数字之间强制插入空格 (解决中文粘连问题)
+        t = t.replaceAll("([\\u4e00-\\u9fa5])(?=[A-Za-z0-9])", "$1 ");
+        t = t.replaceAll("(?<=[A-Za-z0-9])([\\u4e00-\\u9fa5])", " $1");
+
+        // 3. 处理括号
+        t = t.replaceAll("([\\[\\]【】\\(\\)])", " $1 ");
+
+        return t.replaceAll("\\s+", " ").trim();
     }
 
-    /**
-     * Decide whether to call AI: if title/originalTitle missing, or for TV items season/episode missing.
-     * If TMDb already provided tmdbId and title/year/season+episode are present, we don't call AI.
-     */
     private boolean needsAI(MediaInfo info) {
         return StringUtils.isBlank(info.getTmdbId());
     }
-
 }

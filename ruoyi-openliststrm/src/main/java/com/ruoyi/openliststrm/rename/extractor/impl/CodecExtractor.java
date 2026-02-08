@@ -6,43 +6,41 @@ import com.ruoyi.openliststrm.rename.model.MediaInfo;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/**
- * @Author Jack
- * @Date 2025/8/12 16:51
- * @Version 1.0.0
- */
 public class CodecExtractor implements Extractor {
-    private static final Pattern VIDEO = Pattern.compile("\\b(x264|h264|h\\s264|x265|h265|hevc|h\\s265|avc|av1|vp9|vp8)\\b", Pattern.CASE_INSENSITIVE);
-    private static final Pattern AUDIO = Pattern.compile("\\b(aac2\\s0|aac|ddp5\\s1|ddp2\\s0|ddp|dd5\\s1|dd\\+?5\\s1|dts|ac3|dts5\\s1|opus|e-?ac3|flac|truehd)\\b", Pattern.CASE_INSENSITIVE);
+    // 视频：增加 VC-1, MPEG-2 等
+    private static final Pattern VIDEO = Pattern.compile("\\b(x264|h\\.?264|avc|x265|h\\.?265|hevc|av1|vp9|vp8|vc-?1|mpeg-?2)\\b", Pattern.CASE_INSENSITIVE);
+    // 音频：增加 TrueHD, Atmos, Opus, Vorbis, PCM, MP3, DTS-HD
+    private static final Pattern AUDIO = Pattern.compile("\\b(aac|ddp|dd\\+|ac3|dts-?hd|dts-?x|dts|truehd|atmos|opus|vorbis|flac|pcm|mp3|eac3)\\b", Pattern.CASE_INSENSITIVE);
 
     @Override
     public String extract(String name, MediaInfo info) {
         Matcher mv = VIDEO.matcher(name);
         if (mv.find() && info.getVideoCodec() == null) {
             info.setVideoCodec(normalizeVideo(mv.group(1)));
-            name = name.substring(0, mv.start()) + name.substring(mv.end());
+            name = name.substring(0, mv.start()) + " " + name.substring(mv.end()); // 替换为空格防止粘连
         }
         Matcher ma = AUDIO.matcher(name);
         if (ma.find() && info.getAudioCodec() == null) {
             info.setAudioCodec(normalizeAudio(ma.group(1)));
-            name = name.substring(0, ma.start()) + name.substring(ma.end());
+            name = name.substring(0, ma.start()) + " " + name.substring(ma.end());
         }
-        return name.trim();
+        return name.replaceAll("\\s+", " ").trim();
     }
 
     private String normalizeVideo(String raw) {
-        String r = raw.toLowerCase();
+        String r = raw.toLowerCase().replace(".", "").replace(" ", "").replace("-", "");
         if (r.contains("264") || r.contains("avc")) return "H264";
         if (r.contains("265") || r.contains("hevc")) return "H265";
-        return raw.replace(" ", "").toUpperCase();
+        return r.toUpperCase();
     }
 
     private String normalizeAudio(String raw) {
-        String r = raw.toLowerCase();
-        if (r.contains("e-ac3") || r.contains("ddp") || r.contains("dd+")) return "EAC3";
-        if (r.contains("dts")) return "DTS";
-        if (r.contains("aac")) return "AAC";
-        if (r.contains("dd")) return "AC3";
-        return raw.replace(" ", ".").toUpperCase();
+        String r = raw.toLowerCase().replace("-", "").replace(" ", "");
+        if (r.contains("ddp") || r.contains("dd+") || r.equals("eac3")) return "EAC3";
+        if (r.contains("truehd")) return "TrueHD";
+        if (r.contains("atmos")) return "Atmos";
+        if (r.contains("dtshd")) return "DTS-HD";
+        if (r.equals("ac3") || r.equals("dd")) return "AC3";
+        return r.toUpperCase();
     }
 }

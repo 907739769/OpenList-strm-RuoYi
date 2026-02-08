@@ -144,7 +144,16 @@
             });
         } else {
             // PC端：使用框架封装的标准方法
-            $.modal.open(title, url, 800, 600);
+            top.layer.open({
+                type: 2,       // 2 代表 iframe 类型
+                title: title,
+                shade: 0.3,    // 遮罩透明度
+                closeBtn: 1,   // 显示关闭按钮
+                area: ['800px', '600px'], // 强制全屏
+                content: url,  // 页面地址
+                fix: true,     // 固定位置
+                scrollbar: false // 禁用父页面滚动
+            });
         }
     }
 </script>
