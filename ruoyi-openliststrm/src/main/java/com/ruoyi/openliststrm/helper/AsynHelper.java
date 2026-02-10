@@ -54,7 +54,7 @@ public class AsynHelper {
      */
     public void isCopyDone(String dstDir, String strmDir) {
         // 首次延迟30秒后开始检查
-        scheduler.schedule(() -> {
+        scheduler.schedule(Threads.wrap(() -> {
             try {
                 // 获取当前正在进行的任务列表
                 List<OpenlistCopyPlus> copyList = openlistCopyPlusService.lambdaQuery()
@@ -72,7 +72,7 @@ public class AsynHelper {
             } catch (Exception e) {
                 log.error("Error in isCopyDone initialization", e);
             }
-        }, 30, TimeUnit.SECONDS);
+        }), 30, TimeUnit.SECONDS);
     }
 
     /**
@@ -138,7 +138,7 @@ public class AsynHelper {
             finishStrmDir(dstDir, strmDir);
         } else {
             // 列表不为空，说明还有任务在运行，延迟30秒后再次调用自己
-            scheduler.schedule(() -> processCopyListRecursive(copyList, dstDir, strmDir), 30, TimeUnit.SECONDS);
+            scheduler.schedule(Threads.wrap(() -> processCopyListRecursive(copyList, dstDir, strmDir)), 30, TimeUnit.SECONDS);
         }
     }
 
@@ -154,7 +154,7 @@ public class AsynHelper {
         }
 
         // 延迟30秒后开始第一次检查
-        scheduler.schedule(() -> checkOneFileRecursive(path, copy), 30, TimeUnit.SECONDS);
+        scheduler.schedule(Threads.wrap(() -> checkOneFileRecursive(path, copy)), 30, TimeUnit.SECONDS);
     }
 
     /**
@@ -198,7 +198,7 @@ public class AsynHelper {
             }
 
             // 任务仍在运行中，继续调度下一次检查
-            scheduler.schedule(() -> checkOneFileRecursive(path, copy), 30, TimeUnit.SECONDS);
+            scheduler.schedule(Threads.wrap(() -> checkOneFileRecursive(path, copy)), 30, TimeUnit.SECONDS);
 
         } catch (Exception e) {
             log.error("Error in checkOneFileRecursive for path: {}", path, e);

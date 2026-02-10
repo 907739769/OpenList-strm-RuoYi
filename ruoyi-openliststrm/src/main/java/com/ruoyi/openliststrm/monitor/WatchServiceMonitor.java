@@ -39,7 +39,7 @@ public class WatchServiceMonitor implements FileMonitor {
 
     @Override
     public void start() {
-        executor.submit(this::run);
+        executor.submit(Threads.wrap(this::run));
     }
 
     private void run() {
