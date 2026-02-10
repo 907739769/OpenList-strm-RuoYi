@@ -1,33 +1,19 @@
 package com.ruoyi.openliststrm.openai;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ruoyi.common.utils.spring.SpringUtils;
 import com.ruoyi.openliststrm.rename.model.MediaInfo;
 import lombok.extern.slf4j.Slf4j;
-import okhttp3.*;
-
-import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 /**
- * Simple OpenAI Chat client used to extract metadata when film/tv title cannot be reliably determined by heuristics/TMDb.
- * The prompt requests a JSON-only response to simplify parsing. Network errors are swallowed and method returns false.
+ * OpenAI Client 包装类
+ * 负责构建 Prompt 和回填数据，底层请求委托给 OpenAIApiService 以支持缓存。
  */
 @Slf4j
 public class OpenAIClient {
     private static final String DEFAULT_MODEL = "gpt-5-mini";
-    // default OpenAI chat completions endpoint
     private static final String DEFAULT_ENDPOINT = "https://api.openai.com";
 
-    private final OkHttpClient http = new OkHttpClient.Builder()
-            .connectTimeout(90, TimeUnit.SECONDS)
-            .readTimeout(90, TimeUnit.SECONDS)
-            .writeTimeout(90, TimeUnit.SECONDS)
-            .connectionPool(new ConnectionPool(5, 5, TimeUnit.SECONDS))
-            .build();
-    private final ObjectMapper mapper = new ObjectMapper();
     private final String apiKey;
     private final String model;
     private final String endpoint;
@@ -36,16 +22,14 @@ public class OpenAIClient {
         this(apiKey, null, null);
     }
 
-    // allow passing an explicit endpoint (may be a full URL or just a host/domain)
     public OpenAIClient(String apiKey, String endpoint) {
         this(apiKey, endpoint, null);
     }
 
-    // prefer this constructor when callers want to supply a model string explicitly
     public OpenAIClient(String apiKey, String endpoint, String model) {
         this.apiKey = apiKey;
-        // determine model: prefer explicit param, then env OPENAI_MODEL, then hardcoded default
-        String chosenModel = null;
+        // determine model
+        String chosenModel;
         if (model != null && !model.trim().isEmpty()) {
             chosenModel = model.trim();
         } else {
@@ -60,48 +44,38 @@ public class OpenAIClient {
     private String buildEndpoint(String cfg) {
         if (cfg == null || cfg.trim().isEmpty()) return DEFAULT_ENDPOINT;
         String t = cfg.trim();
-        // if a full URL is provided, use it directly
         if (t.startsWith("http://") || t.startsWith("https://")) {
             return t;
         }
-        // otherwise treat as host/domain and construct the standard path
         return "https://" + t;
     }
 
     /**
-     * Try to enrich MediaInfo using OpenAI. Only fills fields that are currently null or empty.
-     * Returns true if any field was updated.
+     * Try to enrich MediaInfo using OpenAI.
      */
     public boolean enrich(MediaInfo info, String filename) {
         if (apiKey == null || apiKey.isEmpty()) return false;
         try {
+            // 获取 Spring Bean
+            OpenAIApiService apiService = SpringUtils.getBean(OpenAIApiService.class);
+
             String prompt = buildPrompt(info, filename);
-            RequestBody body = RequestBody.create(MediaType.parse("application/json; charset=utf-8"), mapper.writeValueAsBytes(buildRequestPayload(prompt)));
-            Request req = new Request.Builder()
-                    .url(endpoint + "/v1/chat/completions")
-                    .addHeader("Authorization", "Bearer " + apiKey)
-                    .post(body)
-                    .build();
 
-            try (Response resp = http.newCall(req).execute()) {
-                if (!resp.isSuccessful() || resp.body() == null) return false;
-                String content = mapper.readTree(resp.body().string())
-                        .path("choices").get(0).path("message").path("content").asText(null);
-                if (content == null) return false;
+            // 调用服务层（带缓存）
+            JsonNode root = apiService.fetchChatCompletion(apiKey, endpoint, model, prompt);
 
-                // Expect a JSON-only reply
-                JsonNode root = mapper.readTree(content.trim());
-                log.debug("OpenAI response JSON: {}", root.toString());
-                boolean updated = false;
-                updated |= setIfMissing(info::getOriginalTitle, info::setOriginalTitle, root, "originalTitle");
-                updated |= setIfMissing(info::getTitle, info::setTitle, root, "title");
-                updated |= setIfMissing(info::getYear, info::setYear, root, "year");
-                updated |= setIfMissing(info::getSeason, info::setSeason, root, "season");
-                updated |= setIfMissing(info::getEpisode, info::setEpisode, root, "episode");
-                return updated;
-            }
-        } catch (IOException e) {
-            // network/parsing error -> don't fail parsing flow
+            if (root == null) return false;
+
+            log.debug("OpenAI response JSON: {}", root.toString());
+            boolean updated = false;
+            updated |= setIfMissing(info::getOriginalTitle, info::setOriginalTitle, root, "originalTitle");
+            updated |= setIfMissing(info::getTitle, info::setTitle, root, "title");
+            updated |= setIfMissing(info::getYear, info::setYear, root, "year");
+            updated |= setIfMissing(info::getSeason, info::setSeason, root, "season");
+            updated |= setIfMissing(info::getEpisode, info::setEpisode, root, "episode");
+            return updated;
+
+        } catch (Exception e) {
             log.error("openai调用失败", e);
             return false;
         }
@@ -116,20 +90,6 @@ public class OpenAIClient {
         if (v == null || v.trim().isEmpty()) return false;
         setter.accept(v.trim());
         return true;
-    }
-
-    private Map<String, Object> buildRequestPayload(String prompt) {
-        Map<String, Object> m = new HashMap<>();
-        m.put("model", model);
-        m.put("messages", new Object[]{
-                new HashMap<String, Object>() {{
-                    put("role", "user");
-                    put("content", prompt);
-                }}
-        });
-        m.put("temperature", 0.0);
-        m.put("max_tokens", 300);
-        return m;
     }
 
     private String buildPrompt(MediaInfo info, String filename) {
