@@ -8,12 +8,13 @@ import java.util.regex.Pattern;
 
 public class SourceAndGroupExtractor implements Extractor {
 
-    // 标签库
-    private static final Pattern TAGS = Pattern.compile("\\b(REMUX|ISO|ENCODED|PROPER|REPACK|Atmos|HDR10\\+|HDR10|HDR|10bit|12bit|60fps|DV|DoVi|IMAX|3D)\\b", Pattern.CASE_INSENSITIVE);
+    // 优化：加入常见流媒体简写 (TX, YOUKU, IQIYI, NF, AMZN) 以及 HFR 等
+    private static final Pattern TAGS = Pattern.compile(
+            "\\b(REMUX|ISO|ENCODED|PROPER|REPACK|Atmos|HDR10\\+|HDR10|HDR|10bit|12bit|60fps|HFR|DV|DoVi|IMAX|TX|YOUKU|IQIYI|NF|AMZN|HMAX|DSNP)\\b",
+            Pattern.CASE_INSENSITIVE
+    );
 
     private static final Pattern SOURCE = Pattern.compile("\\b(WEB-?DL|WEB-?Rip|Blu-?Ray|BRRip|HDRip|HDTV|BDRip|CAM|WEB|DVD|DVDRip)\\b", Pattern.CASE_INSENSITIVE);
-
-    // 制作组
     private static final Pattern GROUP_END = Pattern.compile("(?:[-@]|\\s@)\\s*([A-Za-z0-9_\\.-]+)$");
     private static final Pattern GROUP_BRACKET = Pattern.compile("^\\[([A-Za-z0-9_\\.-]+)\\]");
 
@@ -25,7 +26,11 @@ public class SourceAndGroupExtractor implements Extractor {
         while (t.find()) {
             String tag = t.group(1).toUpperCase();
             if (tag.equals("DV") || tag.equals("DOVI")) tag = "Dolby Vision";
+
+            // 记录标签
             info.getTags().add(tag);
+
+            // 替换为空格
             for (int i = t.start(); i < t.end(); i++) cleanName.setCharAt(i, ' ');
         }
         name = cleanName.toString().replaceAll("\\s+", " ").trim();
@@ -35,9 +40,8 @@ public class SourceAndGroupExtractor implements Extractor {
         if (s.find() && info.getSource() == null) {
             String rawSource = s.group(1).toUpperCase();
             String normalizedSource = rawSource.replaceAll("[-\\.]", "");
-            // 规范化名称
             if (normalizedSource.equals("BLURAY")) normalizedSource = "BluRay";
-            if (normalizedSource.equals("WEBRIP")) normalizedSource = "WEBRip"; // 保持大小写习惯
+            if (normalizedSource.equals("WEBRIP")) normalizedSource = "WEBRip";
 
             info.setSource(normalizedSource);
             name = (name.substring(0, s.start()) + " " + name.substring(s.end())).trim();
@@ -56,17 +60,6 @@ public class SourceAndGroupExtractor implements Extractor {
             if (ge.find()) {
                 info.setReleaseGroup(ge.group(1));
                 name = name.substring(0, ge.start()).trim();
-            }
-        }
-
-        // 4. Clean Residue
-        boolean changed = true;
-        while (changed) {
-            changed = false;
-            String oldName = name;
-            name = name.replaceAll("\\s+(?!(?:19|20)\\d{2}$)[a-zA-Z0-9]{2,6}$", "");
-            if (!name.equals(oldName)) {
-                changed = true;
             }
         }
 
