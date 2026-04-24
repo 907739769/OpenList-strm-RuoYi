@@ -1,0 +1,36 @@
+# OpenCode AI Assistant Ignore File
+# Tells OpenCode which files/directories to skip when searching or reading
+
+# ========== Build Outputs ==========
+**/target/
+**/bin/
+**/build/
+
+# ========== IDE ==========
+**/.idea/
+**/*.iml
+**/*.ipr
+**/*.iws
+**/.settings/
+**/.classpath
+**/.project
+
+# ========== Dependencies ==========
+**/.mvn/
+**/node_modules/
+**/.gradle/
+
+# ========== Version Control ==========
+**/.git/
+
+# ========== Logs ==========
+**/*.log
+
+# ========== Framework-generated (not project code) ==========
+sql/
+
+# ========== Generated/Temporary ==========
+**/*.swp
+**/*.swo
+**/*.xml.versionsBackup
+**/rebel.xml
