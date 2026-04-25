@@ -12,11 +12,6 @@ import javax.annotation.PostConstruct;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-/**
- * @Author Jack
- * @Date 2025/7/16 20:00
- * @Version 1.0.0
- */
 @Component
 @Slf4j
 public class OpenlistApi {
@@ -24,14 +19,13 @@ public class OpenlistApi {
     @Autowired
     private OpenlistConfig config;
 
-    private String refresh;
-
     private OkHttpClient client;
+    private static final MediaType JSON_MEDIA_TYPE = MediaType.parse("application/json");
+    private static final int MAX_RETRY = 3;
+    private static final long RETRY_INTERVAL_MS = 1000L;
 
-    // 在 Bean 初始化时预创建 OkHttpClient
     @PostConstruct
     public void init() {
-        refresh = "1";
         client = new OkHttpClient.Builder()
                 .connectTimeout(90, TimeUnit.SECONDS)
                 .readTimeout(90, TimeUnit.SECONDS)
@@ -41,423 +35,157 @@ public class OpenlistApi {
         log.debug("OkHttpClient initialized successfully.");
     }
 
-    public JSONObject getOpenlist(String path) {
-        JSONObject jsonResponse = null;
-
-        // 设置请求头
-        Headers headers = new Headers.Builder()
+    private Headers buildHeaders() {
+        return new Headers.Builder()
                 .add("Content-Type", "application/json")
                 .add("Accept", "application/json")
                 .add("Authorization", config.getOpenListToken())
                 .build();
+    }
 
-        // 构建请求体数据
-        JSONObject requestBodyJson = new JSONObject();
-        requestBodyJson.put("path", path);
-        requestBodyJson.put("password", "");
-        requestBodyJson.put("page", 1);
-        requestBodyJson.put("per_page", 0);
-        if ("1".equals(refresh)) {
-            requestBodyJson.put("refresh", true);
-        } else {
-            requestBodyJson.put("refresh", false);
-        }
-        String requestBodyString = requestBodyJson.toJSONString();
-
-        // 构建请求
+    private JSONObject executeJsonPost(String apiUrl, JSONObject requestBody, String logPrefix, boolean needRetry) {
+        Headers headers = buildHeaders();
         Request request = new Request.Builder()
-                .url(config.getOpenListUrl() + "/api/fs/list")
+                .url(apiUrl)
                 .headers(headers)
-                .post(RequestBody.create(MediaType.parse("application/json"), requestBodyString))
+                .post(RequestBody.create(JSON_MEDIA_TYPE, requestBody.toJSONString()))
                 .build();
 
-        log.debug("开始获取openlist目录{}", path);
-        for (int i = 0; i < 3; i++) {
-            // 发送请求并处理响应
+        if (needRetry) {
+            return executeWithRetry(request, logPrefix);
+        }
+        return executeOnce(request, logPrefix);
+    }
+
+    private JSONObject executeWithRetry(Request request, String logPrefix) {
+        JSONObject jsonResponse = null;
+        for (int i = 0; i < MAX_RETRY; i++) {
             try (Response response = client.newCall(request).execute()) {
-                if (response.isSuccessful()) {
-                    // 获取响应体
-                    String responseBody = response.body().string();
-
-                    // 解析 JSON 响应
-                    jsonResponse = JSONObject.parseObject(responseBody);
-
-                    // 处理响应数据
-                    if (200 == jsonResponse.getInteger("code")) {
-                        log.debug("获取openlist目录成功{}", path);
+                if (response.isSuccessful() && response.body() != null) {
+                    jsonResponse = JSONObject.parseObject(response.body().string());
+                    if (jsonResponse != null && jsonResponse.getInteger("code") == 200) {
+                        log.debug("{}成功", logPrefix);
                         return jsonResponse;
-                    } else {
-                        log.debug("Response Body: " + jsonResponse.toJSONString());
-                        log.warn("获取openlist目录{}第{}次失败", path, i + 1);
-                        Threads.sleep(1000);
                     }
-
+                    log.debug("Response Body: {}", jsonResponse != null ? jsonResponse.toJSONString() : "null");
+                    log.warn("{}第{}次失败", logPrefix, i + 1);
+                    Threads.sleep(RETRY_INTERVAL_MS);
                 } else {
                     log.warn("Request failed with code: {}", response.code());
-                    log.error("Request failed with response :{}", response);
+                    log.error("Request failed with response: {}", response);
                     return jsonResponse;
                 }
             } catch (Exception e) {
-                log.error("获取openlist目录失败{}", path);
+                log.error("{}失败", logPrefix);
                 log.error("", e);
             }
         }
         return jsonResponse;
+    }
+
+    private JSONObject executeOnce(Request request, String logPrefix) {
+        try (Response response = client.newCall(request).execute()) {
+            if (response.isSuccessful() && response.body() != null) {
+                JSONObject jsonResponse = JSONObject.parseObject(response.body().string());
+                log.debug("{}成功", logPrefix);
+                return jsonResponse;
+            }
+            log.warn("Request failed with code: {}", response.code());
+            log.error("Request failed with response: {}", response);
+            return null;
+        } catch (Exception e) {
+            log.error("{}失败", logPrefix);
+            log.error("", e);
+            return null;
+        }
+    }
+
+    public JSONObject getOpenlist(String path) {
+        log.debug("开始获取openlist目录{}", path);
+        JSONObject body = new JSONObject();
+        body.put("path", path);
+        body.put("password", "");
+        body.put("page", 1);
+        body.put("per_page", 0);
+        body.put("refresh", "1".equals(config.getOpenListApiRefresh()));
+        return executeJsonPost(config.getOpenListUrl() + "/api/fs/list", body, "获取openlist目录" + path, true);
     }
 
     public JSONObject getFile(String path) {
-        JSONObject jsonResponse;
-
-        // 设置请求头
-        Headers headers = new Headers.Builder()
-                .add("Content-Type", "application/json")
-                .add("Accept", "application/json")
-                .add("Authorization", config.getOpenListToken())
-                .build();
-
-        // 构建请求体数据
-        JSONObject requestBodyJson = new JSONObject();
-        requestBodyJson.put("path", path);
-        requestBodyJson.put("password", "");
-        requestBodyJson.put("page", 1);
-        requestBodyJson.put("per_page", 0);
-        if ("1".equals(refresh)) {
-            requestBodyJson.put("refresh", true);
-        } else {
-            requestBodyJson.put("refresh", false);
-        }
-        String requestBodyString = requestBodyJson.toJSONString();
-
-        // 构建请求
-        Request request = new Request.Builder()
-                .url(config.getOpenListUrl() + "/api/fs/get")
-                .headers(headers)
-                .post(RequestBody.create(MediaType.parse("application/json"), requestBodyString))
-                .build();
-
         log.debug("开始获取openlist文件{}", path);
-
-        // 发送请求并处理响应
-        try (Response response = client.newCall(request).execute()) {
-            if (response.isSuccessful()) {
-                // 获取响应体
-                String responseBody = response.body().string();
-
-                // 解析 JSON 响应
-                jsonResponse = JSONObject.parseObject(responseBody);
-
-
-                log.debug("获取openlist文件成功{}", path);
-                return jsonResponse;
-
-
-            } else {
-                log.warn("Request failed with code: {}", response.code());
-                log.error("Request failed with response :{}", response);
-                return null;
-            }
-        } catch (Exception e) {
-            log.error("获取openlist文件失败{}", path);
-            log.error("", e);
-        }
-
-        return null;
+        JSONObject body = new JSONObject();
+        body.put("path", path);
+        body.put("password", "");
+        body.put("page", 1);
+        body.put("per_page", 0);
+        body.put("refresh", "1".equals(config.getOpenListApiRefresh()));
+        return executeJsonPost(config.getOpenListUrl() + "/api/fs/get", body, "获取openlist文件" + path, false);
     }
-
 
     public JSONObject copyOpenlist(String srcDir, String dstDir, List<String> names) {
-        JSONObject jsonResponse = null;
-
-        // 设置请求头
-        Headers headers = new Headers.Builder()
-                .add("Content-Type", "application/json")
-                .add("Accept", "application/json")
-                .add("Authorization", config.getOpenListToken())
-                .build();
-
-        // 构建请求体数据
-        JSONObject requestBodyJson = new JSONObject();
-        requestBodyJson.put("src_dir", srcDir);
-        requestBodyJson.put("dst_dir", dstDir);
-        requestBodyJson.put("names", names);
-        String requestBodyString = requestBodyJson.toJSONString();
-
-        // 构建请求
-        Request request = new Request.Builder()
-                .url(config.getOpenListUrl() + "/api/fs/copy")
-                .headers(headers)
-                .post(RequestBody.create(MediaType.parse("application/json"), requestBodyString))
-                .build();
-
-        log.debug("开始复制[{}]=>[{}]", srcDir + "/" + names.get(0), dstDir);
-        for (int i = 0; i < 3; i++) {
-            // 发送请求并处理响应
-            try (Response response = client.newCall(request).execute()) {
-                if (response.isSuccessful()) {
-                    // 获取响应体
-                    String responseBody = response.body().string();
-
-                    // 解析 JSON 响应
-                    jsonResponse = JSONObject.parseObject(responseBody);
-
-                    // 处理响应数据
-                    if (200 == jsonResponse.getInteger("code")) {
-                        log.debug("复制[{}]=>[{}]成功", srcDir + "/" + names.get(0), dstDir);
-                        return jsonResponse;
-                    } else {
-                        log.warn("Response Body: " + jsonResponse.toJSONString());
-                        log.error("复制[{}]=>[{}]第{}次失败", srcDir + "/" + names.get(0), dstDir, i + 1);
-                        Threads.sleep(1000);
-                    }
-
-                } else {
-                    log.warn("Request failed with code: {}", response.code());
-                    log.error("Request failed with response :{}", response);
-                    return jsonResponse;
-                }
-            } catch (Exception e) {
-                log.error("复制[{}]=>[{}]失败", srcDir + "/" + names.get(0), dstDir);
-                log.error("", e);
-            }
-        }
-        return jsonResponse;
+        String logPrefix = String.format("复制[%s]=>[%s]", srcDir + "/" + names.get(0), dstDir);
+        log.debug(logPrefix);
+        JSONObject body = new JSONObject();
+        body.put("src_dir", srcDir);
+        body.put("dst_dir", dstDir);
+        body.put("names", names);
+        return executeJsonPost(config.getOpenListUrl() + "/api/fs/copy", body, logPrefix, true);
     }
-
 
     public JSONObject mkdir(String path) {
-        JSONObject jsonResponse;
-
-        // 设置请求头
-        Headers headers = new Headers.Builder()
-                .add("Content-Type", "application/json")
-                .add("Accept", "application/json")
-                .add("Authorization", config.getOpenListToken())
-                .build();
-
-        // 构建请求体数据
-        JSONObject requestBodyJson = new JSONObject();
-        requestBodyJson.put("path", path);
-        String requestBodyString = requestBodyJson.toJSONString();
-
-        // 构建请求
-        Request request = new Request.Builder()
-                .url(config.getOpenListUrl() + "/api/fs/mkdir")
-                .headers(headers)
-                .post(RequestBody.create(MediaType.parse("application/json"), requestBodyString))
-                .build();
-
         log.debug("开始创建openlist目录{}", path);
-
-        // 发送请求并处理响应
-        try (Response response = client.newCall(request).execute()) {
-            if (response.isSuccessful()) {
-                // 获取响应体
-                String responseBody = response.body().string();
-
-                // 解析 JSON 响应
-                jsonResponse = JSONObject.parseObject(responseBody);
-
-
-                log.debug("创建openlist目录完成{}", path);
-                return jsonResponse;
-
-
-            } else {
-                log.warn("Request failed with code: {}", response.code());
-                log.error("Request failed with response :{}", response);
-                return null;
-            }
-        } catch (Exception e) {
-            log.warn("创建openlist目录失败{}", path);
-            log.error("", e);
+        JSONObject body = new JSONObject();
+        body.put("path", path);
+        JSONObject result = executeJsonPost(config.getOpenListUrl() + "/api/fs/mkdir", body, "创建openlist目录" + path, false);
+        if (result != null && result.getInteger("code") == 200) {
+            log.debug("创建openlist目录完成{}", path);
         }
-
-        return null;
+        return result;
     }
 
-    /**
-     * 获取未完成的复制任务
-     *
-     * @return
-     */
     public JSONObject copyUndone() {
-        JSONObject jsonResponse;
-
-        // 设置请求头
-        Headers headers = new Headers.Builder()
-                .add("Content-Type", "application/json")
-                .add("Accept", "application/json")
-                .add("Authorization", config.getOpenListToken())
-                .build();
-
-        // 构建请求
         Request request = new Request.Builder()
                 .url(config.getOpenListUrl() + "/api/task/copy/undone")
-                .headers(headers)
+                .headers(buildHeaders())
                 .get()
                 .build();
-
-        // 发送请求并处理响应
-        try (Response response = client.newCall(request).execute()) {
-            if (response.isSuccessful()) {
-                // 获取响应体
-                String responseBody = response.body().string();
-
-                // 解析 JSON 响应
-                jsonResponse = JSONObject.parseObject(responseBody);
-                return jsonResponse;
-            } else {
-                log.warn("Request failed with code: {}", response.code());
-                log.error("Request failed with response :{}", response);
-                return null;
-            }
-        } catch (Exception e) {
-            log.error("", e);
-        }
-        return null;
+        return executeOnce(request, "获取未完成的复制任务");
     }
 
-    /**
-     * 获取复制任务的信息
-     *
-     * @return
-     */
     public JSONObject copyInfo(String tid) {
-        JSONObject jsonResponse;
-
-        // 设置请求头
         Headers headers = new Headers.Builder()
                 .add("Accept", "application/json")
                 .add("Authorization", config.getOpenListToken())
                 .build();
-
-        // 创建请求体，传递参数
-        RequestBody formBody = new FormBody.Builder()
-                .add("tid", tid)
-                .build();
-
-        // 构建请求
+        RequestBody formBody = new FormBody.Builder().add("tid", tid).build();
         Request request = new Request.Builder()
                 .url(config.getOpenListUrl() + "/api/task/copy/info" + "?tid=" + tid)
                 .headers(headers)
                 .post(formBody)
                 .build();
-
-        // 发送请求并处理响应
-        try (Response response = client.newCall(request).execute()) {
-            if (response.isSuccessful()) {
-                // 获取响应体
-                String responseBody = response.body().string();
-
-                // 解析 JSON 响应
-                jsonResponse = JSONObject.parseObject(responseBody);
-                return jsonResponse;
-            } else {
-                log.warn("Request failed with code: {}", response.code());
-                log.error("Request failed with response :{}", response);
-                return null;
-            }
-        } catch (Exception e) {
-            log.error("", e);
-        }
-        return null;
+        return executeOnce(request, "获取复制任务信息" + tid);
     }
 
-    /**
-     * 获取复制任务的信息
-     *
-     * @return
-     */
     public JSONObject copyRetry(String tid) {
-        JSONObject jsonResponse;
-
-        // 设置请求头
         Headers headers = new Headers.Builder()
                 .add("Accept", "application/json")
                 .add("Authorization", config.getOpenListToken())
                 .build();
-
-        // 创建请求体，传递参数
-        RequestBody formBody = new FormBody.Builder()
-                .add("tid", tid)
-                .build();
-
-        // 构建请求
+        RequestBody formBody = new FormBody.Builder().add("tid", tid).build();
         Request request = new Request.Builder()
                 .url(config.getOpenListUrl() + "/api/task/copy/retry" + "?tid=" + tid)
                 .headers(headers)
                 .post(formBody)
                 .build();
-
-        // 发送请求并处理响应
-        try (Response response = client.newCall(request).execute()) {
-            if (response.isSuccessful()) {
-                // 获取响应体
-                String responseBody = response.body().string();
-
-                // 解析 JSON 响应
-                jsonResponse = JSONObject.parseObject(responseBody);
-                return jsonResponse;
-            } else {
-                log.warn("Request failed with code: {}", response.code());
-                log.error("Request failed with response :{}", response);
-                return null;
-            }
-        } catch (Exception e) {
-            log.error("", e);
-        }
-        return null;
+        return executeOnce(request, "重试复制任务" + tid);
     }
 
-    /**
-     * 删除文件
-     *
-     * @param dir
-     * @param names
-     * @return
-     */
     public JSONObject fsRemove(String dir, List<String> names) {
-        JSONObject jsonResponse;
-
-        // 设置请求头
-        Headers headers = new Headers.Builder()
-                .add("Content-Type", "application/json")
-                .add("Accept", "application/json")
-                .add("Authorization", config.getOpenListToken())
-                .build();
-
-        // 构建请求体数据
-        JSONObject requestBodyJson = new JSONObject();
-        requestBodyJson.put("dir", dir);
-        requestBodyJson.put("names", names);
-        String requestBodyString = requestBodyJson.toJSONString();
-
-        // 构建请求
-        Request request = new Request.Builder()
-                .url(config.getOpenListUrl() + "/api/fs/remove")
-                .headers(headers)
-                .post(RequestBody.create(MediaType.parse("application/json"), requestBodyString))
-                .build();
-        // 发送请求并处理响应
-        try (Response response = client.newCall(request).execute()) {
-            if (response.isSuccessful()) {
-                // 获取响应体
-                String responseBody = response.body().string();
-
-                // 解析 JSON 响应
-                jsonResponse = JSONObject.parseObject(responseBody);
-                return jsonResponse;
-            } else {
-                log.warn("Request failed with code: {}", response.code());
-                log.error("Request failed with response :{}", response);
-                return null;
-            }
-        } catch (Exception e) {
-            log.error("", e);
-        }
-        return null;
-
-
+        log.debug("开始删除文件 dir={}, names={}", dir, names);
+        JSONObject body = new JSONObject();
+        body.put("dir", dir);
+        body.put("names", names);
+        return executeJsonPost(config.getOpenListUrl() + "/api/fs/remove", body, "删除文件" + dir, false);
     }
 
 }

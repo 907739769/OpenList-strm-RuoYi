@@ -1,6 +1,5 @@
 package com.ruoyi.openliststrm.controller;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.ruoyi.common.annotation.Log;
 import com.ruoyi.common.core.controller.BaseController;
@@ -10,13 +9,9 @@ import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.enums.BusinessType;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.common.utils.poi.ExcelUtil;
-import com.ruoyi.framework.manager.AsyncManager;
-import com.ruoyi.openliststrm.api.OpenlistApi;
 import com.ruoyi.openliststrm.domain.OpenlistStrm;
 import com.ruoyi.openliststrm.enums.StrmStatusEnum;
-import com.ruoyi.openliststrm.mybatisplus.domain.OpenlistCopyPlus;
 import com.ruoyi.openliststrm.mybatisplus.domain.OpenlistStrmPlus;
-import com.ruoyi.openliststrm.mybatisplus.service.IOpenlistCopyPlusService;
 import com.ruoyi.openliststrm.mybatisplus.service.IOpenlistStrmPlusService;
 import com.ruoyi.openliststrm.service.IOpenlistStrmService;
 import com.ruoyi.openliststrm.service.IStrmService;
@@ -30,12 +25,6 @@ import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
 
-/**
- * strm生成Controller
- * 
- * @author Jack
- * @date 2025-07-16
- */
 @Controller
 @RequestMapping("/openliststrm/strm")
 public class OpenlistStrmController extends BaseController
@@ -46,16 +35,10 @@ public class OpenlistStrmController extends BaseController
     private IOpenlistStrmService openlistStrmService;
 
     @Autowired
-    private OpenlistApi openlistApi;
+    private IStrmService strmService;
 
     @Autowired
     private IOpenlistStrmPlusService openlistStrmPlusService;
-
-    @Autowired
-    private IOpenlistCopyPlusService openlistCopyPlusService;
-
-    @Autowired
-    private IStrmService strmService;
 
     @RequiresPermissions("openliststrm:strm:view")
     @GetMapping()
@@ -156,36 +139,8 @@ public class OpenlistStrmController extends BaseController
     public AjaxResult batchRemoveNetDisk(String ids) {
         logger.info("删除网盘数据：{}", ids);
         List<String> idList = Arrays.stream(Convert.toStrArray(ids)).collect(Collectors.toList());
-        List<OpenlistStrmPlus> openlistStrmPlusList = openlistStrmPlusService.listByIds(idList);
-        if (openlistStrmPlusList.size() > 20) {
-            AsyncManager.me().execute(new TimerTask() {
-                @Override
-                public void run() {
-                    //删除网盘数据
-                    openlistStrmPlusList.forEach(openlistStrmPlus -> {
-                        openlistApi.fsRemove(openlistStrmPlus.getStrmPath(), Collections.singletonList(openlistStrmPlus.getStrmFileName()));
-                        openlistCopyPlusService.remove(new LambdaQueryWrapper<OpenlistCopyPlus>()
-                                .eq(OpenlistCopyPlus::getCopyDstFileName, openlistStrmPlus.getStrmFileName())
-                                .eq(OpenlistCopyPlus::getCopyDstPath, openlistStrmPlus.getStrmPath())
-                        );
-                    });
-                    //删除表数据
-                    openlistStrmPlusService.removeBatchByIds(idList);
-                }
-            });
-            return success("异步处理中");
-        }
-        //删除网盘数据
-        openlistStrmPlusList.forEach(openlistStrmPlus -> {
-            openlistApi.fsRemove(openlistStrmPlus.getStrmPath(), Collections.singletonList(openlistStrmPlus.getStrmFileName()));
-            openlistCopyPlusService.remove(new LambdaQueryWrapper<OpenlistCopyPlus>()
-                    .eq(OpenlistCopyPlus::getCopyDstFileName, openlistStrmPlus.getStrmFileName())
-                    .eq(OpenlistCopyPlus::getCopyDstPath, openlistStrmPlus.getStrmPath())
-            );
-        });
-        //删除表数据
-        openlistStrmPlusService.removeBatchByIds(idList);
-        return success();
+        strmService.batchRemoveNetDisk(idList);
+        return success("异步处理中");
     }
 
     /**
@@ -198,29 +153,9 @@ public class OpenlistStrmController extends BaseController
     public AjaxResult retry(String ids) {
         logger.info("重试的任务：{}", ids);
         List<String> idList = Arrays.stream(Convert.toStrArray(ids)).collect(Collectors.toList());
-        List<OpenlistStrmPlus> openlistStrmPlusList = openlistStrmPlusService.listByIds(idList);
-        //更新为失败状态
-        openlistStrmPlusList.forEach(openlistStrmPlus -> openlistStrmPlus.setStrmStatus("0"));
-        openlistStrmPlusService.updateBatchById(openlistStrmPlusList);
-        if (openlistStrmPlusList.size() > 20) {
-            AsyncManager.me().execute(new TimerTask() {
-                @Override
-                public void run() {
-                    //重新strm文件
-                    openlistStrmPlusList.forEach(openlistStrmPlus -> {
-                        strmService.strmOneFile(openlistStrmPlus.getStrmPath() + "/" + openlistStrmPlus.getStrmFileName());
-                    });
-                }
-            });
-            return success("异步处理中");
-        }
-        //重新strm文件
-        openlistStrmPlusList.forEach(openlistStrmPlus -> {
-            strmService.strmOneFile(openlistStrmPlus.getStrmPath() + "/" + openlistStrmPlus.getStrmFileName());
-        });
+        strmService.retryStrm(idList);
         return success();
     }
-
 
     /**
      * 统计信息
@@ -230,19 +165,16 @@ public class OpenlistStrmController extends BaseController
     @ResponseBody
     public AjaxResult stats(String range) {
         LocalDate today = LocalDate.now();
-        // 这里替换为实际业务数据，可以从service层获取
         QueryWrapper<OpenlistStrmPlus> wrapper = new QueryWrapper<>();
         wrapper.select("strm_status as status, count(*) as count")
                 .between(StringUtils.isEmpty(range) || "today".equals(range), "create_time", today.atStartOfDay(), today.plusDays(1).atStartOfDay())
                 .between("yesterday".equals(range), "create_time", today.minusDays(1).atStartOfDay(), today.atStartOfDay())
                 .groupBy("strm_status");
-
         List<Map<String, Object>> maps = openlistStrmPlusService.listMaps(wrapper);
         Map<String, Long> result = new LinkedHashMap<>();
         for (Map<String, Object> map : maps) {
             String status = String.valueOf(map.get("status"));
             Long count = Long.parseLong(map.get("count").toString());
-
             String statusChinese = StrmStatusEnum.getDescByCode(status);
             result.put(statusChinese, count);
         }

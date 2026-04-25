@@ -2,11 +2,16 @@ package com.ruoyi.openliststrm.service.impl;
 
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.ruoyi.framework.manager.AsyncManager;
 import com.ruoyi.openliststrm.api.OpenlistApi;
 import com.ruoyi.openliststrm.config.OpenlistConfig;
 import com.ruoyi.openliststrm.helper.OpenListHelper;
 import com.ruoyi.openliststrm.helper.StrmHelper;
+import com.ruoyi.openliststrm.mybatisplus.domain.OpenlistCopyPlus;
+import com.ruoyi.openliststrm.mybatisplus.domain.OpenlistStrmPlus;
+import com.ruoyi.openliststrm.mybatisplus.service.IOpenlistCopyPlusService;
+import com.ruoyi.openliststrm.mybatisplus.service.IOpenlistStrmPlusService;
 import com.ruoyi.openliststrm.service.IStrmService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -19,16 +24,14 @@ import java.net.URLConnection;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
+import java.util.Collections;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Queue;
 import java.util.TimerTask;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
-/**
- * @Author Jack
- * @Date 2024/6/10 20:13
- * @Version 1.0.0
- */
 @Service
 @Slf4j
 public class StrmServiceImpl implements IStrmService {
@@ -42,26 +45,43 @@ public class StrmServiceImpl implements IStrmService {
     @Autowired
     private OpenListHelper openListHelper;
 
-    private final String outputDir = "/data/strm";
-
-    private final String encode = "0";
-
-    private final String isDownSub = "0";
-
     @Autowired
     private OpenlistApi openListApi;
 
+    @Autowired
+    private IOpenlistStrmPlusService openlistStrmPlusService;
+
+    @Autowired
+    private IOpenlistCopyPlusService openlistCopyPlusService;
+
     private static final Pattern ILLEGAL_PATTERN = Pattern.compile("[\\\\/:*?\"<>|]");
 
-    /**
-     * strm处理一个目录
-     *
-     * @param path
-     */
+    private String getOutputDir() {
+        String dir = config.getOpenListStrmOutputDir();
+        return dir != null ? dir : "/data/strm";
+    }
+
+    private boolean shouldEncode() {
+        return "1".equals(config.getOpenListStrmEncode());
+    }
+
+    private boolean shouldDownloadSub() {
+        return "1".equals(config.getOpenListStrmDownloadSub());
+    }
+
+    private long getMinFileSizeBytes() {
+        try {
+            return Long.parseLong(config.getOpenListMinFileSize()) * 1024 * 1024;
+        } catch (Exception e) {
+            return 1 * 1024 * 1024;
+        }
+    }
+
+    @Override
     public void strmDir(String path) {
         log.info("开始执行指定路径strm任务: {}", path);
         try {
-            getData(path, outputDir);
+            getData(path, getOutputDir());
         } catch (Exception e) {
             log.error("", e);
         } finally {
@@ -69,11 +89,7 @@ public class StrmServiceImpl implements IStrmService {
         }
     }
 
-    /**
-     * strm处理一个文件
-     *
-     * @param path
-     */
+    @Override
     public void strmOneFile(String path) {
         log.info("开始执行指定文件strm任务: {}", path);
         String filePath = "";
@@ -83,25 +99,24 @@ public class StrmServiceImpl implements IStrmService {
             name = path.substring(path.lastIndexOf("/") + 1);
         }
 
-        //判断是否处理过
         if (strmHelper.exitStrm(filePath, name)) {
             log.debug("文件已处理过，跳过处理{}", path);
             return;
         }
         String fileName = path.substring(path.lastIndexOf("/") + 1, path.lastIndexOf(".")).replaceAll("[\\\\/:*?\"<>|]", "");
-        File file = new File(outputDir + File.separator + filePath.replace("/", File.separator));
+        File file = new File(getOutputDir() + File.separator + filePath.replace("/", File.separator));
         if (!file.exists()) {
             file.mkdirs();
         }
         String relative = filePath.startsWith("/")
                 ? filePath.substring(1)
                 : filePath;
-        Path strmFile = Paths.get(outputDir)
+        Path strmFile = Paths.get(getOutputDir())
                 .resolve(relative.replace("/", File.separator))
                 .resolve((fileName.length() > 255 ? fileName.substring(0, 250) : fileName) + ".strm");
         try {
             String encodePath = path;
-            if ("1".equals(encode)) {
+            if (shouldEncode()) {
                 encodePath = URLEncoder.encode(path, StandardCharsets.UTF_8.name())
                         .replace("+", "%20")
                         .replace("%2F", "/");
@@ -116,8 +131,49 @@ public class StrmServiceImpl implements IStrmService {
         log.info("执行指定文件strm任务完成: {}", path);
     }
 
+    @Override
+    public void batchRemoveNetDisk(List<String> idList) {
+        if (idList == null || idList.isEmpty()) return;
+        List<OpenlistStrmPlus> strmList = openlistStrmPlusService.listByIds(idList);
+        Runnable action = () -> strmList.forEach(strm -> {
+            openListApi.fsRemove(strm.getStrmPath(), Collections.singletonList(strm.getStrmFileName()));
+            openlistCopyPlusService.remove(new LambdaQueryWrapper<OpenlistCopyPlus>()
+                    .eq(OpenlistCopyPlus::getCopyDstFileName, strm.getStrmFileName())
+                    .eq(OpenlistCopyPlus::getCopyDstPath, strm.getStrmPath()));
+        });
+        if (idList.size() > 20) {
+            AsyncManager.me().execute(new TimerTask() {
+                @Override
+                public void run() {
+                    action.run();
+                    openlistStrmPlusService.removeBatchByIds(idList);
+                }
+            });
+        } else {
+            action.run();
+            openlistStrmPlusService.removeBatchByIds(idList);
+        }
+    }
+
+    @Override
+    public void retryStrm(List<String> idList) {
+        if (idList == null || idList.isEmpty()) return;
+        List<OpenlistStrmPlus> strmList = openlistStrmPlusService.listByIds(idList);
+        strmList.forEach(strm -> strm.setStrmStatus("0"));
+        openlistStrmPlusService.updateBatchById(strmList);
+        Runnable action = () -> strmList.forEach(strm ->
+                strmOneFile(strm.getStrmPath() + "/" + strm.getStrmFileName()));
+        if (idList.size() > 20) {
+            AsyncManager.me().execute(new TimerTask() {
+                @Override
+                public void run() { action.run(); }
+            });
+        } else {
+            action.run();
+        }
+    }
+
     public void getData(String rootPath, String localRootPath) {
-        // 队列存目录信息
         Queue<String> dirsQueue = new LinkedList<>();
         dirsQueue.add(rootPath);
 
@@ -149,12 +205,10 @@ public class StrmServiceImpl implements IStrmService {
                 if (isDir) {
                     dirsQueue.add(currentPath + "/" + rawName);
                 } else {
-                    //异步处理 提升效率
                     String finalCurrentPath = currentPath;
                     AsyncManager.me().execute(new TimerTask() {
                         @Override
                         public void run() {
-                            // 判断是否处理过
                             if (strmHelper.exitStrm(finalCurrentPath, rawName)) {
                                 if (log.isDebugEnabled()) {
                                     log.debug("文件已处理过，跳过处理 {} / {}", finalCurrentPath, rawName);
@@ -174,9 +228,8 @@ public class StrmServiceImpl implements IStrmService {
                             String safeName = ILLEGAL_PATTERN.matcher(baseName).replaceAll("");
                             String fileName = safeName.length() > 255 ? safeName.substring(0, 250) : safeName;
 
-                            // 视频文件处理
                             if (openListHelper.isVideo(rawName)) {
-                                if (size < Long.parseLong(config.getOpenListMinFileSize()) * 1024 * 1024) {
+                                if (size < getMinFileSizeBytes()) {
                                     log.debug("Skipping small file {} ({} bytes)", rawName, size);
                                     return;
                                 }
@@ -184,7 +237,7 @@ public class StrmServiceImpl implements IStrmService {
                                 Path strmFile = Paths.get(currentLocalPath).resolve(fileName + ".strm");
                                 try {
                                     String encodePath = finalCurrentPath + "/" + rawName;
-                                    if ("1".equals(encode)) {
+                                    if (shouldEncode()) {
                                         encodePath = URLEncoder.encode(encodePath, StandardCharsets.UTF_8.name())
                                                 .replace("+", "%20")
                                                 .replace("%2F", "/");
@@ -198,8 +251,7 @@ public class StrmServiceImpl implements IStrmService {
                                 }
                             }
 
-                            // 字幕文件处理（异步限流）
-                            if ("1".equals(isDownSub) && openListHelper.isSrt(rawName)) {
+                            if (shouldDownloadSub() && openListHelper.isSrt(rawName)) {
                                 try {
                                     JSONObject fileJson = openListApi.getFile(finalCurrentPath + "/" + rawName);
                                     if (fileJson != null && fileJson.getJSONObject("data") != null) {
@@ -217,89 +269,56 @@ public class StrmServiceImpl implements IStrmService {
                     });
                 }
             }
-
         }
-
     }
 
     public static void downloadFile(String fileURL, String saveDir) {
         if (StringUtils.isBlank(fileURL)) {
             return;
         }
-        // 创建URL对象
-        URL url = null;
+        URL url;
         try {
             url = new URL(fileURL);
         } catch (Exception e) {
-            log.error("文件{}下载失败1", fileURL);
-            throw new RuntimeException(e);
+            log.error("文件{}下载失败: 无效URL", fileURL);
+            throw new RuntimeException("Invalid URL: " + fileURL, e);
         }
-        // 打开连接
-        URLConnection connection = null;
+        URLConnection connection;
         try {
             connection = url.openConnection();
         } catch (IOException e) {
-            log.error("文件{}下载失败2", fileURL);
-            throw new RuntimeException(e);
+            log.error("文件{}下载失败: 无法建立连接", fileURL);
+            throw new RuntimeException("Cannot open connection: " + fileURL, e);
         }
-        try (InputStream inputStream = new BufferedInputStream(connection.getInputStream()); FileOutputStream outputStream = new FileOutputStream(saveDir)) {
-
-            byte[] buffer = new byte[1024];
-            int bytesRead = -1;
-
-            // 读取文件并写入到本地
+        try (InputStream inputStream = new BufferedInputStream(connection.getInputStream());
+             FileOutputStream outputStream = new FileOutputStream(saveDir)) {
+            byte[] buffer = new byte[8192];
+            int bytesRead;
             while ((bytesRead = inputStream.read(buffer)) != -1) {
                 outputStream.write(buffer, 0, bytesRead);
             }
-
         } catch (IOException ex) {
-            log.error("文件{}下载失败3", fileURL);
-            log.error("", ex);
-            throw new RuntimeException(ex);
+            log.error("文件{}下载失败: IO错误", fileURL);
+            throw new RuntimeException("Download failed: " + fileURL, ex);
         }
     }
 
-    /**
-     * 原子方式写入文本文件
-     *
-     * @param target  最终文件路径
-     * @param content 写入内容（UTF-8）
-     */
     private static void writeAtomically(Path target, String content) throws IOException {
         Path parent = target.getParent();
         if (parent != null) {
             Files.createDirectories(parent);
         }
 
-        Path tmpFile = target.resolveSibling(
-                target.getFileName().toString() + ".tmp"
-        );
-
+        Path tmpFile = target.resolveSibling(target.getFileName().toString() + ".tmp");
         boolean moved = false;
         try {
-            // 写入临时文件
-            Files.write(
-                    tmpFile,
-                    content.getBytes(StandardCharsets.UTF_8),
-                    StandardOpenOption.CREATE,
-                    StandardOpenOption.TRUNCATE_EXISTING
-            );
-
-            // 优先使用原子移动
-            Files.move(
-                    tmpFile,
-                    target,
-                    StandardCopyOption.REPLACE_EXISTING,
-                    StandardCopyOption.ATOMIC_MOVE
-            );
+            Files.write(tmpFile, content.getBytes(StandardCharsets.UTF_8),
+                    StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+            Files.move(tmpFile, target,
+                    StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
             moved = true;
         } catch (AtomicMoveNotSupportedException e) {
-            // NAS / 某些文件系统不支持 ATOMIC_MOVE
-            Files.move(
-                    tmpFile,
-                    target,
-                    StandardCopyOption.REPLACE_EXISTING
-            );
+            Files.move(tmpFile, target, StandardCopyOption.REPLACE_EXISTING);
             moved = true;
         } finally {
             if (!moved) {

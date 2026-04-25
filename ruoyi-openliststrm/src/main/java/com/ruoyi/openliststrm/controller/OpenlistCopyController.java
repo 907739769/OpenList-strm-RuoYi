@@ -1,6 +1,5 @@
 package com.ruoyi.openliststrm.controller;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.ruoyi.common.annotation.Log;
 import com.ruoyi.common.core.controller.BaseController;
@@ -10,14 +9,10 @@ import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.enums.BusinessType;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.common.utils.poi.ExcelUtil;
-import com.ruoyi.framework.manager.AsyncManager;
-import com.ruoyi.openliststrm.api.OpenlistApi;
 import com.ruoyi.openliststrm.domain.OpenlistCopy;
 import com.ruoyi.openliststrm.enums.CopyStatusEnum;
 import com.ruoyi.openliststrm.mybatisplus.domain.OpenlistCopyPlus;
-import com.ruoyi.openliststrm.mybatisplus.domain.OpenlistStrmPlus;
 import com.ruoyi.openliststrm.mybatisplus.service.IOpenlistCopyPlusService;
-import com.ruoyi.openliststrm.mybatisplus.service.IOpenlistStrmPlusService;
 import com.ruoyi.openliststrm.service.ICopyService;
 import com.ruoyi.openliststrm.service.IOpenlistCopyService;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
@@ -30,12 +25,6 @@ import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
 
-/**
- * openlist的文件同步复制任务Controller
- *
- * @author Jack
- * @date 2025-07-16
- */
 @Controller
 @RequestMapping("/openliststrm/copy")
 public class OpenlistCopyController extends BaseController {
@@ -45,16 +34,10 @@ public class OpenlistCopyController extends BaseController {
     private IOpenlistCopyService openlistCopyService;
 
     @Autowired
-    private OpenlistApi openlistApi;
+    private ICopyService copyService;
 
     @Autowired
     private IOpenlistCopyPlusService openlistCopyPlusService;
-
-    @Autowired
-    private IOpenlistStrmPlusService openlistStrmPlusService;
-
-    @Autowired
-    private ICopyService copyService;
 
     @RequiresPermissions("openliststrm:copy:view")
     @GetMapping()
@@ -147,35 +130,8 @@ public class OpenlistCopyController extends BaseController {
     public AjaxResult batchRemoveNetDisk(String ids) {
         logger.info("删除网盘数据：{}", ids);
         List<String> idList = Arrays.stream(Convert.toStrArray(ids)).collect(Collectors.toList());
-        List<OpenlistCopyPlus> openlistCopyPlusList = openlistCopyPlusService.listByIds(idList);
-        //删除网盘数据
-        if (openlistCopyPlusList.size() > 20) {
-            AsyncManager.me().execute(new TimerTask() {
-                @Override
-                public void run() {
-                    openlistCopyPlusList.forEach(openlistCopyPlus -> {
-                        openlistApi.fsRemove(openlistCopyPlus.getCopyDstPath(), Collections.singletonList(openlistCopyPlus.getCopyDstFileName()));
-                        openlistStrmPlusService.remove(new LambdaQueryWrapper<OpenlistStrmPlus>()
-                                .eq(OpenlistStrmPlus::getStrmFileName, openlistCopyPlus.getCopyDstFileName())
-                                .eq(OpenlistStrmPlus::getStrmPath, openlistCopyPlus.getCopyDstPath())
-                        );
-                    });
-                    //删除表数据
-                    openlistCopyPlusService.removeBatchByIds(idList);
-                }
-            });
-            return success("异步处理中");
-        }
-        openlistCopyPlusList.forEach(openlistCopyPlus -> {
-            openlistApi.fsRemove(openlistCopyPlus.getCopyDstPath(), Collections.singletonList(openlistCopyPlus.getCopyDstFileName()));
-            openlistStrmPlusService.remove(new LambdaQueryWrapper<OpenlistStrmPlus>()
-                    .eq(OpenlistStrmPlus::getStrmFileName, openlistCopyPlus.getCopyDstFileName())
-                    .eq(OpenlistStrmPlus::getStrmPath, openlistCopyPlus.getCopyDstPath())
-            );
-        });
-        //删除表数据
-        openlistCopyPlusService.removeBatchByIds(idList);
-        return success();
+        copyService.batchRemoveNetDisk(idList);
+        return success("异步处理中");
     }
 
     /**
@@ -188,29 +144,7 @@ public class OpenlistCopyController extends BaseController {
     public AjaxResult retry(String ids) {
         logger.info("重试的任务：{}", ids);
         List<String> idList = Arrays.stream(Convert.toStrArray(ids)).collect(Collectors.toList());
-        List<OpenlistCopyPlus> openlistCopyPlusList = openlistCopyPlusService.listByIds(idList);
-        //更新为失败状态
-        openlistCopyPlusList.forEach(openlistCopyPlus -> {
-            openlistCopyPlus.setCopyStatus("2");
-            openlistCopyPlus.setCopyTaskId("");
-        });
-        openlistCopyPlusService.updateBatchById(openlistCopyPlusList);
-        if (openlistCopyPlusList.size() > 20) {
-            AsyncManager.me().execute(new TimerTask() {
-                @Override
-                public void run() {
-                    //重新同步文件
-                    openlistCopyPlusList.forEach(openlistCopyPlus -> {
-                        copyService.syncOneFile(openlistCopyPlus.getCopySrcPath(), openlistCopyPlus.getCopyDstPath(), openlistCopyPlus.getCopySrcFileName());
-                    });
-                }
-            });
-            return success("异步处理中");
-        }
-        //重新同步文件
-        openlistCopyPlusList.forEach(openlistCopyPlus -> {
-            copyService.syncOneFile(openlistCopyPlus.getCopySrcPath(), openlistCopyPlus.getCopyDstPath(), openlistCopyPlus.getCopySrcFileName());
-        });
+        copyService.retryCopy(idList);
         return success();
     }
 
@@ -222,19 +156,16 @@ public class OpenlistCopyController extends BaseController {
     @ResponseBody
     public AjaxResult stats(String range) {
         LocalDate today = LocalDate.now();
-        // 这里替换为实际业务数据，可以从service层获取
         QueryWrapper<OpenlistCopyPlus> wrapper = new QueryWrapper<>();
         wrapper.select("copy_status as status, count(*) as count")
                 .between(StringUtils.isEmpty(range) || "today".equals(range), "create_time", today.atStartOfDay(), today.plusDays(1).atStartOfDay())
                 .between("yesterday".equals(range), "create_time", today.minusDays(1).atStartOfDay(), today.atStartOfDay())
                 .groupBy("copy_status");
-
         List<Map<String, Object>> maps = openlistCopyPlusService.listMaps(wrapper);
         Map<String, Long> result = new LinkedHashMap<>();
         for (Map<String, Object> map : maps) {
             String status = String.valueOf(map.get("status"));
             Long count = Long.parseLong(map.get("count").toString());
-
             String statusChinese = CopyStatusEnum.getDescByCode(status);
             result.put(statusChinese, count);
         }
