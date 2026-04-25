@@ -58,7 +58,7 @@ public class StrmServiceImpl implements IStrmService {
 
     private String getOutputDir() {
         String dir = config.getOpenListStrmOutputDir();
-        return dir != null ? dir : "/data/strm";
+        return StringUtils.isNotBlank(dir) ? dir : "/data/strm";
     }
 
     private boolean shouldEncode() {
