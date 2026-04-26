@@ -226,6 +226,10 @@ public class CopyServiceImpl implements ICopyService {
 
         if ((dstExistResp == null || dstExistResp.getInteger("code") != 200)) {
             JSONObject srcResp = openlistApi.getFile(srcDir + "/" + relativePath);
+            if(null==srcResp||null==srcResp.getJSONObject("data")){
+                log.warn("本地文件不存在{}/{}", srcDir, relativePath);
+                return;
+            }
             if (srcResp.getJSONObject("data").getLong("size")
                     >= Long.parseLong(config.getOpenListMinFileSize()) * 1024 * 1024) {
 
