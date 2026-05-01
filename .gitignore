@@ -46,3 +46,10 @@ nbdist/
 !*/build/*.xml
 
 /config/
+
+# Playwright
+playwright-report/
+test-results/
+
+# AI agent session files
+.sisyphus/
