@@ -26,7 +26,8 @@ public class MysqlDdl extends SimpleDdl {
                 "sql/20260107.sql",
                 "sql/20260114.sql",
                 "sql/20260203.sql",
-                "sql/20260207.sql"
+                "sql/20260207.sql",
+                "sql/20260428-menu-icons.sql"
         );
     }
 }

@@ -1,0 +1,18 @@
+FROM eclipse-temurin:21-jre-alpine
+
+WORKDIR /app
+
+# Copy all module jars
+COPY ruoyi-common/target/ruoyi-common-*.jar /app/lib/ruoyi-common.jar
+COPY ruoyi-framework/target/ruoyi-framework-*.jar /app/lib/ruoyi-framework.jar
+COPY ruoyi-system/target/ruoyi-system-*.jar /app/lib/ruoyi-system.jar
+COPY ruoyi-quartz/target/ruoyi-quartz-*.jar /app/lib/ruoyi-quartz.jar
+COPY ruoyi-openliststrm/target/ruoyi-openliststrm-*.jar /app/lib/ruoyi-openliststrm.jar
+COPY ruoyi-admin/target/ruoyi-admin.jar /app/
+
+# Create required directories
+RUN mkdir -p /data/upload /data/logs
+
+EXPOSE 6895
+
+ENTRYPOINT ["java", "-Djava.security.egd=file:/dev/./urandom", "-jar", "/app/ruoyi-admin.jar"]

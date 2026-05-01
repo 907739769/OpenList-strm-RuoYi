@@ -1,5 +1,6 @@
 package com.ruoyi.common.utils;
 
+import jakarta.servlet.http.HttpServletRequest;
 import org.apache.shiro.SecurityUtils;
 import org.apache.shiro.crypto.SecureRandomNumberGenerator;
 import org.apache.shiro.session.Session;
@@ -47,7 +48,15 @@ public class ShiroUtils
     {
         Subject subject = getSubject();
         PrincipalCollection principalCollection = subject.getPrincipals();
-        String realmName = principalCollection.getRealmNames().iterator().next();
+        String realmName;
+        if (principalCollection != null && !principalCollection.isEmpty())
+        {
+            realmName = principalCollection.getRealmNames().iterator().next();
+        }
+        else
+        {
+            realmName = "UserRealm";
+        }
         PrincipalCollection newPrincipalCollection = new SimplePrincipalCollection(user, realmName);
         // 重新加载Principal
         subject.runAs(newPrincipalCollection);
@@ -65,7 +74,15 @@ public class ShiroUtils
 
     public static String getIp()
     {
-        return StringUtils.substring(getSubject().getSession().getHost(), 0, 128);
+        try {
+            HttpServletRequest request = ServletUtils.getRequest();
+            if (request != null) {
+                return IpUtils.getIpAddr(request);
+            }
+        } catch (Exception e) {
+            // Ignore
+        }
+        return "0.0.0.0";
     }
 
     public static String getSessionId()

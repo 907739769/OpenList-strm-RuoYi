@@ -23,16 +23,22 @@
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
 
+        <!-- Spring Cache support (CaffeineCache) -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-context-support</artifactId>
+        </dependency>
+
         <!-- SpringBoot 拦截器 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-aop</artifactId>
         </dependency>
 
-        <!-- 阿里数据库连接池 -->
+        <!-- 阿里数据库连接池 (Spring Boot 3.x compatible) -->
         <dependency>
             <groupId>com.alibaba</groupId>
-            <artifactId>druid-spring-boot-starter</artifactId>
+            <artifactId>druid-spring-boot-3-starter</artifactId>
         </dependency>
 
         <!-- 验证码 -->
@@ -47,16 +53,25 @@
             </exclusions>
         </dependency>
 
-        <!-- Shiro使用Spring框架 -->
+        <!-- Shiro Core (Jakarta EE 9+ compatible) -->
+        <dependency>
+            <groupId>org.apache.shiro</groupId>
+            <artifactId>shiro-core</artifactId>
+            <classifier>jakarta</classifier>
+        </dependency>
+
+        <!-- Shiro Web (Jakarta EE 9+ compatible) -->
+        <dependency>
+            <groupId>org.apache.shiro</groupId>
+            <artifactId>shiro-web</artifactId>
+            <classifier>jakarta</classifier>
+        </dependency>
+
+        <!-- Shiro Spring (Jakarta EE 9+ compatible) -->
         <dependency>
             <groupId>org.apache.shiro</groupId>
             <artifactId>shiro-spring</artifactId>
-        </dependency>
-
-        <!-- thymeleaf模板引擎和shiro框架的整合 -->
-        <dependency>
-            <groupId>com.github.theborakompanioni</groupId>
-            <artifactId>thymeleaf-extras-shiro</artifactId>
+            <classifier>jakarta</classifier>
         </dependency>
 
         <!-- 获取系统信息 -->
@@ -74,6 +89,12 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-websocket</artifactId>
+        </dependency>
+
+        <!-- Spring Security (for JWT authentication filter) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
         </dependency>
 
     </dependencies>

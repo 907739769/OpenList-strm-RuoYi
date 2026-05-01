@@ -45,16 +45,8 @@ user:
 
 # Spring配置
 spring:
-  # 模板引擎
-  thymeleaf:
-    mode: HTML
-    encoding: utf-8
-    # 生产启用缓存
-    cache: true
-  # 资源信息
   messages:
-    # 国际化资源文件路径
-    basename: static/i18n/messages
+    basename: classpath:i18n/messages
   jackson:
     time-zone: GMT+8
     date-format: yyyy-MM-dd HH:mm:ss
@@ -78,11 +70,18 @@ spring:
       schema-locations: classpath*:sql/schema.sql
       data-locations: classpath*:sql/data.sql
   cache:
-    type: ehcache
-    ehcache:
-      config: classpath:ehcache/ehcache.xml
+    type: simple
   main:
     banner-mode: console
+    allow-bean-definition-overriding: true
+  mvc:
+    pathmatch:
+      matching-strategy: ant_path_matcher
+  autoconfigure:
+    exclude:
+      - com.github.pagehelper.autoconfigure.PageHelperAutoConfiguration
+      - org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
+      - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
 
 # MyBatis Plus配置
 mybatis-plus:
@@ -124,7 +123,7 @@ shiro:
     # 设置Cookie的过期时间，天为单位
     maxAge: 30
     # 设置密钥，务必保持唯一性（生成方式，直接拷贝到main运行即可）Base64.encodeToString(CipherUtils.generateNewKey(128, "AES").getEncoded()) （默认启动生成随机秘钥，随机秘钥会导致之前客户端RememberMe Cookie无效，如设置固定秘钥RememberMe Cookie则有效）
-    cipherKey: ${CIPHER_KEY}
+    cipherKey: ${CIPHER_KEY:d34db33f42d3d3ad10b3d3ad34db33f0}
   session:
     # Session超时时间，-1代表永不过期（默认30分钟）
     expireTime: 600
@@ -160,3 +159,9 @@ csrf:
 swagger:
   # 是否开启swagger
   enabled: false
+
+# JWT配置
+jwt:
+  secret: mySecretKeyMustBeAtLeast256BitsLongForHS256Algorithm
+  expiration: 7200000
+  refresh-expiration: 604800000

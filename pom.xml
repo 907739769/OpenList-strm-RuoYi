@@ -15,39 +15,31 @@
         <ruoyi.version>4.8.1</ruoyi.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <java.version>1.8</java.version>
+        <java.version>21</java.version>
         <maven-jar-plugin.version>3.1.1</maven-jar-plugin.version>
-        <spring-boot.version>2.5.15</spring-boot.version>
-        <shiro.version>1.13.0</shiro.version>
-        <thymeleaf.extras.shiro.version>2.1.0</thymeleaf.extras.shiro.version>
-        <druid.version>1.2.27</druid.version>
-        <yauaa.version>7.32.0</yauaa.version>
+        <spring-boot.version>3.2.5</spring-boot.version>
+        <shiro.version>2.0.0</shiro.version>
+        <druid.version>1.2.23</druid.version>
         <kaptcha.version>2.3.3</kaptcha.version>
-        <swagger.version>3.0.0</swagger.version>
-        <pagehelper.boot.version>1.4.7</pagehelper.boot.version>
-        <fastjson.version>1.2.83</fastjson.version>
-        <oshi.version>6.9.1</oshi.version>
+        <yauaa.version>7.32.0</yauaa.version>
+        <pagehelper.boot.version>2.1.0</pagehelper.boot.version>
+        <fastjson2.version>2.0.51</fastjson2.version>
+        <oshi.version>6.6.0</oshi.version>
         <commons.io.version>2.21.0</commons.io.version>
-        <poi.version>4.1.2</poi.version>
+        <poi.version>5.2.5</poi.version>
         <velocity.version>2.3</velocity.version>
+        <knife4j.version>4.4.0</knife4j.version>
+        <telegrambots.version>6.9.0</telegrambots.version>
+        <eclipse-collections.version>11.1.0</eclipse-collections.version>
+        <pebble.version>3.2.2</pebble.version>
+        <jjwt.version>0.12.6</jjwt.version>
         <!-- override dependency version -->
-        <tomcat.version>9.0.112</tomcat.version>
-        <logback.version>1.2.13</logback.version>
-        <spring-framework.version>5.3.39</spring-framework.version>
+        <logback.version>1.4.14</logback.version>
     </properties>
 
     <!-- 依赖声明 -->
     <dependencyManagement>
         <dependencies>
-
-            <!-- 覆盖SpringFramework的依赖配置-->
-            <dependency>
-                <groupId>org.springframework</groupId>
-                <artifactId>spring-framework-bom</artifactId>
-                <version>${spring-framework.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
 
             <!-- SpringBoot的依赖配置-->
             <dependency>
@@ -71,29 +63,10 @@
                 <version>${logback.version}</version>
             </dependency>
 
-            <!-- 覆盖tomcat的依赖配置-->
-            <dependency>
-                <groupId>org.apache.tomcat.embed</groupId>
-                <artifactId>tomcat-embed-core</artifactId>
-                <version>${tomcat.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.tomcat.embed</groupId>
-                <artifactId>tomcat-embed-el</artifactId>
-                <version>${tomcat.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.tomcat.embed</groupId>
-                <artifactId>tomcat-embed-websocket</artifactId>
-                <version>${tomcat.version}</version>
-            </dependency>
-
-            <!-- 阿里数据库连接池 -->
+            <!-- 阿里数据库连接池 (Spring Boot 3.x compatible) -->
             <dependency>
                 <groupId>com.alibaba</groupId>
-                <artifactId>druid-spring-boot-starter</artifactId>
+                <artifactId>druid-spring-boot-3-starter</artifactId>
                 <version>${druid.version}</version>
             </dependency>
             
@@ -104,32 +77,28 @@
                 <version>${kaptcha.version}</version>
             </dependency>
 
-            <!-- Shiro核心框架 -->
+            <!-- Shiro Core (Jakarta EE 9+ compatible) -->
             <dependency>
                 <groupId>org.apache.shiro</groupId>
                 <artifactId>shiro-core</artifactId>
                 <version>${shiro.version}</version>
+                <classifier>jakarta</classifier>
             </dependency>
 
-            <!-- Shiro使用Spring框架 -->
+            <!-- Shiro Web (Jakarta EE 9+ compatible) -->
+            <dependency>
+                <groupId>org.apache.shiro</groupId>
+                <artifactId>shiro-web</artifactId>
+                <version>${shiro.version}</version>
+                <classifier>jakarta</classifier>
+            </dependency>
+
+            <!-- Shiro Spring (Jakarta EE 9+ compatible) -->
             <dependency>
                 <groupId>org.apache.shiro</groupId>
                 <artifactId>shiro-spring</artifactId>
                 <version>${shiro.version}</version>
-            </dependency>
-
-            <!-- Shiro使用EhCache缓存框架 -->
-            <dependency>
-                <groupId>org.apache.shiro</groupId>
-                <artifactId>shiro-ehcache</artifactId>
-                <version>${shiro.version}</version>
-            </dependency>
-
-            <!-- thymeleaf模板引擎和shiro框架的整合 -->
-            <dependency>
-                <groupId>com.github.theborakompanioni</groupId>
-                <artifactId>thymeleaf-extras-shiro</artifactId>
-                <version>${thymeleaf.extras.shiro.version}</version>
+                <classifier>jakarta</classifier>
             </dependency>
 
             <!-- 解析客户端操作系统、浏览器等 -->
@@ -153,18 +122,12 @@
                 <version>${oshi.version}</version>
             </dependency>
 
-            <!-- Swagger3依赖 -->
-            <dependency>
-                <groupId>io.springfox</groupId>
-                <artifactId>springfox-boot-starter</artifactId>
-                <version>${swagger.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>io.swagger</groupId>
-                        <artifactId>swagger-models</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
+        <!-- Knife4j API文档 (Spring Boot 3.x compatible) -->
+        <dependency>
+            <groupId>com.github.xiaoymin</groupId>
+            <artifactId>knife4j-openapi3-jakarta-spring-boot-starter</artifactId>
+            <version>${knife4j.version}</version>
+        </dependency>
 
             <!-- io常用工具类 -->
             <dependency>
@@ -187,24 +150,65 @@
                 <version>${velocity.version}</version>
             </dependency>
 
-            <!-- 阿里JSON解析器 -->
+            <!-- 阿里JSON解析器 (FastJSON2) -->
             <dependency>
-                <groupId>com.alibaba</groupId>
-                <artifactId>fastjson</artifactId>
-                <version>${fastjson.version}</version>
+                <groupId>com.alibaba.fastjson2</groupId>
+                <artifactId>fastjson2</artifactId>
+                <version>${fastjson2.version}</version>
+            </dependency>
+
+            <!-- MySQL驱动包 -->
+            <dependency>
+                <groupId>mysql</groupId>
+                <artifactId>mysql-connector-java</artifactId>
+                <version>8.0.33</version>
+            </dependency>
+
+            <!-- Telegram Bot -->
+            <dependency>
+                <groupId>org.telegram</groupId>
+                <artifactId>telegrambots</artifactId>
+                <version>${telegrambots.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.telegram</groupId>
+                <artifactId>telegrambots-abilities</artifactId>
+                <version>${telegrambots.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.eclipse.collections</groupId>
+                <artifactId>eclipse-collections</artifactId>
+                <version>${eclipse-collections.version}</version>
+            </dependency>
+
+            <!-- JWT (jjwt) -->
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-api</artifactId>
+                <version>${jjwt.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-impl</artifactId>
+                <version>${jjwt.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-jackson</artifactId>
+                <version>${jjwt.version}</version>
+            </dependency>
+
+            <!-- Pebble模板引擎 -->
+            <dependency>
+                <groupId>io.pebbletemplates</groupId>
+                <artifactId>pebble</artifactId>
+                <version>${pebble.version}</version>
             </dependency>
 
             <!-- 定时任务-->
             <dependency>
                 <groupId>com.ruoyi</groupId>
                 <artifactId>ruoyi-quartz</artifactId>
-                <version>${ruoyi.version}</version>
-            </dependency>
-
-            <!-- 代码生成-->
-            <dependency>
-                <groupId>com.ruoyi</groupId>
-                <artifactId>ruoyi-generator</artifactId>
                 <version>${ruoyi.version}</version>
             </dependency>
 
@@ -243,7 +247,6 @@
         <module>ruoyi-framework</module>
         <module>ruoyi-system</module>
         <module>ruoyi-quartz</module>
-        <module>ruoyi-generator</module>
         <module>ruoyi-common</module>
         <module>ruoyi-openliststrm</module>
     </modules>
@@ -259,11 +262,12 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.1</version>
+                <version>3.11.0</version>
                 <configuration>
                     <source>${java.version}</source>
                     <target>${java.version}</target>
                     <encoding>${project.build.sourceEncoding}</encoding>
+                    <release>${java.version}</release>
                 </configuration>
             </plugin>
             <!-- YUI Compressor (CSS/JS压缩) -->

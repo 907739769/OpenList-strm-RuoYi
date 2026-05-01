@@ -9,8 +9,8 @@ import org.apache.shiro.session.ExpiredSessionException;
 import org.apache.shiro.session.InvalidSessionException;
 import org.apache.shiro.session.Session;
 import org.apache.shiro.session.mgt.DefaultSessionKey;
+import org.apache.shiro.session.mgt.DefaultSessionManager;
 import org.apache.shiro.session.mgt.SessionKey;
-import org.apache.shiro.web.session.mgt.DefaultWebSessionManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.ruoyi.common.constant.ShiroConstants;
@@ -21,12 +21,7 @@ import com.ruoyi.framework.shiro.session.OnlineSession;
 import com.ruoyi.system.domain.SysUserOnline;
 import com.ruoyi.system.service.ISysUserOnlineService;
 
-/**
- * 主要是在此如果会话的属性修改了 就标识下其修改了 然后方便 OnlineSessionDao同步
- * 
- * @author ruoyi
- */
-public class OnlineWebSessionManager extends DefaultWebSessionManager
+public class OnlineWebSessionManager extends DefaultSessionManager
 {
     private static final Logger log = LoggerFactory.getLogger(OnlineWebSessionManager.class);
 
@@ -43,24 +38,11 @@ public class OnlineWebSessionManager extends DefaultWebSessionManager
 
     private boolean needMarkAttributeChanged(Object attributeKey)
     {
-        if (attributeKey == null)
-        {
-            return false;
-        }
+        if (attributeKey == null) return false;
         String attributeKeyStr = attributeKey.toString();
-        // 优化 flash属性没必要持久化
-        if (attributeKeyStr.startsWith("org.springframework"))
-        {
-            return false;
-        }
-        if (attributeKeyStr.startsWith("javax.servlet"))
-        {
-            return false;
-        }
-        if (attributeKeyStr.equals(ShiroConstants.CURRENT_USERNAME))
-        {
-            return false;
-        }
+        if (attributeKeyStr.startsWith("org.springframework")) return false;
+        if (attributeKeyStr.startsWith("jakarta.servlet")) return false;
+        if (attributeKeyStr.equals(ShiroConstants.CURRENT_USERNAME)) return false;
         return true;
     }
 
@@ -73,7 +55,6 @@ public class OnlineWebSessionManager extends DefaultWebSessionManager
             OnlineSession s = getOnlineSession(sessionKey);
             s.markAttributeChanged();
         }
-
         return removed;
     }
 
@@ -89,9 +70,6 @@ public class OnlineWebSessionManager extends DefaultWebSessionManager
         return session;
     }
 
-    /**
-     * 验证session是否有效 用于删除过期session
-     */
     @Override
     public void validateSessions()
     {
@@ -101,18 +79,14 @@ public class OnlineWebSessionManager extends DefaultWebSessionManager
         }
 
         int invalidCount = 0;
-
         int timeout = (int) this.getGlobalSessionTimeout();
-        if (timeout < 0)
-        {
-            // 永不过期不进行处理
-            return;
-        }
+        if (timeout < 0) return;
+
         Date expiredDate = DateUtils.addMilliseconds(new Date(), 0 - timeout);
         ISysUserOnlineService userOnlineService = SpringUtils.getBean(ISysUserOnlineService.class);
         List<SysUserOnline> userOnlineList = userOnlineService.selectOnlineByExpired(expiredDate);
-        // 批量过期删除
-        List<String> needOfflineIdList = new ArrayList<String>();
+        List<String> needOfflineIdList = new ArrayList<>();
+
         for (SysUserOnline userOnline : userOnlineList)
         {
             try
@@ -137,8 +111,8 @@ public class OnlineWebSessionManager extends DefaultWebSessionManager
                 needOfflineIdList.add(userOnline.getSessionId());
                 userOnlineService.removeUserCache(userOnline.getLoginName(), userOnline.getSessionId());
             }
-
         }
+
         if (needOfflineIdList.size() > 0)
         {
             try
@@ -164,7 +138,6 @@ public class OnlineWebSessionManager extends DefaultWebSessionManager
             }
             log.info(msg);
         }
-
     }
 
     @Override
@@ -172,4 +145,6 @@ public class OnlineWebSessionManager extends DefaultWebSessionManager
     {
         throw new UnsupportedOperationException("getActiveSessions method not supported");
     }
+
+    public void setSessionIdUrlRewritingEnabled(boolean enabled) { }
 }

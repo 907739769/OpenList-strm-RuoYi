@@ -1,6 +1,6 @@
 package com.ruoyi.framework.web.exception;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import org.apache.shiro.authz.AuthorizationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,7 +25,7 @@ import com.ruoyi.common.utils.security.PermissionUtils;
  * 
  * @author ruoyi
  */
-@RestControllerAdvice
+@RestControllerAdvice(basePackages = {"com.ruoyi.web.controller.system", "com.ruoyi.web.controller.monitor", "com.ruoyi.web.controller.common", "com.ruoyi.quartz.controller", "com.ruoyi.generator.controller", "com.ruoyi.openliststrm.controller"})
 public class GlobalExceptionHandler
 {
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);

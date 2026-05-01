@@ -5,14 +5,13 @@ import org.apache.commons.io.input.Tailer;
 import org.apache.commons.io.input.TailerListenerAdapter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Component;
 
-import javax.websocket.OnClose;
-import javax.websocket.OnError;
-import javax.websocket.OnOpen;
-import javax.websocket.Session;
-import javax.websocket.server.PathParam;
-import javax.websocket.server.ServerEndpoint;
+import jakarta.websocket.OnClose;
+import jakarta.websocket.OnError;
+import jakarta.websocket.OnOpen;
+import jakarta.websocket.Session;
+import jakarta.websocket.server.PathParam;
+import jakarta.websocket.server.ServerEndpoint;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -29,11 +28,14 @@ import java.util.regex.Pattern;
  * 优化：增加移动端适配，智能隐藏元数据
  */
 @ServerEndpoint("/websocket/log/{logType}")
-@Component
 public class LogWebSocket {
 
     private static final Logger log = LoggerFactory.getLogger(LogWebSocket.class);
     private static final String LOG_BASE_PATH = "/data/logs";
+
+    static {
+        log.info(">>> LogWebSocket class loaded, @ServerEndpoint=/websocket/log/{logType}");
+    }
 
     // 正则表达式：匹配若依默认日志格式
     // 格式: [日期 时间][TraceId][级别][Logger] 消息

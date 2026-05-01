@@ -3,9 +3,9 @@ package com.ruoyi.common.core.controller;
 import java.beans.PropertyEditorSupport;
 import java.util.Date;
 import java.util.List;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.WebDataBinder;
@@ -18,12 +18,14 @@ import com.ruoyi.common.core.domain.entity.SysUser;
 import com.ruoyi.common.core.page.PageDomain;
 import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.core.page.TableSupport;
+import com.ruoyi.common.utils.CurrentUserService;
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.PageUtils;
 import com.ruoyi.common.utils.ServletUtils;
 import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.common.utils.sql.SqlUtil;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * web层通用数据处理
@@ -33,6 +35,9 @@ import com.ruoyi.common.utils.sql.SqlUtil;
 public class BaseController
 {
     protected final Logger logger = LoggerFactory.getLogger(this.getClass());
+
+    @Autowired
+    private CurrentUserService currentUserService;
 
     /**
      * 将前台传递过来的日期格式的字符串，自动转化为Date类型
@@ -200,7 +205,7 @@ public class BaseController
      */
     public SysUser getSysUser()
     {
-        return ShiroUtils.getSysUser();
+        return currentUserService.getUser();
     }
 
     /**
@@ -216,7 +221,7 @@ public class BaseController
      */
     public Long getUserId()
     {
-        return getSysUser().getUserId();
+        return currentUserService.getUserId();
     }
 
     /**
@@ -224,6 +229,6 @@ public class BaseController
      */
     public String getLoginName()
     {
-        return getSysUser().getLoginName();
+        return currentUserService.getLoginName();
     }
 }

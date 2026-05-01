@@ -6,6 +6,7 @@ import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
@@ -22,6 +23,7 @@ import java.util.List;
  */
 @SpringBootApplication(exclude = {DataSourceAutoConfiguration.class})
 @EnableCaching
+@ComponentScan(basePackages = {"com.ruoyi", "com.ruoyi.web", "com.ruoyi.framework"})
 public class RuoYiApplication {
     public static void main(String[] args) throws Exception {
         long startTime = System.currentTimeMillis();

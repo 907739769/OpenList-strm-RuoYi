@@ -9,7 +9,9 @@ import org.springframework.web.servlet.config.annotation.ViewControllerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import com.ruoyi.common.config.RuoYiConfig;
 import com.ruoyi.common.constant.Constants;
+import com.ruoyi.framework.interceptor.ApiInterceptor;
 import com.ruoyi.framework.interceptor.RepeatSubmitInterceptor;
+import com.ruoyi.framework.interceptor.RateLimiterInterceptor;
 
 /**
  * 通用配置
@@ -28,6 +30,12 @@ public class ResourcesConfig implements WebMvcConfigurer
     @Autowired
     private RepeatSubmitInterceptor repeatSubmitInterceptor;
 
+    @Autowired
+    private ApiInterceptor apiInterceptor;
+
+    @Autowired
+    private RateLimiterInterceptor rateLimiterInterceptor;
+
     /**
      * 默认首页的设置，当输入域名是可以自动跳转到默认指定的网页
      */
@@ -42,9 +50,6 @@ public class ResourcesConfig implements WebMvcConfigurer
     {
         /** 本地文件上传路径 */
         registry.addResourceHandler(Constants.RESOURCE_PREFIX + "/**").addResourceLocations("file:" + RuoYiConfig.getProfile() + "/");
-
-        /** swagger配置 */
-        registry.addResourceHandler("/swagger-ui/**").addResourceLocations("classpath:/META-INF/resources/webjars/springfox-swagger-ui/");
     }
 
     /**
@@ -54,5 +59,10 @@ public class ResourcesConfig implements WebMvcConfigurer
     public void addInterceptors(InterceptorRegistry registry)
     {
         registry.addInterceptor(repeatSubmitInterceptor).addPathPatterns("/**");
+        registry.addInterceptor(apiInterceptor)
+            .addPathPatterns("/**")
+            .excludePathPatterns("/css/**", "/js/**", "/img/**", "/fonts/**", "/favicon.ico", "/service-worker.js", "/manifest.json");
+        registry.addInterceptor(rateLimiterInterceptor)
+            .addPathPatterns("/api/**");
     }
 }

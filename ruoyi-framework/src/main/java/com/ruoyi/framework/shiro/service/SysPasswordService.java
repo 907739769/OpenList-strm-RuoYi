@@ -1,12 +1,13 @@
 package com.ruoyi.framework.shiro.service;
 
+import java.security.MessageDigest;
 import java.util.concurrent.atomic.AtomicInteger;
-import javax.annotation.PostConstruct;
+import jakarta.annotation.PostConstruct;
 import org.apache.shiro.cache.Cache;
 import org.apache.shiro.cache.CacheManager;
-import org.apache.shiro.crypto.hash.Md5Hash;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Component;
 import com.ruoyi.common.constant.Constants;
 import com.ruoyi.common.constant.ShiroConstants;
@@ -68,9 +69,23 @@ public class SysPasswordService
         }
     }
 
+    private static final BCryptPasswordEncoder bcryptEncoder = new BCryptPasswordEncoder();
+
     public boolean matches(SysUser user, String newPassword)
     {
-        return user.getPassword().equals(encryptPassword(user.getLoginName(), newPassword, user.getSalt()));
+        String storedPassword = user.getPassword();
+        // Support BCrypt passwords (new format)
+        if (storedPassword != null && (storedPassword.startsWith("$2a$") || storedPassword.startsWith("$2b$")))
+        {
+            return bcryptEncoder.matches(newPassword, storedPassword);
+        }
+        // Legacy MD5+salt format
+        return storedPassword.equals(encryptPassword(user.getLoginName(), newPassword, user.getSalt()));
+    }
+
+    public String encodePassword(String password)
+    {
+        return bcryptEncoder.encode(password);
     }
 
     public void clearLoginRecordCache(String loginName)
@@ -80,6 +95,25 @@ public class SysPasswordService
 
     public String encryptPassword(String loginName, String password, String salt)
     {
-        return new Md5Hash(loginName + password + salt).toHex();
+        try
+        {
+            MessageDigest md = MessageDigest.getInstance("MD5");
+            byte[] digest = md.digest((loginName + password + salt).getBytes());
+            return bytesToHex(digest);
+        }
+        catch (Exception e)
+        {
+            throw new RuntimeException("MD5 encryption failed", e);
+        }
+    }
+
+    private String bytesToHex(byte[] bytes)
+    {
+        StringBuilder sb = new StringBuilder();
+        for (byte b : bytes)
+        {
+            sb.append(String.format("%02x", b));
+        }
+        return sb.toString();
     }
 }

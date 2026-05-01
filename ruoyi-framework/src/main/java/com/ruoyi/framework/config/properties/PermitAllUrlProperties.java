@@ -13,6 +13,7 @@ import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -35,6 +36,7 @@ public class PermitAllUrlProperties implements InitializingBean, ApplicationCont
     public void afterPropertiesSet() throws Exception
     {
         Map<String, Object> controllers = applicationContext.getBeansWithAnnotation(Controller.class);
+        Map<String, Object> restControllers = applicationContext.getBeansWithAnnotation(RestController.class);
         for (Object bean : controllers.values())
         {
             Class<?> beanClass;
@@ -62,6 +64,75 @@ public class PermitAllUrlProperties implements InitializingBean, ApplicationCont
             }
 
             // 处理方法级别的匿名访问注解
+            Method[] methods = beanClass.getDeclaredMethods();
+            for (Method method : methods)
+            {
+                if (method.isAnnotationPresent(Anonymous.class))
+                {
+                    RequestMapping baseMapping = beanClass.getAnnotation(RequestMapping.class);
+                    String[] baseUrl = {};
+                    if (Objects.nonNull(baseMapping))
+                    {
+                        baseUrl = baseMapping.value();
+                    }
+                    if (method.isAnnotationPresent(RequestMapping.class))
+                    {
+                        RequestMapping requestMapping = method.getAnnotation(RequestMapping.class);
+                        String[] uri = requestMapping.value();
+                        urls.addAll(rebuildUrl(baseUrl, uri));
+                    }
+                    else if (method.isAnnotationPresent(GetMapping.class))
+                    {
+                        GetMapping requestMapping = method.getAnnotation(GetMapping.class);
+                        String[] uri = requestMapping.value();
+                        urls.addAll(rebuildUrl(baseUrl, uri));
+                    }
+                    else if (method.isAnnotationPresent(PostMapping.class))
+                    {
+                        PostMapping requestMapping = method.getAnnotation(PostMapping.class);
+                        String[] uri = requestMapping.value();
+                        urls.addAll(rebuildUrl(baseUrl, uri));
+                    }
+                    else if (method.isAnnotationPresent(PutMapping.class))
+                    {
+                        PutMapping requestMapping = method.getAnnotation(PutMapping.class);
+                        String[] uri = requestMapping.value();
+                        urls.addAll(rebuildUrl(baseUrl, uri));
+                    }
+                    else if (method.isAnnotationPresent(DeleteMapping.class))
+                    {
+                        DeleteMapping requestMapping = method.getAnnotation(DeleteMapping.class);
+                        String[] uri = requestMapping.value();
+                        urls.addAll(rebuildUrl(baseUrl, uri));
+                    }
+                }
+            }
+        }
+        for (Object bean : restControllers.values())
+        {
+            Class<?> beanClass;
+            if (bean instanceof Advised)
+            {
+                beanClass = ((Advised) bean).getTargetSource().getTarget().getClass();
+            }
+            else
+            {
+                beanClass = bean.getClass();
+            }
+            if (beanClass.isAnnotationPresent(Anonymous.class))
+            {
+                RequestMapping baseMapping = beanClass.getAnnotation(RequestMapping.class);
+                if (Objects.nonNull(baseMapping))
+                {
+                    String[] baseUrl = baseMapping.value();
+                    for (String url : baseUrl)
+                    {
+                        urls.add(prefix(url) + "/*");
+                    }
+                    continue;
+                }
+            }
+
             Method[] methods = beanClass.getDeclaredMethods();
             for (Method method : methods)
             {

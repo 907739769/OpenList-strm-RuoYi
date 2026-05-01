@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: osr-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root123456
+      MYSQL_DATABASE: osr
+      MYSQL_CHARSET: utf8mb4
+      MYSQL_COLLATION: utf8mb4_general_ci
+      TZ: Asia/Shanghai
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    command:
+      - --default-authentication-plugin=mysql_native_password
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_general_ci
+      - --max-connections=500
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot123456"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: osr-backend
+    restart: always
+    ports:
+      - "6895:6895"
+    environment:
+      SPRING_PROFILES_ACTIVE: druid
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_PASSWORD: root123456
+      CIPHER_KEY: d34db33f42d3d3ad10b3d3ad34db33f0
+      TZ: Asia/Shanghai
+    depends_on:
+      mysql:
+        condition: service_healthy
+    volumes:
+      - /data/upload:/data/upload
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: osr-frontend
+    restart: always
+    ports:
+      - "80:80"
+    environment:
+      VITE_APP_BASE_API: /api
+    depends_on:
+      - backend
+
+volumes:
+  mysql-data:

@@ -8,10 +8,8 @@ import com.ruoyi.system.domain.SysUserOnline;
 import com.ruoyi.system.mapper.SysUserOnlineMapper;
 import com.ruoyi.system.service.ISysUserOnlineService;
 import org.apache.shiro.cache.Cache;
-import org.apache.shiro.cache.ehcache.EhCacheManager;
+import org.apache.shiro.cache.CacheManager;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.io.Serializable;
@@ -37,7 +35,6 @@ public class SysUserOnlineServiceImpl implements ISysUserOnlineService
      * @return 在线用户信息
      */
     @Override
-    @Cacheable(value = "onlineUser", key = "#sessionId")
     public SysUserOnline selectOnlineById(String sessionId)
     {
         return userOnlineDao.selectOnlineById(sessionId);
@@ -50,7 +47,6 @@ public class SysUserOnlineServiceImpl implements ISysUserOnlineService
      * @return 在线用户信息
      */
     @Override
-    @CacheEvict(value = "onlineUser", key = "#sessionId")
     public void deleteOnlineById(String sessionId)
     {
         SysUserOnline userOnline = selectOnlineById(sessionId);
@@ -107,7 +103,6 @@ public class SysUserOnlineServiceImpl implements ISysUserOnlineService
      * @param sessionId 会话ID
      */
     @Override
-    @CacheEvict(value = "onlineUser", key = "#sessionId")
     public void forceLogout(String sessionId)
     {
         userOnlineDao.deleteOnlineById(sessionId);
@@ -122,8 +117,8 @@ public class SysUserOnlineServiceImpl implements ISysUserOnlineService
     @Override
     public void removeUserCache(String loginName, String sessionId)
     {
-        EhCacheManager ehCacheManager = SpringUtils.getBean(EhCacheManager.class);
-        Cache<String, Deque<Serializable>> cache = ehCacheManager.getCache(ShiroConstants.SYS_USERCACHE);
+        CacheManager cacheManager = SpringUtils.getBean(CacheManager.class);
+        Cache<String, Deque<Serializable>> cache = cacheManager.getCache(ShiroConstants.SYS_USERCACHE);
         Deque<Serializable> deque = cache.get(loginName);
         if (StringUtils.isEmpty(deque) || deque.size() == 0)
         {

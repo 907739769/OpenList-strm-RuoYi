@@ -17,31 +17,12 @@
 
     <dependencies>
 
-        <!-- SpringBoot集成thymeleaf模板 -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-thymeleaf</artifactId>
-        </dependency>
-
         <!-- spring-boot-devtools -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-devtools</artifactId>
             <optional>true</optional> <!-- 表示依赖不会传递 -->
         </dependency>
-
-        <!-- swagger3-->
-<!--        <dependency>-->
-<!--            <groupId>io.springfox</groupId>-->
-<!--            <artifactId>springfox-boot-starter</artifactId>-->
-<!--        </dependency>-->
-
-        <!-- 防止进入swagger页面报类型转换错误，排除3.0.0中的引用，手动增加1.6.2版本 -->
-<!--        <dependency>-->
-<!--            <groupId>io.swagger</groupId>-->
-<!--            <artifactId>swagger-models</artifactId>-->
-<!--            <version>1.6.2</version>-->
-<!--        </dependency>-->
 
         <!-- Mysql驱动包 -->
         <dependency>
@@ -61,21 +42,15 @@
             <artifactId>ruoyi-quartz</artifactId>
         </dependency>
 
-        <!-- 代码生成-->
-        <dependency>
-            <groupId>com.ruoyi</groupId>
-            <artifactId>ruoyi-generator</artifactId>
-        </dependency>
-
         <dependency>
             <groupId>com.ruoyi</groupId>
             <artifactId>ruoyi-openliststrm</artifactId>
         </dependency>
 
+        <!-- knife4j-openapi3-jakarta-spring-boot-starter (Spring Boot 3.x compatible) -->
         <dependency>
             <groupId>com.github.xiaoymin</groupId>
-            <artifactId>knife4j-spring-boot-starter</artifactId>
-            <version>3.0.3</version>
+            <artifactId>knife4j-openapi3-jakarta-spring-boot-starter</artifactId>
         </dependency>
 
     </dependencies>
@@ -85,7 +60,7 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
-                <version>2.5.15</version>
+                <version>3.2.5</version>
                 <configuration>
                     <fork>true</fork> <!-- 如果没有该配置，devtools不会生效 -->
                 </configuration>
@@ -106,39 +81,6 @@
                     <warName>${project.artifactId}</warName>
                 </configuration>   
             </plugin>   
-            <!-- YUI Compressor (CSS/JS压缩) 
-            <plugin>
-                <groupId>net.alchim31.maven</groupId>
-                <artifactId>yuicompressor-maven-plugin</artifactId>
-                <version>1.5.1</version>
-                <executions>
-                    <execution>
-                        <phase>prepare-package</phase>
-                        <goals>
-                            <goal>compress</goal>
-                        </goals>
-                    </execution>
-                </executions>
-                <configuration>
-                    <encoding>UTF-8</encoding>
-                    <jswarn>false</jswarn>
-                    <nosuffix>true</nosuffix>
-                    <linebreakpos>50000</linebreakpos>
-                    <sourceDirectory>src/main/resources/static</sourceDirectory>
-                    <force>true</force>
-                    <includes>
-                        <include>**/*.js</include>
-                        <include>**/*.css</include>
-                    </includes>
-                    <excludes>
-                        <exclude>**/*.min.js</exclude>
-                        <exclude>**/*.min.css</exclude>
-                        <exclude>**/fileinput.js</exclude>
-                        <exclude>**/validate/**</exclude>
-                        <exclude>**/bootstrap-table/**</exclude>
-                    </excludes>
-                </configuration>
-            </plugin> -->
         </plugins>
         <finalName>${project.artifactId}</finalName>
     </build>

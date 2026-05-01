@@ -1,79 +1,77 @@
 package com.ruoyi.framework.shiro.web.filter.captcha;
 
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
-import javax.servlet.http.HttpServletRequest;
-import org.apache.shiro.web.filter.AccessControlFilter;
 import com.google.code.kaptcha.Constants;
 import com.ruoyi.common.constant.ShiroConstants;
 import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.common.utils.StringUtils;
+import jakarta.servlet.Filter;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.apache.shiro.SecurityUtils;
+import org.apache.shiro.subject.Subject;
 
-/**
- * 验证码过滤器
- * 
- * @author ruoyi
- */
-public class CaptchaValidateFilter extends AccessControlFilter
-{
-    /**
-     * 是否开启验证码
-     */
+import java.io.IOException;
+
+public class CaptchaValidateFilter implements Filter {
+
     private boolean captchaEnabled = true;
-
-    /**
-     * 验证码类型
-     */
     private String captchaType = "math";
 
-    public void setCaptchaEnabled(boolean captchaEnabled)
-    {
-        this.captchaEnabled = captchaEnabled;
-    }
-
-    public void setCaptchaType(String captchaType)
-    {
-        this.captchaType = captchaType;
+    @Override
+    public void init(jakarta.servlet.FilterConfig filterConfig) throws ServletException {
     }
 
     @Override
-    public boolean onPreHandle(ServletRequest request, ServletResponse response, Object mappedValue) throws Exception
-    {
+    public void doFilter(jakarta.servlet.ServletRequest request, jakarta.servlet.ServletResponse response, FilterChain chain)
+            throws IOException, ServletException {
         request.setAttribute(ShiroConstants.CURRENT_ENABLED, captchaEnabled);
         request.setAttribute(ShiroConstants.CURRENT_TYPE, captchaType);
-        return super.onPreHandle(request, response, mappedValue);
-    }
 
-    @Override
-    protected boolean isAccessAllowed(ServletRequest request, ServletResponse response, Object mappedValue)
-            throws Exception
-    {
+        if (!captchaEnabled) {
+            chain.doFilter(request, response);
+            return;
+        }
+
         HttpServletRequest httpServletRequest = (HttpServletRequest) request;
-        // 验证码禁用 或不是表单提交 允许访问
-        if (captchaEnabled == false || !"post".equals(httpServletRequest.getMethod().toLowerCase()))
-        {
-            return true;
+        if (!"post".equals(httpServletRequest.getMethod().toLowerCase())) {
+            chain.doFilter(request, response);
+            return;
         }
-        return validateResponse(httpServletRequest, httpServletRequest.getParameter(ShiroConstants.CURRENT_VALIDATECODE));
-    }
 
-    public boolean validateResponse(HttpServletRequest request, String validateCode)
-    {
-        Object obj = ShiroUtils.getSession().getAttribute(Constants.KAPTCHA_SESSION_KEY);
-        String code = String.valueOf(obj != null ? obj : "");
-        // 验证码清除，防止多次使用。
-        request.getSession().removeAttribute(Constants.KAPTCHA_SESSION_KEY);
-        if (StringUtils.isEmpty(validateCode) || !validateCode.equalsIgnoreCase(code))
-        {
-            return false;
+        String validateCode = httpServletRequest.getParameter(ShiroConstants.CURRENT_VALIDATECODE);
+        String code = null;
+        try {
+            Subject subject = SecurityUtils.getSubject();
+            if (subject.getSession() != null) {
+                code = String.valueOf(subject.getSession().getAttribute(Constants.KAPTCHA_SESSION_KEY));
+            }
+        } catch (Exception e) {
+            code = "";
         }
-        return true;
+
+        if (StringUtils.isEmpty(validateCode) || !validateCode.equalsIgnoreCase(code)) {
+            request.setAttribute(ShiroConstants.CURRENT_CAPTCHA, ShiroConstants.CAPTCHA_ERROR);
+            chain.doFilter(request, response);
+            return;
+        }
+
+        try {
+            Subject subject = SecurityUtils.getSubject();
+            if (subject.getSession() != null) {
+                subject.getSession().removeAttribute(Constants.KAPTCHA_SESSION_KEY);
+            }
+        } catch (Exception e) {
+        }
+
+        chain.doFilter(request, response);
     }
 
     @Override
-    protected boolean onAccessDenied(ServletRequest request, ServletResponse response) throws Exception
-    {
-        request.setAttribute(ShiroConstants.CURRENT_CAPTCHA, ShiroConstants.CAPTCHA_ERROR);
-        return true;
+    public void destroy() {
     }
+
+    public void setCaptchaEnabled(boolean captchaEnabled) { this.captchaEnabled = captchaEnabled; }
+    public void setCaptchaType(String captchaType) { this.captchaType = captchaType; }
 }

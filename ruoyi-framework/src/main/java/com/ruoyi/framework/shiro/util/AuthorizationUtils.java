@@ -16,7 +16,14 @@ public class AuthorizationUtils
      */
     public static void clearAllCachedAuthorizationInfo()
     {
-        getUserRealm().clearAllCachedAuthorizationInfo();
+        try {
+            UserRealm realm = getUserRealm();
+            if (realm != null) {
+                realm.clearAllCachedAuthorizationInfo();
+            }
+        } catch (Exception e) {
+            // Shiro cache not available (e.g., under JWT auth) — safe to ignore
+        }
     }
 
     /**
@@ -24,7 +31,16 @@ public class AuthorizationUtils
      */
     public static UserRealm getUserRealm()
     {
-        RealmSecurityManager rsm = (RealmSecurityManager) SecurityUtils.getSecurityManager();
-        return (UserRealm) rsm.getRealms().iterator().next();
+        Object securityManager = SecurityUtils.getSecurityManager();
+        if (securityManager instanceof RealmSecurityManager) {
+            RealmSecurityManager rsm = (RealmSecurityManager) securityManager;
+            Iterable<org.apache.shiro.realm.Realm> realms = rsm.getRealms();
+            for (org.apache.shiro.realm.Realm realm : realms) {
+                if (realm instanceof UserRealm) {
+                    return (UserRealm) realm;
+                }
+            }
+        }
+        return null;
     }
 }

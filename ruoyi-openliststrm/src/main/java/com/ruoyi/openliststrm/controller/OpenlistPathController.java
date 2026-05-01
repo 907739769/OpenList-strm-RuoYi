@@ -1,7 +1,7 @@
 package com.ruoyi.openliststrm.controller;
 
-import com.alibaba.fastjson.JSONArray;
-import com.alibaba.fastjson.JSONObject;
+import com.alibaba.fastjson2.JSONArray;
+import com.alibaba.fastjson2.JSONObject;
 import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.openliststrm.api.OpenlistApi;

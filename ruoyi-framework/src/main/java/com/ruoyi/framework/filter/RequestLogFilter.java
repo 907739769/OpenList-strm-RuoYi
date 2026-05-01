@@ -1,31 +1,28 @@
 package com.ruoyi.framework.filter;
 
 import com.ruoyi.common.utils.ThreadTraceIdUtil;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartHttpServletRequest;
 import org.springframework.web.util.ContentCachingRequestWrapper;
 
-import javax.servlet.*;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.*;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-/**
- * @Author Jack
- * @Date 2025/7/23 21:23
- * @Version 1.0.0
- */
 @Component
-@Slf4j
-@Order(1) // 在 RequestWrapperFilter 后执行，拿到缓存请求体
+@Order(1)
 public class RequestLogFilter implements Filter {
+
+    private static final Logger log = LoggerFactory.getLogger(RequestLogFilter.class);
 
     private static final List<String> EXCLUDE_PARAMS = Arrays.asList("password");
     private static final int MAX_PARAM_LENGTH = 200;

@@ -17,39 +17,29 @@
 
     <dependencies>
 
-        <!-- Spring框架基本的核心工具 -->
-        <dependency>
-            <groupId>org.springframework</groupId>
-            <artifactId>spring-context-support</artifactId>
-        </dependency>
-
         <!-- SpringWeb模块 -->
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-web</artifactId>
         </dependency>
 
-        <!--Shiro核心框架 -->
+        <!--Shiro核心框架 (Jakarta EE 9+ compatible) -->
         <dependency>
             <groupId>org.apache.shiro</groupId>
             <artifactId>shiro-core</artifactId>
-        </dependency>
-        
-        <!-- Shiro使用EhCache缓存框架 -->
-        <dependency>
-            <groupId>org.apache.shiro</groupId>
-            <artifactId>shiro-ehcache</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-cache</artifactId>
+            <classifier>jakarta</classifier>
         </dependency>
 
         <!-- pagehelper 分页插件 -->
         <dependency>
             <groupId>com.github.pagehelper</groupId>
             <artifactId>pagehelper-spring-boot-starter</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.github.jsqlparser</groupId>
+                    <artifactId>jsqlparser</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <!-- 自定义验证注解 -->
@@ -70,10 +60,10 @@
             <artifactId>jackson-databind</artifactId>
         </dependency>
 
-        <!-- 阿里JSON解析器 -->
+        <!-- 阿里JSON解析器 (FastJSON2) -->
         <dependency>
-            <groupId>com.alibaba</groupId>
-            <artifactId>fastjson</artifactId>
+            <groupId>com.alibaba.fastjson2</groupId>
+            <artifactId>fastjson2</artifactId>
         </dependency>
 
         <!-- io常用工具类 -->
@@ -94,22 +84,29 @@
             <artifactId>yauaa</artifactId>
         </dependency>
 
-        <!-- servlet包 -->
+        <!-- Jakarta EE 9+ servlet API (Spring Boot 3.x) -->
         <dependency>
-            <groupId>javax.servlet</groupId>
-            <artifactId>javax.servlet-api</artifactId>
+            <groupId>jakarta.servlet</groupId>
+            <artifactId>jakarta.servlet-api</artifactId>
         </dependency>
 
+        <!-- MyBatis-Plus (Spring Boot 3.x compatible) -->
         <dependency>
             <groupId>com.baomidou</groupId>
-            <artifactId>mybatis-plus-boot-starter</artifactId>
-            <version>3.5.3</version>
+            <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
+            <version>3.5.7</version>
         </dependency>
 
         <dependency>
             <groupId>com.baomidou</groupId>
             <artifactId>mybatis-plus-generator</artifactId>
-            <version>3.5.3</version>
+            <version>3.5.7</version>
+        </dependency>
+        <!-- MyBatis 3.5.16 for MyBatis-Plus 3.5.6 compatibility -->
+        <dependency>
+            <groupId>org.mybatis</groupId>
+            <artifactId>mybatis</artifactId>
+            <version>3.5.16</version>
         </dependency>
         <dependency>
             <groupId>org.freemarker</groupId>
@@ -126,6 +123,27 @@
             <groupId>org.springframework</groupId>
             <artifactId>spring-test</artifactId>
             <scope>compile</scope> <!-- 注意这里用 compile 而不是 test -->
+        </dependency>
+
+        <!-- JWT (jjwt) -->
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-impl</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-jackson</artifactId>
+        </dependency>
+
+        <!-- Spring Security (for CurrentUserService, provided by ruoyi-framework at runtime) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+            <scope>provided</scope>
         </dependency>
 
     </dependencies>
