@@ -116,8 +116,7 @@ import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getDictDataListApi, addDictDataApi, updateDictDataApi, deleteDictDataApi, getDictTypeListApi } from '@/api/system/dict'
 import type { FormInstance } from 'element-plus'
-import type { SearchParams } from '@/types'
-import type { SysDictData } from '@/types/system'
+import type { SearchParams, PageResult } from '@/types'
 
 const route = useRoute()
 
@@ -157,10 +156,16 @@ const { form } = toRefs(data)
 const getList = async () => {
   loading.value = true
   try {
-    const dictType = route.params.dictId as string
-    const res = await getDictDataListApi(dictType) as SysDictData[]
-    dataList.value = res
-    total.value = res.length
+    const dictType = route.query.dictType as string
+    if (!dictType) {
+      dataList.value = []
+      total.value = 0
+      return
+    }
+    queryParams.dictType = dictType
+    const res = await getDictDataListApi(dictType) as PageResult
+    dataList.value = res.records
+    total.value = res.total
   } catch (error) {
     console.error(error)
   } finally {
@@ -257,14 +262,11 @@ const submitForm = async () => {
 
 const queryRef = ref<FormInstance>()
 
-watch(() => route.params.dictId, async (val) => {
+watch(() => route.query.dictType, async (val) => {
   if (val) {
-    const selectedType = typeOptions.value.find((item: any) => item.dictId === Number(val))
-    if (selectedType) {
-      queryParams.dictType = selectedType.dictType
-      loadDictTypeList()
-      getList()
-    }
+    queryParams.dictType = val as string
+    loadDictTypeList()
+    getList()
   }
 }, { immediate: true })
 

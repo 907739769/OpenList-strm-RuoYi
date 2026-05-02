@@ -191,7 +191,7 @@ const handleDelete = async (row?: any) => {
 }
 
 const handleData = (row: any) => {
-  router.push(`/system/dict/data/${row.dictId}`)
+  router.push({ path: '/system/dict/data', query: { dictType: row.dictType } })
 }
 
 const reset = () => {

@@ -11,7 +11,6 @@ import com.ruoyi.framework.manager.AsyncManager;
 import com.ruoyi.openliststrm.enums.StrmStatusEnum;
 import com.ruoyi.openliststrm.mybatisplus.domain.RenameDetailPlus;
 import com.ruoyi.openliststrm.mybatisplus.service.IRenameDetailPlusService;
-import com.ruoyi.openliststrm.service.IRenameDetailService;
 import com.ruoyi.openliststrm.rename.RenameTaskManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -33,9 +32,6 @@ import java.util.stream.Collectors;
 @CrossOrigin
 public class RenameDetailRestController extends BaseController
 {
-    @Autowired
-    private IRenameDetailService renameDetailService;
-
     @Autowired
     private RenameTaskManager renameTaskManager;
 

@@ -107,7 +107,7 @@ function renderChart(chart: echarts.ECharts, data: Record<string, number>, range
   } else {
     chart.clear()
     chart.setOption({
-      title: { text: title, left: 'center', top: 'center', textStyle: { fontSize: 14, color: '#888' } },
+      title: { text: '暂无数据', left: 'center', top: 'center', textStyle: { fontSize: 14, color: '#888' } },
       series: []
     }, true)
   }

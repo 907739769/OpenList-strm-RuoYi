@@ -23,7 +23,7 @@ export function deleteDictTypeApi(dictId: number) {
 }
 
 export function getDictDataListApi(dictType: string) {
-  return request.get<any, SysDictData[]>(`/system/dict/data/type/${dictType}`)
+  return request.get<any, PageResult<SysDictData[]>>('/system/dict/data/list', { params: { dictType } })
 }
 
 export function addDictDataApi(data: SysDictData) {
