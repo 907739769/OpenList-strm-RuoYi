@@ -133,7 +133,7 @@ const userStore = useUserStore()
 const showPasswordDialog = ref(false)
 
 const activeMenu = computed(() => route.path)
-const sidebarMenus = computed(() => userStore.routes)
+const sidebarMenus = computed(() => userStore.routes.filter((r: any) => r.meta?.hidden !== true))
 
 const toggleSidebar = () => {
   appStore.toggleSidebar()
