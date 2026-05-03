@@ -1,5 +1,5 @@
 <template>
-  <div class="app-container">
+  <div class="page-container">
     <el-card>
       <el-form :model="queryParams" ref="queryRef" :inline="true" label-width="68px">
         <el-form-item label="任务名称" prop="jobName">
@@ -33,7 +33,6 @@
         <el-col :span="1.5">
           <el-button type="danger" plain icon="Delete" :disabled="multiple" @click="handleDelete()">删除</el-button>
         </el-col>
-        <right-toolbar v-model:showSearch="showSearch" @queryTable="getList" />
       </el-row>
 
       <el-table v-loading="loading" :data="jobList" @selection-change="handleSelectionChange">
@@ -62,7 +61,17 @@
         </el-table-column>
       </el-table>
 
-      <pagination v-show="total > 0" :total="total" v-model:page="queryParams.pageNum" v-model:limit="queryParams.pageSize" @pagination="getList" />
+      <div class="pagination-wrapper">
+        <el-pagination
+          v-model:current-page="queryParams.pageNum"
+          v-model:page-size="queryParams.pageSize"
+          :total="total"
+          :page-sizes="[10, 20, 50]"
+          layout="total, sizes, prev, pager, next, jumper"
+          @current-change="getList"
+          @size-change="getList"
+        />
+      </div>
     </el-card>
 
     <!-- Add/Edit Dialog -->
@@ -136,7 +145,6 @@ import type { SearchParams, PageResult } from '@/types'
 
 const jobList = ref<any[]>([])
 const loading = ref(true)
-const showSearch = ref(true)
 const total = ref(0)
 const single = ref(true)
 const multiple = ref(true)
@@ -278,7 +286,22 @@ getList()
 </script>
 
 <style scoped lang="scss">
-.app-container { padding: 16px; }
-.mb8 { margin-bottom: 8px; }
-.cron-desc { line-height: 2; color: #606266; }
+.page-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pagination-wrapper {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+@media (max-width: 768px) {
+  .page-container :deep(.el-form) {
+    .el-form-item { margin-right: 0; }
+    .el-input, .el-select { width: 100% !important; }
+  }
+}
 </style>

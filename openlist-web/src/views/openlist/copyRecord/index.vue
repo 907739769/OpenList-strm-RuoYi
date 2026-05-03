@@ -1,5 +1,5 @@
 <template>
-  <div class="app-container">
+  <div class="page-container">
     <el-card>
       <el-form :model="queryParams" ref="queryRef" :inline="true" label-width="80px">
         <el-form-item label="源目录" prop="copySrcPath">
@@ -47,7 +47,6 @@
         <el-col :span="1.5">
           <el-button type="primary" plain icon="Refresh" :disabled="multiple" @click="handleBatchRetry()">批量重试</el-button>
         </el-col>
-        <right-toolbar v-model:showSearch="showSearch" @queryTable="getList" />
       </el-row>
 
       <el-table v-loading="loading" :data="recordList" @selection-change="handleSelectionChange">
@@ -85,7 +84,17 @@
         </el-table-column>
       </el-table>
 
-      <pagination v-show="total > 0" :total="total" v-model:page="queryParams.pageNum" v-model:limit="queryParams.pageSize" @pagination="getList" />
+      <div class="pagination-wrapper">
+        <el-pagination
+          v-model:current-page="queryParams.pageNum"
+          v-model:page-size="queryParams.pageSize"
+          :total="total"
+          :page-sizes="[10, 20, 50]"
+          layout="total, sizes, prev, pager, next, jumper"
+          @current-change="getList"
+          @size-change="getList"
+        />
+      </div>
     </el-card>
   </div>
 </template>
@@ -98,7 +107,6 @@ import type { SearchParams, PageResult } from '@/types'
 
 const recordList = ref<any[]>([])
 const loading = ref(true)
-const showSearch = ref(true)
 const total = ref(0)
 const multiple = ref(true)
 const selectedIds = ref<number[]>([])
@@ -206,13 +214,22 @@ getList()
 </script>
 
 <style scoped lang="scss">
-.app-container { padding: 16px; }
-.mb8 { margin-bottom: 8px; }
-.file-change-box { display: flex; flex-direction: column; width: 100%; }
-.file-row { margin-bottom: 6px; width: 100%; display: flex; align-items: baseline; }
-.file-label { display: inline-block; padding: 1px 4px; font-size: 10px; font-weight: bold; color: #fff; border-radius: 3px; margin-right: 4px; flex-shrink: 0; width: 24px; text-align: center; }
-.label-src { background-color: #f8ac59; }
-.label-dst { background-color: #1ab394; }
-.file-name { font-size: 13px; color: #333; font-weight: 600; line-height: 1.4; }
-.file-path { color: #999; font-size: 11px; margin-top: 2px; line-height: 1.2; padding-left: 28px; font-family: Consolas, "Courier New", monospace; }
+.page-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pagination-wrapper {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+@media (max-width: 768px) {
+  .page-container :deep(.el-form) {
+    .el-form-item { margin-right: 0; }
+    .el-input, .el-select { width: 100% !important; }
+  }
+}
 </style>
