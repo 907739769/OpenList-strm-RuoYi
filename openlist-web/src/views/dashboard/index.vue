@@ -1,75 +1,86 @@
 <template>
-  <div class="dashboard-container">
-    <el-row :gutter="20">
-      <el-col :span="8">
-        <div class="chart-card">
-          <div class="chart-header">
-            <strong>COPY任务</strong>
-            <el-select v-model="copyRange" size="small" style="width: 100px" @change="loadCopyChart">
-              <el-option label="今日" value="today" />
-              <el-option label="昨日" value="yesterday" />
-              <el-option label="全部" value="all" />
-            </el-select>
+  <div class="dashboard">
+    <!-- Stat Cards -->
+    <el-row :gutter="16" class="stat-row">
+      <el-col :xs="12" :sm="8" :md="6" v-for="(stat, index) in statCards" :key="index">
+        <el-card class="stat-card" :class="stat.type">
+          <div class="stat-icon">
+            <el-icon :size="28"><component :is="stat.icon" /></el-icon>
           </div>
-          <div ref="copyChartRef" class="echarts-container"></div>
-        </div>
+          <div class="stat-info">
+            <div class="stat-value">{{ stat.value }}</div>
+            <div class="stat-label">{{ stat.label }}</div>
+          </div>
+        </el-card>
       </el-col>
-      <el-col :span="8">
-        <div class="chart-card">
-          <div class="chart-header">
-            <strong>STRM任务</strong>
-            <el-select v-model="strmRange" size="small" style="width: 100px" @change="loadStrmChart">
-              <el-option label="今日" value="today" />
-              <el-option label="昨日" value="yesterday" />
-              <el-option label="全部" value="all" />
-            </el-select>
-          </div>
-          <div ref="strmChartRef" class="echarts-container"></div>
-        </div>
-      </el-col>
-      <el-col :span="8">
-        <div class="chart-card">
-          <div class="chart-header">
-            <strong>Rename任务</strong>
-            <el-select v-model="renameRange" size="small" style="width: 100px" @change="loadRenameChart">
-              <el-option label="今日" value="today" />
-              <el-option label="昨日" value="yesterday" />
-              <el-option label="全部" value="all" />
-            </el-select>
-          </div>
-          <div ref="renameChartRef" class="echarts-container"></div>
-        </div>
+    </el-row>
+
+    <!-- Charts -->
+    <el-row :gutter="16" class="chart-row">
+      <el-col :xs="24" :sm="24" :md="8" v-for="(chart, index) in chartData" :key="index">
+        <el-card class="chart-card">
+          <template #header>
+            <div class="chart-header">
+              <span class="chart-title">{{ chart.title }}</span>
+              <el-select v-model="chart.range" size="small" style="width: 90px" @change="chart.load()">
+                <el-option label="今日" value="today" />
+                <el-option label="昨日" value="yesterday" />
+                <el-option label="全部" value="all" />
+              </el-select>
+            </div>
+          </template>
+          <div :ref="chart.refKey" class="echarts-container" />
+        </el-card>
       </el-col>
     </el-row>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick, type Ref } from 'vue'
 import * as echarts from 'echarts'
 import { getCopyStatsApi, getStrmStatsApi, getRenameStatsApi } from '@/api/openlist/dashboard'
+import { Files, VideoCamera, EditPen, CircleCheck, CircleClose, Loading } from '@element-plus/icons-vue'
+import type { Component } from 'vue'
 
-const copyRange = ref('today')
-const strmRange = ref('today')
-const renameRange = ref('today')
-const copyChartRef = ref<HTMLElement | null>(null)
-const strmChartRef = ref<HTMLElement | null>(null)
-const renameChartRef = ref<HTMLElement | null>(null)
+interface StatCard {
+  label: string
+  value: number | string
+  icon: Component
+  type: 'primary' | 'success' | 'warning' | 'info'
+}
 
+interface ChartData {
+  title: string
+  range: string
+  refKey: string
+  load: () => Promise<void>
+  chart: echarts.ECharts | null
+}
+
+const statCards = ref<StatCard[]>([])
 let copyChart: echarts.ECharts | null = null
 let strmChart: echarts.ECharts | null = null
 let renameChart: echarts.ECharts | null = null
 
+const chartRefs: Record<string, Ref<HTMLElement | null>> = {
+  copyChartRef: ref(null),
+  strmChartRef: ref(null),
+  renameChartRef: ref(null)
+}
+
+const chartData = ref<ChartData[]>([])
+
 let resizeHandler: (() => void) | null = null
 
 const colorMap: Record<string, string> = {
-  '成功': '#4BC0C0',
-  '失败': '#FF6384',
-  '未知': '#FFCE56',
-  '处理中': '#36A2EB'
+  '成功': '#22c55e',
+  '失败': '#ef4444',
+  '未知': '#f59e0b',
+  '处理中': '#0d9488'
 }
 
-const defaultColors = ['#466dbd', '#50c295', '#b98f15', '#b44e36', '#6DC8EC', '#9270CA', '#FF9D4D', '#269A99']
+const defaultColors = ['#0d9488', '#22c55e', '#f59e0b', '#ef4444', '#6366f1', '#8b5cf6', '#ec4899', '#14b8a6']
 
 function getColor(name: string): string {
   if (colorMap[name]) return colorMap[name]
@@ -89,17 +100,17 @@ function renderChart(chart: echarts.ECharts, data: Record<string, number>, range
 
   if (chartData.length > 0) {
     chart.setOption({
-      title: { text: title, left: 'left', textStyle: { fontSize: 12, fontWeight: 'normal', color: '#999' } },
+      title: { text: title, left: 'center', top: 'center', textStyle: { fontSize: 13, fontWeight: 'normal', color: '#64748b' } },
       tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
-      legend: { orient: 'vertical', right: 'left', data: chartData.map(d => d.name) },
       series: [{
         type: 'pie',
-        radius: ['40%', '70%'],
+        radius: ['35%', '65%'],
+        center: ['50%', '55%'],
         avoidLabelOverlap: false,
-        itemStyle: { borderRadius: 5, borderColor: '#fff', borderWidth: 2 },
-        label: { show: true, formatter: '{c}', position: 'inside' },
-        emphasis: { label: { show: false } },
-        labelLine: { show: false },
+        itemStyle: { borderRadius: 6, borderColor: '#fff', borderWidth: 3 },
+        label: { show: true, formatter: '{b}\n{c}', fontSize: 11 },
+        emphasis: { label: { show: true, fontSize: 13, fontWeight: 'bold' } },
+        labelLine: { length: 15, length2: 10 },
         minAngle: 5,
         data: chartData
       }]
@@ -107,61 +118,107 @@ function renderChart(chart: echarts.ECharts, data: Record<string, number>, range
   } else {
     chart.clear()
     chart.setOption({
-      title: { text: '暂无数据', left: 'center', top: 'center', textStyle: { fontSize: 14, color: '#888' } },
+      title: { text: '暂无数据', left: 'center', top: 'center', textStyle: { fontSize: 14, color: '#94a3b8' } },
       series: []
     }, true)
   }
 }
 
+async function initChart(chartRef: Ref<HTMLElement | null>, chartInstance: echarts.ECharts | null, loadFn: () => Promise<void>): Promise<ChartData> {
+  await nextTick()
+  const el = chartRef.value
+  if (el && !chartInstance) {
+    const chart = echarts.init(el)
+    await loadFn()
+    return {
+      title: '',
+      range: 'today',
+      refKey: '',
+      load: loadFn,
+      chart
+    }
+  }
+  return {
+    title: '',
+    range: 'today',
+    refKey: '',
+    load: loadFn,
+    chart: chartInstance
+  }
+}
+
 const loadCopyChart = async () => {
-  if (!copyChartRef.value) return
+  if (!chartRefs.copyChartRef.value) return
   if (!copyChart) {
     await nextTick()
-    copyChart = echarts.init(copyChartRef.value)
+    copyChart = echarts.init(chartRefs.copyChartRef.value)
   }
   try {
-    const data: any = await getCopyStatsApi(copyRange.value)
-    if (copyChart) renderChart(copyChart, data || {}, copyRange.value)
+    const data: any = await getCopyStatsApi('today')
+    if (copyChart) renderChart(copyChart, data || {}, 'today')
   } catch (e) {
     console.error('Failed to load copy stats:', e)
-    if (copyChart) renderChart(copyChart, {}, copyRange.value)
+    if (copyChart) renderChart(copyChart, {}, 'today')
   }
 }
 
 const loadStrmChart = async () => {
-  if (!strmChartRef.value) return
+  if (!chartRefs.strmChartRef.value) return
   if (!strmChart) {
     await nextTick()
-    strmChart = echarts.init(strmChartRef.value)
+    strmChart = echarts.init(chartRefs.strmChartRef.value)
   }
   try {
-    const data: any = await getStrmStatsApi(strmRange.value)
-    if (strmChart) renderChart(strmChart, data || {}, strmRange.value)
+    const data: any = await getStrmStatsApi('today')
+    if (strmChart) renderChart(strmChart, data || {}, 'today')
   } catch (e) {
     console.error('Failed to load strm stats:', e)
-    if (strmChart) renderChart(strmChart, {}, strmRange.value)
+    if (strmChart) renderChart(strmChart, {}, 'today')
   }
 }
 
 const loadRenameChart = async () => {
-  if (!renameChartRef.value) return
+  if (!chartRefs.renameChartRef.value) return
   if (!renameChart) {
     await nextTick()
-    renameChart = echarts.init(renameChartRef.value)
+    renameChart = echarts.init(chartRefs.renameChartRef.value)
   }
   try {
-    const data: any = await getRenameStatsApi(renameRange.value)
-    if (renameChart) renderChart(renameChart, data || {}, renameRange.value)
+    const data: any = await getRenameStatsApi('today')
+    if (renameChart) renderChart(renameChart, data || {}, 'today')
   } catch (e) {
     console.error('Failed to load rename stats:', e)
-    if (renameChart) renderChart(renameChart, {}, renameRange.value)
+    if (renameChart) renderChart(renameChart, {}, 'today')
   }
 }
 
-onMounted(() => {
-  loadCopyChart()
-  loadStrmChart()
-  loadRenameChart()
+onMounted(async () => {
+  // Initialize charts
+  const copyTask = initChart(chartRefs.copyChartRef, copyChart, loadCopyChart)
+  const strmTask = initChart(chartRefs.strmChartRef, strmChart, loadStrmChart)
+  const renameTask = initChart(chartRefs.renameChartRef, renameChart, loadRenameChart)
+
+  const [copy, strm, rename] = await Promise.all([copyTask, strmTask, renameTask])
+
+  copyChart = copy.chart
+  strmChart = strm.chart
+  renameChart = rename.chart
+
+  chartData.value = [
+    { title: 'COPY 任务', range: 'today', refKey: 'copyChartRef', load: loadCopyChart, chart: copyChart },
+    { title: 'STRM 任务', range: 'today', refKey: 'strmChartRef', load: loadStrmChart, chart: strmChart },
+    { title: 'Rename 任务', range: 'today', refKey: 'renameChartRef', load: loadRenameChart, chart: renameChart }
+  ]
+
+  // Update stat cards
+  statCards.value = [
+    { label: 'COPY 任务', value: '0', icon: Files, type: 'primary' },
+    { label: 'STRM 任务', value: '0', icon: VideoCamera, type: 'success' },
+    { label: 'Rename 任务', value: '0', icon: EditPen, type: 'warning' },
+    { label: '成功率', value: '--', icon: CircleCheck, type: 'info' },
+    { label: '失败数', value: '0', icon: CircleClose, type: 'warning' },
+    { label: '处理中', value: '0', icon: Loading, type: 'primary' }
+  ]
 
   resizeHandler = () => {
     copyChart?.resize()
@@ -180,34 +237,148 @@ onUnmounted(() => {
 </script>
 
 <style scoped lang="scss">
-.dashboard-container {
-  padding: 16px;
+.dashboard {
+  padding: 0;
+}
+
+/* ============================================
+   Stat Cards
+   ============================================ */
+.stat-row {
+  margin-bottom: 16px;
+}
+
+.stat-card {
+  border: none;
+  border-radius: var(--osr-radius-lg);
+  box-shadow: var(--osr-shadow-base);
+  cursor: default;
+  transition: all var(--osr-transition-base);
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--osr-shadow-md);
+  }
+
+  :deep(.el-card__body) {
+    display: flex;
+    align-items: center;
+    padding: 20px;
+    gap: 16px;
+  }
+
+  .stat-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: var(--osr-radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .stat-info {
+    flex: 1;
+    min-width: 0;
+
+    .stat-value {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--osr-text-primary);
+      line-height: 1.2;
+    }
+
+    .stat-label {
+      font-size: 13px;
+      color: var(--osr-text-secondary);
+      margin-top: 2px;
+    }
+  }
+
+  /* Color variants */
+  &.primary .stat-icon {
+    background-color: var(--osr-primary-light-9);
+    color: var(--osr-primary);
+  }
+  &.success .stat-icon {
+    background-color: var(--osr-success-light);
+    color: var(--osr-success);
+  }
+  &.warning .stat-icon {
+    background-color: var(--osr-warning-light);
+    color: var(--osr-warning);
+  }
+  &.info .stat-icon {
+    background-color: var(--osr-info-light);
+    color: var(--osr-info);
+  }
+}
+
+/* ============================================
+   Chart Cards
+   ============================================ */
+.chart-row {
+  margin-bottom: -16px;
 }
 
 .chart-card {
-  background: #fff;
-  border-radius: 6px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  padding: 12px;
-  height: 280px;
-  display: flex;
-  flex-direction: column;
+  border: none;
+  border-radius: var(--osr-radius-lg);
+  box-shadow: var(--osr-shadow-base);
+  margin-bottom: 16px;
+  transition: box-shadow var(--osr-transition-base);
+
+  &:hover {
+    box-shadow: var(--osr-shadow-md);
+  }
+
+  :deep(.el-card__header) {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--osr-border-light);
+    background-color: var(--osr-surface);
+  }
 }
 
 .chart-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
-}
 
-.chart-header strong {
-  font-size: 14px;
-  color: #333;
+  .chart-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--osr-text-primary);
+  }
 }
 
 .echarts-container {
-  flex: 1;
-  min-height: 220px;
+  height: 260px;
+  width: 100%;
+}
+
+/* ============================================
+   Responsive
+   ============================================ */
+@media (max-width: 768px) {
+  .stat-card :deep(.el-card__body) {
+    padding: 16px;
+  }
+
+  .stat-icon {
+    width: 44px !important;
+    height: 44px !important;
+  }
+
+  .stat-icon .el-icon {
+    font-size: 22px !important;
+  }
+
+  .stat-value {
+    font-size: 20px !important;
+  }
+
+  .echarts-container {
+    height: 220px !important;
+  }
 }
 </style>

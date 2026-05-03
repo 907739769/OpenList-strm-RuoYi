@@ -1,11 +1,8 @@
 <template>
-  <div class="app-container">
-    <el-card v-if="error">
-      <el-alert :title="'加载失败: ' + error" type="error" :closable="false" show-icon />
-      <el-button type="primary" @click="getList" style="margin-top: 12px;">重试</el-button>
-    </el-card>
-    <el-card v-else>
-      <el-form :model="queryParams" ref="queryRef" :inline="true" v-show="showSearch" label-width="80px">
+  <div class="page-container">
+    <!-- Search Panel -->
+    <el-card class="search-card">
+      <el-form :model="queryParams" ref="queryRef" :inline="true" label-width="80px">
         <el-form-item label="字典类型" prop="dictType">
           <el-select v-model="queryParams.dictType" placeholder="请选择字典类型" clearable @change="handleQuery">
             <el-option
@@ -26,63 +23,75 @@
           </el-select>
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
-          <el-button icon="Refresh" @click="resetQuery">重置</el-button>
+          <el-button type="primary" @click="handleQuery">
+            <el-icon><Search /></el-icon> 搜索
+          </el-button>
+          <el-button @click="resetQuery">
+            <el-icon><Refresh /></el-icon> 重置
+          </el-button>
         </el-form-item>
       </el-form>
+    </el-card>
 
-      <el-row :gutter="10" class="mb8">
-        <el-col :span="1.5">
-          <el-button type="primary" plain icon="Plus" @click="handleAdd">新增</el-button>
-        </el-col>
-        <el-col :span="1.5">
-          <el-button type="success" plain icon="Edit" :disabled="single" @click="handleUpdate()">修改</el-button>
-        </el-col>
-        <el-col :span="1.5">
-          <el-button type="danger" plain icon="Delete" :disabled="multiple" @click="handleDelete()">删除</el-button>
-        </el-col>
-        <el-col :span="1.5" style="margin-left: auto;">
-          <el-button icon="Search" @click="showSearch = !showSearch">{{ showSearch ? '隐藏搜索' : '显示搜索' }}</el-button>
-        </el-col>
-      </el-row>
+    <!-- Table Card -->
+    <el-card class="table-card">
+      <div class="action-bar">
+        <div class="action-left">
+          <el-button type="primary" @click="handleAdd">
+            <el-icon><Plus /></el-icon> 新增
+          </el-button>
+          <el-button type="danger" :disabled="multiple" @click="handleDelete">
+            <el-icon><Delete /></el-icon> 删除
+          </el-button>
+        </div>
+        <el-button text @click="showSearch = !showSearch">
+          <el-icon><Filter /></el-icon>
+          {{ showSearch ? '隐藏搜索' : '显示搜索' }}
+        </el-button>
+      </div>
 
-      <el-table v-loading="loading" :data="dataList" @selection-change="handleSelectionChange">
-        <el-table-column type="selection" width="55" align="center" />
-        <el-table-column label="字典编码" align="center" prop="dictCode" />
-        <el-table-column label="字典标签" align="center" prop="dictLabel" />
-        <el-table-column label="字典键值" align="center" prop="dictValue" />
-        <el-table-column label="字典排序" align="center" prop="dictSort" />
-        <el-table-column label="状态" align="center" prop="status">
+      <el-table v-loading="loading" :data="dataList" @selection-change="handleSelectionChange" class="modern-table">
+        <el-table-column type="selection" width="50" align="center" />
+        <el-table-column label="字典编码" prop="dictCode" width="100" align="center" />
+        <el-table-column label="字典标签" prop="dictLabel" min-width="120" />
+        <el-table-column label="字典键值" prop="dictValue" width="120" align="center" />
+        <el-table-column label="字典排序" prop="dictSort" width="90" align="center" />
+        <el-table-column label="状态" align="center" width="90">
           <template #default="scope">
-            <el-tag :type="scope.row.status === '0' ? 'success' : 'danger'">
+            <el-tag :type="scope.row.status === '0' ? 'success' : 'danger'" effect="light">
               {{ scope.row.status === '0' ? '正常' : '停用' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="备注" align="center" prop="remark" :show-overflow-tooltip="true" />
-        <el-table-column label="创建时间" align="center" prop="createTime" width="180" />
-        <el-table-column label="操作" align="center" class-name="small-padding fixed-width">
+        <el-table-column label="备注" prop="remark" min-width="120" show-overflow-tooltip />
+        <el-table-column label="创建时间" prop="createTime" width="170" align="center" />
+        <el-table-column label="操作" align="center" width="150" fixed="right">
           <template #default="scope">
-            <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)">修改</el-button>
-            <el-button link type="primary" icon="Delete" @click="handleDelete(scope.row)">删除</el-button>
+            <el-button link type="primary" @click="handleUpdate(scope.row)">
+              <el-icon><EditPen /></el-icon> 编辑
+            </el-button>
+            <el-button link type="danger" @click="handleDelete(scope.row)">
+              <el-icon><Delete /></el-icon> 删除
+            </el-button>
           </template>
         </el-table-column>
       </el-table>
 
-      <el-pagination
-        v-show="total > 0"
-        background
-        layout="total, sizes, prev, pager, next, jumper"
-        :total="total"
-        v-model:current-page="queryParams.pageNum"
-        v-model:page-size="queryParams.pageSize"
-        :page-sizes="[10, 20, 50]"
-        @current-change="getList"
-        @size-change="getList"
-      />
+      <div class="pagination-wrapper">
+        <el-pagination
+          v-model:current-page="queryParams.pageNum"
+          v-model:page-size="queryParams.pageSize"
+          :total="total"
+          :page-sizes="[10, 20, 50]"
+          layout="total, sizes, prev, pager, next, jumper"
+          @current-change="getList"
+          @size-change="getList"
+        />
+      </div>
     </el-card>
 
-    <el-dialog :title="title" v-model="open" width="500px" append-to-body>
+    <!-- Dialog -->
+    <el-dialog v-model="open" :title="title" width="520px" append-to-body class="modern-dialog">
       <el-form ref="dataRef" :model="form" :rules="rules" label-width="100px">
         <el-form-item label="字典类型">
           <el-input v-model="form.dictType" :disabled="true" placeholder="未选择字典类型" />
@@ -94,10 +103,10 @@
           <el-input v-model="form.dictValue" placeholder="请输入字典键值" />
         </el-form-item>
         <el-form-item label="字典排序" prop="dictSort">
-          <el-input-number v-model="form.dictSort" controls-position="right" :min="0" />
+          <el-input-number v-model="form.dictSort" controls-position="right" :min="0" style="width: 100%" />
         </el-form-item>
         <el-form-item label="回显样式" prop="listClass">
-          <el-select v-model="form.listClass" placeholder="回显样式">
+          <el-select v-model="form.listClass" placeholder="回显样式" style="width: 100%">
             <el-option label="默认" value="default" />
             <el-option label="主要" value="primary" />
             <el-option label="成功" value="success" />
@@ -125,13 +134,13 @@
 import { ref, reactive, toRefs, watch, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Search, Refresh, Plus, Delete, Filter, EditPen } from '@element-plus/icons-vue'
 import { getDictDataListApi, addDictDataApi, updateDictDataApi, deleteDictDataApi, getDictTypeListApi } from '@/api/system/dict'
 import type { FormInstance } from 'element-plus'
 import type { SearchParams } from '@/types'
 
 const route = useRoute()
 
-const error = ref<string>('')
 const dataList = ref<any[]>([])
 const loading = ref(true)
 const showSearch = ref(true)
@@ -166,7 +175,6 @@ const { form } = toRefs(data)
 const queryRef = ref<FormInstance>()
 
 const getList = async () => {
-  error.value = ''
   loading.value = true
   try {
     const dictType = route.query.dictType as string
@@ -175,20 +183,16 @@ const getList = async () => {
     } else {
       queryParams.dictType = undefined
     }
-    console.log('[dict/data] calling API with params:', { ...queryParams })
     const res = await getDictDataListApi(queryParams) as any
-    console.log('[dict/data] API response:', res)
     if (res && typeof res === 'object') {
       dataList.value = res.records || res.list || []
       total.value = res.total || res.totalCount || 0
-      console.log('[dict/data] loaded', total.value, 'items')
     } else {
       dataList.value = []
       total.value = 0
     }
   } catch (e: any) {
     console.error('[dict/data] error:', e)
-    error.value = e?.message || '加载失败'
     dataList.value = []
     total.value = 0
   } finally {
@@ -200,10 +204,8 @@ const loadDictTypeList = async () => {
   try {
     const res = await getDictTypeListApi({ pageNum: 1, pageSize: 1000 }) as any
     typeOptions.value = (res && res.records) ? res.records : (Array.isArray(res) ? res : [])
-    console.log('[dict/data] loaded', typeOptions.value.length, 'dict types')
   } catch (e: any) {
     console.error('[dict/data] load dict types error:', e)
-    error.value = '加载字典类型失败: ' + (e?.message || '')
     typeOptions.value = []
   }
 }
@@ -299,7 +301,6 @@ const submitForm = async () => {
 }
 
 watch(() => route.query.dictType, async (val) => {
-  console.log('[dict/data] dictType changed to:', val)
   queryParams.pageNum = 1
   if (val) {
     queryParams.dictType = val as string
@@ -310,12 +311,75 @@ watch(() => route.query.dictType, async (val) => {
   await getList()
 }, { immediate: true })
 
-console.log('[dict/data] component mounted, route:', route.path, route.query)
 loadDictTypeList()
 getList()
 </script>
 
 <style scoped lang="scss">
-.app-container { padding: 16px; }
-.mb8 { margin-bottom: 8px; }
+.page-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.search-card {
+  border: none;
+  border-radius: var(--osr-radius-lg);
+  box-shadow: var(--osr-shadow-base);
+
+  :deep(.el-card__body) {
+    padding: 16px 20px;
+  }
+}
+
+.table-card {
+  border: none;
+  border-radius: var(--osr-radius-lg);
+  box-shadow: var(--osr-shadow-base);
+  flex: 1;
+
+  :deep(.el-card__body) {
+    padding: 20px;
+  }
+}
+
+.action-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+
+  .action-left {
+    display: flex;
+    gap: 8px;
+  }
+}
+
+.pagination-wrapper {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+@media (max-width: 768px) {
+  .search-card :deep(.el-form) {
+    .el-form-item {
+      margin-right: 0;
+    }
+
+    .el-input,
+    .el-select {
+      width: 100% !important;
+    }
+  }
+
+  :deep(.el-table) {
+    font-size: 13px;
+  }
+
+  .action-bar {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}
 </style>
