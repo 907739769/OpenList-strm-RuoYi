@@ -33,50 +33,6 @@ export const constantRoutes: RouteRecordRaw[] = [
         meta: { title: '首页', icon: 'Odometer', affix: true }
       }
     ]
-  },
-  {
-    path: '/system',
-    component: Layout,
-    meta: { title: '系统管理', hidden: true },
-    children: [
-      {
-        path: 'dict/type',
-        name: 'DictType',
-        component: () => import('@/views/system/dict/type/index.vue'),
-        meta: { title: '字典类型' }
-      },
-      {
-        path: 'dict/data',
-        name: 'DictData',
-        component: () => import('@/views/system/dict/data/index.vue'),
-        meta: { title: '字典数据' }
-      },
-      {
-        path: 'config',
-        name: 'SysConfig',
-        component: () => import('@/views/system/config/index.vue'),
-        meta: { title: '系统配置' }
-      }
-    ]
-  },
-  {
-    path: '/monitor',
-    component: Layout,
-    meta: { title: '系统监控', hidden: true },
-    children: [
-      {
-        path: 'job',
-        name: 'Job',
-        component: () => import('@/views/monitor/job/index.vue'),
-        meta: { title: '定时任务' }
-      },
-      {
-        path: 'log',
-        name: 'JobLog',
-        component: () => import('@/views/monitor/log/realtime.vue'),
-        meta: { title: '实时日志' }
-      }
-    ]
   }
 ]
 
