@@ -22,8 +22,8 @@ export function deleteDictTypeApi(dictId: number) {
   return request.delete(`/system/dict/type/${dictId}`)
 }
 
-export function getDictDataListApi(dictType: string) {
-  return request.get<any, PageResult<SysDictData[]>>('/system/dict/data/list', { params: { dictType } })
+export function getDictDataListApi(params: { dictType?: string; dictLabel?: string; status?: string; pageNum?: number; pageSize?: number }) {
+  return request.get<any, PageResult<SysDictData[]>>('/system/dict/data/list', { params })
 }
 
 export function addDictDataApi(data: SysDictData) {

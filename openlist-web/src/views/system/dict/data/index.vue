@@ -1,13 +1,17 @@
 <template>
   <div class="app-container">
-    <el-card>
-      <el-form :model="queryParams" ref="queryRef" :inline="true" v-show="showSearch" label-width="68px">
-        <el-form-item label="字典名称" prop="dictType">
-          <el-select v-model="queryParams.dictType" placeholder="请选择字典类型">
+    <el-card v-if="error">
+      <el-alert :title="'加载失败: ' + error" type="error" :closable="false" show-icon />
+      <el-button type="primary" @click="getList" style="margin-top: 12px;">重试</el-button>
+    </el-card>
+    <el-card v-else>
+      <el-form :model="queryParams" ref="queryRef" :inline="true" v-show="showSearch" label-width="80px">
+        <el-form-item label="字典类型" prop="dictType">
+          <el-select v-model="queryParams.dictType" placeholder="请选择字典类型" clearable @change="handleQuery">
             <el-option
               v-for="item in typeOptions"
               :key="item.dictId"
-              :label="item.dictName"
+              :label="item.dictName + ' (' + item.dictType + ')'"
               :value="item.dictType"
             />
           </el-select>
@@ -16,7 +20,7 @@
           <el-input v-model="queryParams.dictLabel" placeholder="请输入标签名称" clearable @keyup.enter="handleQuery" />
         </el-form-item>
         <el-form-item label="状态" prop="status">
-          <el-select v-model="queryParams.status" placeholder="数据状态" clearable>
+          <el-select v-model="queryParams.status" placeholder="数据状态" clearable @change="handleQuery">
             <el-option label="正常" value="0" />
             <el-option label="停用" value="1" />
           </el-select>
@@ -37,14 +41,17 @@
         <el-col :span="1.5">
           <el-button type="danger" plain icon="Delete" :disabled="multiple" @click="handleDelete()">删除</el-button>
         </el-col>
-        <right-toolbar v-model:showSearch="showSearch" @queryTable="getList" />
+        <el-col :span="1.5" style="margin-left: auto;">
+          <el-button icon="Search" @click="showSearch = !showSearch">{{ showSearch ? '隐藏搜索' : '显示搜索' }}</el-button>
+        </el-col>
       </el-row>
 
       <el-table v-loading="loading" :data="dataList" @selection-change="handleSelectionChange">
         <el-table-column type="selection" width="55" align="center" />
         <el-table-column label="字典编码" align="center" prop="dictCode" />
-        <el-table-column label="标签名称" align="center" prop="dictLabel" />
-        <el-table-column label="键值值" align="center" prop="dictValue" />
+        <el-table-column label="字典标签" align="center" prop="dictLabel" />
+        <el-table-column label="字典键值" align="center" prop="dictValue" />
+        <el-table-column label="字典排序" align="center" prop="dictSort" />
         <el-table-column label="状态" align="center" prop="status">
           <template #default="scope">
             <el-tag :type="scope.row.status === '0' ? 'success' : 'danger'">
@@ -62,27 +69,31 @@
         </el-table-column>
       </el-table>
 
-      <pagination
+      <el-pagination
         v-show="total > 0"
+        background
+        layout="total, sizes, prev, pager, next, jumper"
         :total="total"
-        v-model:page="queryParams.pageNum"
-        v-model:limit="queryParams.pageSize"
-        @pagination="getList"
+        v-model:current-page="queryParams.pageNum"
+        v-model:page-size="queryParams.pageSize"
+        :page-sizes="[10, 20, 50]"
+        @current-change="getList"
+        @size-change="getList"
       />
     </el-card>
 
     <el-dialog :title="title" v-model="open" width="500px" append-to-body>
       <el-form ref="dataRef" :model="form" :rules="rules" label-width="100px">
         <el-form-item label="字典类型">
-          <el-input v-model="form.dictType" :disabled="true" />
+          <el-input v-model="form.dictType" :disabled="true" placeholder="未选择字典类型" />
         </el-form-item>
-        <el-form-item label="标签名称" prop="dictLabel">
-          <el-input v-model="form.dictLabel" placeholder="请输入标签名称" />
+        <el-form-item label="字典标签" prop="dictLabel">
+          <el-input v-model="form.dictLabel" placeholder="请输入字典标签" />
         </el-form-item>
-        <el-form-item label="键值值" prop="dictValue">
-          <el-input v-model="form.dictValue" placeholder="请输入键值值" />
+        <el-form-item label="字典键值" prop="dictValue">
+          <el-input v-model="form.dictValue" placeholder="请输入字典键值" />
         </el-form-item>
-        <el-form-item label="显示排序" prop="dictSort">
+        <el-form-item label="字典排序" prop="dictSort">
           <el-input-number v-model="form.dictSort" controls-position="right" :min="0" />
         </el-form-item>
         <el-form-item label="回显样式" prop="listClass">
@@ -111,15 +122,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, toRefs, watch } from 'vue'
+import { ref, reactive, toRefs, watch, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getDictDataListApi, addDictDataApi, updateDictDataApi, deleteDictDataApi, getDictTypeListApi } from '@/api/system/dict'
 import type { FormInstance } from 'element-plus'
-import type { SearchParams, PageResult } from '@/types'
+import type { SearchParams } from '@/types'
 
 const route = useRoute()
 
+const error = ref<string>('')
 const dataList = ref<any[]>([])
 const loading = ref(true)
 const showSearch = ref(true)
@@ -138,36 +150,47 @@ const queryParams = reactive<SearchParams>({
   status: undefined
 })
 
-
-
 const typeOptions = ref<any[]>([])
 
 const dataRef = ref<FormInstance>()
 
 const rules = {
-  dictLabel: [{ required: true, message: '标签名称不能为空', trigger: 'blur' }],
-  dictValue: [{ required: true, message: '键值值不能为空', trigger: 'blur' }],
-  dictSort: [{ required: true, message: '显示排序不能为空', trigger: 'blur' }]
+  dictLabel: [{ required: true, message: '字典标签不能为空', trigger: 'blur' }],
+  dictValue: [{ required: true, message: '字典键值不能为空', trigger: 'blur' }],
+  dictSort: [{ required: true, message: '字典排序不能为空', trigger: 'blur' }]
 }
 
 const data = reactive({ form: {} as any })
 const { form } = toRefs(data)
 
+const queryRef = ref<FormInstance>()
+
 const getList = async () => {
+  error.value = ''
   loading.value = true
   try {
     const dictType = route.query.dictType as string
-    if (!dictType) {
+    if (dictType) {
+      queryParams.dictType = dictType
+    } else {
+      queryParams.dictType = undefined
+    }
+    console.log('[dict/data] calling API with params:', { ...queryParams })
+    const res = await getDictDataListApi(queryParams) as any
+    console.log('[dict/data] API response:', res)
+    if (res && typeof res === 'object') {
+      dataList.value = res.records || res.list || []
+      total.value = res.total || res.totalCount || 0
+      console.log('[dict/data] loaded', total.value, 'items')
+    } else {
       dataList.value = []
       total.value = 0
-      return
     }
-    queryParams.dictType = dictType
-    const res = await getDictDataListApi(dictType) as PageResult
-    dataList.value = res.records
-    total.value = res.total
-  } catch (error) {
-    console.error(error)
+  } catch (e: any) {
+    console.error('[dict/data] error:', e)
+    error.value = e?.message || '加载失败'
+    dataList.value = []
+    total.value = 0
   } finally {
     loading.value = false
   }
@@ -175,10 +198,13 @@ const getList = async () => {
 
 const loadDictTypeList = async () => {
   try {
-    const res = await getDictTypeListApi({ pageNum: 1, pageSize: 1000 })
-    typeOptions.value = (res as any).records || res
-  } catch (error) {
-    console.error(error)
+    const res = await getDictTypeListApi({ pageNum: 1, pageSize: 1000 }) as any
+    typeOptions.value = (res && res.records) ? res.records : (Array.isArray(res) ? res : [])
+    console.log('[dict/data] loaded', typeOptions.value.length, 'dict types')
+  } catch (e: any) {
+    console.error('[dict/data] load dict types error:', e)
+    error.value = '加载字典类型失败: ' + (e?.message || '')
+    typeOptions.value = []
   }
 }
 
@@ -187,9 +213,11 @@ const handleQuery = () => {
   getList()
 }
 
-const resetQuery = () => {
-  ;(queryRef.value as FormInstance).resetFields()
-  handleQuery()
+const resetQuery = async () => {
+  await nextTick()
+  queryRef.value?.resetFields()
+  queryParams.pageNum = 1
+  getList()
 }
 
 const handleSelectionChange = (selection: any[]) => {
@@ -202,25 +230,35 @@ const handleAdd = () => {
   reset()
   open.value = true
   title.value = '新增字典数据'
+  const dictType = route.query.dictType as string
+  if (dictType) {
+    form.value.dictType = dictType
+  }
 }
 
 const handleUpdate = (row?: any) => {
   reset()
   open.value = true
   title.value = row ? '修改字典数据' : '新增字典数据'
-  form.value.dictCode = row?.dictCode
-  form.value.dictLabel = row?.dictLabel
-  form.value.dictValue = row?.dictValue
-  form.value.dictSort = row?.dictSort
-  form.value.listClass = row?.listClass
-  form.value.status = row?.status
-  form.value.dictType = row?.dictType
+  if (row) {
+    form.value.dictCode = row.dictCode
+    form.value.dictLabel = row.dictLabel
+    form.value.dictValue = row.dictValue
+    form.value.dictSort = row.dictSort
+    form.value.listClass = row.listClass
+    form.value.status = row.status
+    form.value.dictType = row.dictType
+  }
 }
 
 const handleDelete = async (row?: any) => {
   const dictCodes = row?.dictCode ? [row.dictCode] : selectedIds.value
+  if (!dictCodes.length) {
+    ElMessage.warning('请选择要删除的数据')
+    return
+  }
   try {
-    await ElMessageBox.confirm(`是否确认删除字典编码为"${dictCodes}"的数据项？`, '警告', { type: 'warning' })
+    await ElMessageBox.confirm(`是否确认删除字典编码为"${dictCodes.join(', ')}"的数据项？`, '警告', { type: 'warning' })
     await deleteDictDataApi(dictCodes[0])
     ElMessage.success('删除成功')
     getList()
@@ -231,7 +269,7 @@ const handleDelete = async (row?: any) => {
 
 const reset = () => {
   form.value = { dictCode: undefined, dictLabel: undefined, dictValue: undefined, dictSort: 0, listClass: 'default', status: '0', dictType: undefined }
-  ;(dataRef.value as FormInstance)?.resetFields()
+  dataRef.value?.resetFields()
 }
 
 const cancel = () => {
@@ -242,7 +280,7 @@ const cancel = () => {
 const submitForm = async () => {
   const formEl = dataRef.value
   if (!formEl) return
-  await formEl.validate(async (valid) => {
+  await formEl.validate(async (valid: boolean) => {
     if (valid) {
       try {
         if (form.value.dictCode) {
@@ -260,16 +298,19 @@ const submitForm = async () => {
   })
 }
 
-const queryRef = ref<FormInstance>()
-
 watch(() => route.query.dictType, async (val) => {
+  console.log('[dict/data] dictType changed to:', val)
+  queryParams.pageNum = 1
   if (val) {
     queryParams.dictType = val as string
-    loadDictTypeList()
-    getList()
+  } else {
+    queryParams.dictType = undefined
   }
+  await loadDictTypeList()
+  await getList()
 }, { immediate: true })
 
+console.log('[dict/data] component mounted, route:', route.path, route.query)
 loadDictTypeList()
 getList()
 </script>

@@ -41,3 +41,5 @@ ruoyi-common/src/main/java/com/ruoyi/common/
 - MyBatis-Plus entities use `@TableName`, `@TableId(type = IdType.AUTO)`, extend common `BaseEntity`
 - Service impls extend `ServiceImpl<M, T>` and implement `IService<T>` (MyBatis-Plus standard)
 - Excel export: use `@Excel` annotation on entity fields
+- **Jakarta EE**: `jakarta.servlet.*` (not `javax.servlet.*`) — Spring Boot 3 upgrade complete
+- Large files: `ExcelUtil.java` (1928 lines), `Convert.java` (1010 lines), `StringUtils.java` (722 lines)

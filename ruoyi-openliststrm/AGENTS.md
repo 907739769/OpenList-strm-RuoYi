@@ -61,3 +61,4 @@ ruoyi-openliststrm/src/main/java/com/ruoyi/openliststrm/
 - MyBatis XML mappers use `<where>` dynamic queries + date range filtering
 - MyBatis-Plus XML files are empty stubs — use `QueryWrapper`/`LambdaQueryWrapper` for queries
 - `AsynHelper` handles async copy task status polling (30s interval)
+- Use `jakarta.servlet.*` (not `javax.servlet.*`) — Spring Boot 3 / Jakarta EE 9+

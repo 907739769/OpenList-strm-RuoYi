@@ -33,6 +33,50 @@ export const constantRoutes: RouteRecordRaw[] = [
         meta: { title: '首页', icon: 'Odometer', affix: true }
       }
     ]
+  },
+  {
+    path: '/system',
+    component: Layout,
+    meta: { title: '系统管理', hidden: true },
+    children: [
+      {
+        path: 'dict/type',
+        name: 'DictType',
+        component: () => import('@/views/system/dict/type/index.vue'),
+        meta: { title: '字典类型' }
+      },
+      {
+        path: 'dict/data',
+        name: 'DictData',
+        component: () => import('@/views/system/dict/data/index.vue'),
+        meta: { title: '字典数据' }
+      },
+      {
+        path: 'config',
+        name: 'SysConfig',
+        component: () => import('@/views/system/config/index.vue'),
+        meta: { title: '系统配置' }
+      }
+    ]
+  },
+  {
+    path: '/monitor',
+    component: Layout,
+    meta: { title: '系统监控', hidden: true },
+    children: [
+      {
+        path: 'job',
+        name: 'Job',
+        component: () => import('@/views/monitor/job/index.vue'),
+        meta: { title: '定时任务' }
+      },
+      {
+        path: 'log',
+        name: 'JobLog',
+        component: () => import('@/views/monitor/log/realtime.vue'),
+        meta: { title: '实时日志' }
+      }
+    ]
   }
 ]
 
@@ -87,6 +131,11 @@ function convertMenuToRoute(menu: MenuRoute): RouteRecordRaw {
 export function addDynamicRoutes(menuList: MenuRoute[]) {
   for (const menu of menuList) {
     const route = convertMenuToRoute(menu)
+    const existing = router.getRoutes().find(r => r.path === route.path && r.name === route.name)
+    if (existing) {
+      console.log('[router] skipping duplicate route:', route.path, route.name)
+      continue
+    }
     router.addRoute(route)
   }
 }
@@ -101,7 +150,7 @@ router.beforeEach(async (to, _from, next) => {
   NProgress.start()
   const title = to.meta?.title || ''
   if (title) {
-    document.title = `${title} - OpenList-strm-RuoYi`
+      document.title = `${title} - OSR`
   }
 
   const hasToken = Cookies.get('token')

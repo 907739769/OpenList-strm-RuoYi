@@ -3,7 +3,7 @@
     <div class="sidebar-container">
       <div class="logo">
         <img src="/favicon.svg" alt="Logo" class="logo-img" />
-        <h1 v-show="appStore.sidebarOpened" class="logo-title">OpenList</h1>
+        <h1 v-show="appStore.sidebarOpened" class="logo-title">OSR</h1>
       </div>
       <el-scrollbar>
         <el-menu
@@ -49,11 +49,6 @@
           <Fold v-if="appStore.sidebarOpened" />
           <Expand v-else />
         </el-icon>
-        <div class="breadcrumb">
-          <el-breadcrumb separator="/">
-            <el-breadcrumb-item :to="{ path: '/' }">首页</el-breadcrumb-item>
-          </el-breadcrumb>
-        </div>
         <div class="right-menu">
           <el-dropdown @command="handleDropdownCommand">
             <span class="avatar-wrapper">
@@ -116,11 +111,8 @@ const iconMap: Record<string, Component> = {
 
 function getIconComponent(icon?: string): Component | undefined {
   if (!icon) return undefined
-  // Check exact match first
   if (iconMap[icon]) return iconMap[icon]
-  // Check if it's a Font Awesome class (contains 'fa ')
   if (icon.includes('fa ')) return undefined
-  // Otherwise try to resolve as a dynamic import
   return undefined
 }
 
@@ -131,7 +123,6 @@ const userStore = useUserStore()
 const showPasswordDialog = ref(false)
 
 const activeMenu = computed(() => route.path)
-
 const sidebarMenus = computed(() => userStore.routes)
 
 const toggleSidebar = () => {
@@ -217,13 +208,10 @@ const handleDropdownCommand = async (command: string) => {
     margin-right: 16px;
   }
 
-  .breadcrumb {
-    flex: 1;
-  }
-
   .right-menu {
     display: flex;
     align-items: center;
+    margin-left: auto;
 
     .avatar-wrapper {
       display: flex;

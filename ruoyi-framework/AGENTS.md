@@ -33,6 +33,8 @@ ruoyi-framework/src/main/java/com/ruoyi/framework/
 
 ## CONVENTIONS
 - Datasource configured manually (no `DataSourceAutoConfiguration`)
-- Shiro session synced to DB every 1min (configurable)
-- Redis/Ehcache used for Shiro session + permission cache
-- Druid stat filter enabled for SQL monitoring
+- **Shiro 2.0.0** (upgraded from 1.x): Jakarta EE compatible, session synced to DB every 1min
+- **Spring Boot 3 / Jakarta EE**: `jakarta.servlet.*` (not `javax.servlet.*`)
+- Redis used for Shiro session + permission cache
+- Druid stat filter enabled for SQL monitoring (`druid-spring-boot-3-starter`)
+- Knife4j 4.4.0 for API documentation (not Swagger 2)

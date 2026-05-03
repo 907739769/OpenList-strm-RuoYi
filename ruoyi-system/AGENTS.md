@@ -27,3 +27,4 @@ ruoyi-system/src/main/java/com/ruoyi/system/
 - All 16 mappers use traditional MyBatis XML (not MyBatis-Plus)
 - Dept/Menu use tree structure with `parentId`
 - Dict data used throughout for dropdown enums (consistent with `common/enums/`)
+- **Jakarta EE**: `jakarta.servlet.*` (not `javax.servlet.*`) — Spring Boot 3 upgrade complete
