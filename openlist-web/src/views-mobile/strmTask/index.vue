@@ -4,7 +4,7 @@
       <h2>STRM任务</h2>
     </div>
 
-    <div class="search-bar">
+    <div class="search-bar" v-if="showSearch">
       <el-input
         v-model="queryParams.taskName"
         placeholder="搜索任务名称"
@@ -50,6 +50,7 @@
 import { ref } from 'vue'
 import { Folder, VideoCamera } from '@element-plus/icons-vue'
 
+const showSearch = ref(false)
 const queryParams = ref({ taskName: '' })
 const strmTasks = ref([
   { taskId: 1, taskName: '电影STRM', status: '0', homePath: '/movies', outputPath: '/strm/movies', createTime: '2026-04-20' },

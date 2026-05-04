@@ -1,7 +1,7 @@
 <template>
   <div class="page-container">
     <!-- Search Panel -->
-    <el-card class="search-card">
+    <el-card class="search-card" v-if="showSearch">
       <el-form :model="queryParams" ref="queryRef" :inline="true" label-width="80px">
         <el-form-item label="参数名称" prop="configName">
           <el-input v-model="queryParams.configName" placeholder="请输入参数名称" clearable @keyup.enter="handleQuery" />

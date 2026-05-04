@@ -1,7 +1,7 @@
 <template>
   <div class="page-container">
     <!-- Search Panel -->
-    <el-card class="search-card">
+    <el-card class="search-card" v-if="showSearch">
       <el-form :model="queryParams" ref="queryRef" :inline="true" label-width="80px">
         <el-form-item label="源目录" prop="sourceFolder">
           <el-input v-model="queryParams.sourceFolder" placeholder="请输入源目录" clearable @keyup.enter="handleQuery" />

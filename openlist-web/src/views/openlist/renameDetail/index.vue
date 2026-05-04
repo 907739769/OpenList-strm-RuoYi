@@ -1,7 +1,7 @@
 <template>
   <div class="page-container">
     <!-- Search Panel -->
-    <el-card class="search-card">
+    <el-card class="search-card" v-if="showSearch">
       <el-form :model="queryParams" ref="queryRef" :inline="true" label-width="80px">
         <el-form-item label="原文件名" prop="originalName">
           <el-input v-model="queryParams.originalName" placeholder="请输入原文件名" clearable @keyup.enter="handleQuery" />

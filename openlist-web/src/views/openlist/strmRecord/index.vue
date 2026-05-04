@@ -1,7 +1,7 @@
 <template>
   <div class="page-container">
     <!-- Search Panel -->
-    <el-card class="search-card">
+    <el-card class="search-card" v-if="showSearch">
       <el-form :model="queryParams" ref="queryRef" :inline="true" label-width="80px">
         <el-form-item label="文件名称" prop="strmFileName">
           <el-input v-model="queryParams.strmFileName" placeholder="请输入文件名称" clearable @keyup.enter="handleQuery" />

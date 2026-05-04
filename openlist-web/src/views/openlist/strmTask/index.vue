@@ -1,7 +1,7 @@
 <template>
   <div class="page-container">
     <!-- Search Panel -->
-    <el-card class="search-card">
+    <el-card class="search-card" v-if="showSearch">
       <el-form :model="queryParams" ref="queryRef" :inline="true" label-width="80px">
         <el-form-item label="strm目录" prop="strmTaskPath">
           <el-input v-model="queryParams.strmTaskPath" placeholder="请输入strm目录" clearable @keyup.enter="handleQuery" />

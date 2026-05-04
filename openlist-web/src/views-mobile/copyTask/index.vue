@@ -4,7 +4,7 @@
       <h2>同步任务</h2>
     </div>
 
-    <div class="search-bar">
+    <div class="search-bar" v-if="showSearch">
       <el-input v-model="queryParams.taskName" placeholder="搜索任务名称" clearable />
       <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
       <el-button type="success" icon="Plus" @click="handleAdd">新建</el-button>
@@ -35,6 +35,7 @@
 import { ref } from 'vue'
 import { Files, FolderOpened } from '@element-plus/icons-vue'
 
+const showSearch = ref(false)
 const queryParams = ref({ taskName: '' })
 const copyTasks = ref([
   { taskId: 1, taskName: '本地到云端', status: '0', sourcePath: '/local/data', targetPath: '/cloud/data', createTime: '2026-04-20' }

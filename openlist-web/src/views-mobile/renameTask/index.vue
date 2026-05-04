@@ -4,7 +4,7 @@
       <h2>重命名任务</h2>
     </div>
 
-    <div class="search-bar">
+    <div class="search-bar" v-if="showSearch">
       <el-input v-model="queryParams.taskName" placeholder="搜索任务名称" clearable />
       <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
       <el-button type="success" icon="Plus" @click="handleAdd">新建</el-button>
@@ -35,6 +35,7 @@
 import { ref } from 'vue'
 import { Folder, Document } from '@element-plus/icons-vue'
 
+const showSearch = ref(false)
 const queryParams = ref({ taskName: '' })
 const renameTasks = ref([
   { taskId: 1, taskName: '影视重命名', status: '0', homePath: '/movies', renameMode: 'TMDb', createTime: '2026-04-20' }
