@@ -24,45 +24,13 @@ export const constantRoutes: RouteRecordRaw[] = [
   },
   {
     path: '/',
-    component: Layout,
-    children: [
-      {
-        path: 'dashboard',
-        name: 'Dashboard',
-        component: () => import('@/views/dashboard/index.vue'),
-        meta: { title: '首页', icon: 'Odometer', affix: true }
-      },
-      {
-        path: 'system/dict/type',
-        name: 'DictType',
-        component: () => import('@/views/system/dict/type/index.vue'),
-        meta: { title: '字典类型', hidden: true }
-      },
-      {
-        path: 'system/dict/data',
-        name: 'DictData',
-        component: () => import('@/views/system/dict/data/index.vue'),
-        meta: { title: '字典数据', hidden: true }
-      },
-      {
-        path: 'system/config',
-        name: 'SysConfig',
-        component: () => import('@/views/system/config/index.vue'),
-        meta: { title: '系统配置', hidden: true }
-      },
-      {
-        path: 'monitor/job',
-        name: 'Job',
-        component: () => import('@/views/monitor/job/index.vue'),
-        meta: { title: '定时任务', hidden: true }
-      },
-      {
-        path: 'monitor/log',
-        name: 'JobLog',
-        component: () => import('@/views/monitor/log/realtime.vue'),
-        meta: { title: '实时日志', hidden: true }
-      }
-    ]
+    redirect: '/dashboard'
+  },
+  {
+    path: '/dashboard',
+    name: 'Dashboard',
+    component: () => import('@/views/dashboard/index.vue'),
+    meta: { title: '首页', icon: 'Odometer' }
   }
 ]
 
@@ -95,14 +63,16 @@ function convertMenuToRoute(menu: MenuRoute): RouteRecordRaw {
 
   const component = componentMap[menu.component || ''] || (() => import('@/views/error/404.vue'))
 
+  const isLayout = menu.component === 'Layout'
   const route: RouteRecordRaw = {
     path: menu.path.startsWith('/') ? menu.path : '/' + menu.path,
     name: menu.name,
-    component: menu.component === 'Layout' ? Layout : component,
+    component: isLayout ? Layout : component,
     meta: {
       title: menu.meta?.title || '',
       icon: menu.meta?.icon || '',
-      hidden: menu.hidden || false
+      hidden: menu.hidden || false,
+      isParentLayout: isLayout
     },
     children
   }
@@ -114,14 +84,30 @@ function convertMenuToRoute(menu: MenuRoute): RouteRecordRaw {
   return route
 }
 
+function extractLeafRoutes(menus: MenuRoute[]): MenuRoute[] {
+  const leaves: MenuRoute[] = []
+  for (const menu of menus) {
+    if (menu.component === 'Layout' && menu.children?.length) {
+      leaves.push(...extractLeafRoutes(menu.children))
+    } else {
+      leaves.push(menu)
+    }
+  }
+  return leaves
+}
+
 export function addDynamicRoutes(menuList: MenuRoute[]) {
-  for (const menu of menuList) {
+  const leafMenus = extractLeafRoutes(menuList)
+  console.log('[router] leafMenus:', leafMenus.map(m => `${m.path}(${m.component})`))
+
+  for (const menu of leafMenus) {
     const route = convertMenuToRoute(menu)
     const existing = router.getRoutes().find(r => r.path === route.path && r.name === route.name)
     if (existing) {
       console.log('[router] skipping duplicate route:', route.path, route.name)
       continue
     }
+    console.log('[router] ADDING route:', route.path, route.name)
     router.addRoute(route)
   }
 }

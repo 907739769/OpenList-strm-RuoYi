@@ -27,6 +27,15 @@ html, body {
 }
 
 /* ============================================
+   Page Container
+   ============================================ */
+
+/* Ensure page containers have consistent top spacing from navbar */
+.page-container {
+  margin-top: 16px;
+}
+
+/* ============================================
    Element Plus Global Overrides
    ============================================ */
 
@@ -114,6 +123,10 @@ a {
     background-color: var(--osr-surface);
     border-radius: var(--osr-radius-lg) var(--osr-radius-lg) 0 0;
   }
+}
+
+.el-card__body {
+  padding: 20px;
 }
 
 /* Tables */

@@ -18,7 +18,7 @@
             <template #title>首页</template>
           </el-menu-item>
           <template v-for="menu in sidebarMenus" :key="menu.path">
-            <el-sub-menu v-if="menu.children?.length" :index="menu.path">
+            <el-sub-menu v-if="menu.children?.length" :index="menu.children[0].path.startsWith('/') ? menu.children[0].path : menu.path + '/' + menu.children[0].path">
               <template #title>
                 <el-icon v-if="getIconComponent(menu.meta?.icon)"><component :is="getIconComponent(menu.meta?.icon)" /></el-icon>
                 <span>{{ menu.meta?.title }}</span>
@@ -72,11 +72,14 @@
       </div>
 
       <main class="main-content">
-        <router-view v-slot="{ Component }">
-          <transition name="fade-slide" mode="out-in">
-            <component :is="Component" />
-          </transition>
-        </router-view>
+        <div style="height:16px;flex-shrink:0"></div>
+        <div class="content-wrapper">
+          <router-view v-slot="{ Component }">
+            <transition name="fade-slide" mode="out-in">
+              <component :is="Component" />
+            </transition>
+          </router-view>
+        </div>
       </main>
 
       <ChangePasswordDialog v-model:visible="showPasswordDialog" />
@@ -376,9 +379,18 @@ const handleDropdownCommand = async (command: string) => {
    ============================================ */
 .main-content {
   flex: 1;
-  padding: var(--osr-content-padding);
   overflow-y: auto;
   background-color: var(--osr-bg-page);
+}
+
+.content-wrapper {
+  padding: 16px 20px 20px 20px;
+  min-height: 0;
+}
+
+.page-spacing {
+  height: 16px;
+  flex-shrink: 0;
 }
 
 /* ============================================

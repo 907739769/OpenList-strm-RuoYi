@@ -1,6 +1,7 @@
 <template>
   <div class="page-container">
-    <el-card>
+    <!-- Search Panel -->
+    <el-card class="search-card">
       <el-form :model="queryParams" ref="queryRef" :inline="true" label-width="80px">
         <el-form-item label="原文件名" prop="originalName">
           <el-input v-model="queryParams.originalName" placeholder="请输入原文件名" clearable @keyup.enter="handleQuery" />
@@ -34,22 +35,37 @@
           />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
-          <el-button icon="Refresh" @click="resetQuery">重置</el-button>
+          <el-button type="primary" @click="handleQuery">
+            <el-icon><Search /></el-icon> 搜索
+          </el-button>
+          <el-button @click="resetQuery">
+            <el-icon><Refresh /></el-icon> 重置
+          </el-button>
         </el-form-item>
       </el-form>
+    </el-card>
 
-      <el-row :gutter="10" class="mb8">
-        <el-col :span="1.5">
-          <el-button type="danger" plain icon="Delete" :disabled="multiple" @click="handleDelete()">批量删除</el-button>
-        </el-col>
-        <el-col :span="1.5">
-          <el-button type="info" plain icon="Refresh" :disabled="multiple" @click="handleBatchExecute()">批量执行</el-button>
-        </el-col>
-      </el-row>
+    <!-- Table Card -->
+    <el-card class="table-card">
+      <!-- Action Bar -->
+      <div class="action-bar">
+        <div class="action-left">
+          <el-button type="danger" :disabled="multiple" @click="handleDelete()">
+            <el-icon><Delete /></el-icon> 批量删除
+          </el-button>
+          <el-button type="info" :disabled="multiple" @click="handleBatchExecute()">
+            <el-icon><Refresh /></el-icon> 批量执行
+          </el-button>
+        </div>
+        <el-button text @click="showSearch = !showSearch">
+          <el-icon><Filter /></el-icon>
+          {{ showSearch ? '隐藏搜索' : '显示搜索' }}
+        </el-button>
+      </div>
 
-      <el-table v-loading="loading" :data="detailList" @selection-change="handleSelectionChange">
-        <el-table-column type="selection" width="55" align="center" />
+      <!-- Table -->
+      <el-table v-loading="loading" :data="detailList" @selection-change="handleSelectionChange" class="modern-table">
+        <el-table-column type="selection" width="50" align="center" />
         <el-table-column label="媒体信息" width="120">
           <template #default="scope">
             <div>
@@ -93,16 +109,21 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="创建时间" prop="createTime" width="180" align="center" />
-        <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="180">
+        <el-table-column label="创建时间" prop="createTime" width="170" align="center" />
+        <el-table-column label="操作" align="center" width="220" fixed="right">
           <template #default="scope">
-            <el-button link type="primary" icon="Edit" @click="handleEdit(scope.row)">编辑</el-button>
-            <el-button link type="danger" icon="Delete" @click="handleDeleteOne(scope.row)">删除</el-button>
-            <el-button link type="primary" icon="VideoPlay" @click="handleExecuteOne(scope.row)">执行</el-button>
+            <el-button link type="primary" @click="handleEdit(scope.row)">编辑</el-button>
+            <el-button link type="danger" @click="handleDeleteOne(scope.row)">
+              <el-icon><Delete /></el-icon> 删除
+            </el-button>
+            <el-button link type="primary" @click="handleExecuteOne(scope.row)">
+              <el-icon><VideoPlay /></el-icon> 执行
+            </el-button>
           </template>
         </el-table-column>
       </el-table>
 
+      <!-- Pagination -->
       <div class="pagination-wrapper">
         <el-pagination
           v-model:current-page="queryParams.pageNum"
@@ -121,11 +142,13 @@
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Search, Refresh, Delete, VideoPlay, Filter } from '@element-plus/icons-vue'
 import { getRenameDetailListApi, executeRenameDetailApi } from '@/api/openlist/renameDetail'
 import type { SearchParams, PageResult } from '@/types'
 
 const detailList = ref<any[]>([])
 const loading = ref(true)
+const showSearch = ref(true)
 const total = ref(0)
 const multiple = ref(true)
 const selectedIds = ref<number[]>([])
@@ -215,16 +238,80 @@ getList()
   gap: 16px;
 }
 
+/* ============================================
+   Search Card
+   ============================================ */
+.search-card {
+  border: none;
+  border-radius: var(--osr-radius-lg);
+  box-shadow: var(--osr-shadow-base);
+
+  :deep(.el-card__body) {
+    padding: 16px 20px;
+  }
+}
+
+/* ============================================
+   Table Card
+   ============================================ */
+.table-card {
+  border: none;
+  border-radius: var(--osr-radius-lg);
+  box-shadow: var(--osr-shadow-base);
+  flex: 1;
+
+  :deep(.el-card__body) {
+    padding: 20px;
+  }
+}
+
+.action-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+
+  .action-left {
+    display: flex;
+    gap: 8px;
+  }
+}
+
+/* ============================================
+   Pagination
+   ============================================ */
 .pagination-wrapper {
   display: flex;
   justify-content: flex-end;
-  margin-top: 8px;
+  margin-top: 16px;
 }
 
+/* ============================================
+   Mobile Responsive
+   ============================================ */
 @media (max-width: 768px) {
-  .page-container :deep(.el-form) {
-    .el-form-item { margin-right: 0; }
-    .el-input, .el-select { width: 100% !important; }
+  .search-card :deep(.el-form) {
+    .el-form-item {
+      margin-right: 0;
+    }
+
+    .el-input,
+    .el-select {
+      width: 100% !important;
+    }
+  }
+
+  :deep(.el-table) {
+    font-size: 13px;
+
+    .el-table__cell {
+      padding: 8px 0;
+    }
+  }
+
+  .action-bar {
+    flex-wrap: wrap;
+    gap: 8px;
   }
 }
 </style>

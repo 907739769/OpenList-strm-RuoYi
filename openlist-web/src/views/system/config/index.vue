@@ -1,7 +1,8 @@
 <template>
   <div class="page-container">
-    <el-card>
-      <el-form :model="queryParams" ref="queryRef" :inline="true" label-width="68px">
+    <!-- Search Panel -->
+    <el-card class="search-card">
+      <el-form :model="queryParams" ref="queryRef" :inline="true" label-width="80px">
         <el-form-item label="参数名称" prop="configName">
           <el-input v-model="queryParams.configName" placeholder="请输入参数名称" clearable @keyup.enter="handleQuery" />
         </el-form-item>
@@ -9,45 +10,65 @@
           <el-input v-model="queryParams.configKey" placeholder="请输入参数键名" clearable @keyup.enter="handleQuery" />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
-          <el-button icon="Refresh" @click="resetQuery">重置</el-button>
+          <el-button type="primary" @click="handleQuery">
+            <el-icon><Search /></el-icon> 搜索
+          </el-button>
+          <el-button @click="resetQuery">
+            <el-icon><Refresh /></el-icon> 重置
+          </el-button>
         </el-form-item>
       </el-form>
+    </el-card>
 
-      <el-row :gutter="10" class="mb8">
-        <el-col :span="1.5">
-          <el-button type="primary" plain icon="Plus" @click="handleAdd">新增</el-button>
-        </el-col>
-        <el-col :span="1.5">
-          <el-button type="success" plain icon="Edit" :disabled="single" @click="handleUpdate()">修改</el-button>
-        </el-col>
-        <el-col :span="1.5">
-          <el-button type="danger" plain icon="Delete" :disabled="multiple" @click="handleDelete()">删除</el-button>
-        </el-col>
-        <el-col :span="1.5">
-          <el-button type="warning" plain icon="Download" @click="handleExport">导出</el-button>
-        </el-col>
-        <el-col :span="1.5">
-          <el-button type="danger" plain icon="Refresh" @click="handleRefreshCache">刷新缓存</el-button>
-        </el-col>
-      </el-row>
+    <!-- Table Card -->
+    <el-card class="table-card">
+      <!-- Action Bar -->
+      <div class="action-bar">
+        <div class="action-left">
+          <el-button type="primary" @click="handleAdd">
+            <el-icon><Plus /></el-icon> 新增
+          </el-button>
+          <el-button type="success" :disabled="single" @click="handleUpdate()">
+            <el-icon><Edit /></el-icon> 修改
+          </el-button>
+          <el-button type="danger" :disabled="multiple" @click="handleDelete()">
+            <el-icon><Delete /></el-icon> 删除
+          </el-button>
+          <el-button type="warning" @click="handleExport">
+            <el-icon><Download /></el-icon> 导出
+          </el-button>
+          <el-button type="danger" @click="handleRefreshCache">
+            <el-icon><Refresh /></el-icon> 刷新缓存
+          </el-button>
+        </div>
+        <el-button text @click="showSearch = !showSearch">
+          <el-icon><Filter /></el-icon>
+          {{ showSearch ? '隐藏搜索' : '显示搜索' }}
+        </el-button>
+      </div>
 
-      <el-table v-loading="loading" :data="configList" @selection-change="handleSelectionChange">
-        <el-table-column type="selection" width="55" align="center" />
-        <el-table-column label="参数编号" align="center" prop="configId" />
-        <el-table-column label="参数名称" align="center" prop="configName" :show-overflow-tooltip="true" />
-        <el-table-column label="参数键名" align="center" prop="configKey" :show-overflow-tooltip="true" />
-        <el-table-column label="参数键值" align="center" prop="configValue" :show-overflow-tooltip="true" />
-        <el-table-column label="备注" align="center" prop="remark" :show-overflow-tooltip="true" />
-        <el-table-column label="创建时间" align="center" prop="createTime" width="180" />
-        <el-table-column label="操作" align="center" class-name="small-padding fixed-width">
+      <!-- Table -->
+      <el-table v-loading="loading" :data="configList" @selection-change="handleSelectionChange" class="modern-table">
+        <el-table-column type="selection" width="50" align="center" />
+        <el-table-column label="参数编号" align="center" prop="configId" width="100" />
+        <el-table-column label="参数名称" align="center" prop="configName" min-width="140" :show-overflow-tooltip="true" />
+        <el-table-column label="参数键名" align="center" prop="configKey" min-width="160" :show-overflow-tooltip="true" />
+        <el-table-column label="参数键值" align="center" prop="configValue" min-width="160" :show-overflow-tooltip="true" />
+        <el-table-column label="备注" align="center" prop="remark" min-width="140" :show-overflow-tooltip="true" />
+        <el-table-column label="创建时间" align="center" prop="createTime" width="170" />
+        <el-table-column label="操作" align="center" width="150" fixed="right">
           <template #default="scope">
-            <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)">修改</el-button>
-            <el-button link type="primary" icon="Delete" @click="handleDelete(scope.row)">删除</el-button>
+            <el-button link type="primary" @click="handleUpdate(scope.row)">
+              <el-icon><Edit /></el-icon> 修改
+            </el-button>
+            <el-button link type="danger" @click="handleDelete(scope.row)">
+              <el-icon><Delete /></el-icon> 删除
+            </el-button>
           </template>
         </el-table-column>
       </el-table>
 
+      <!-- Pagination -->
       <div class="pagination-wrapper">
         <el-pagination
           v-model:current-page="queryParams.pageNum"
@@ -61,7 +82,8 @@
       </div>
     </el-card>
 
-    <el-dialog :title="title" v-model="open" width="500px" append-to-body>
+    <!-- Dialog -->
+    <el-dialog v-model="open" :title="title" width="520px" append-to-body class="modern-dialog">
       <el-form ref="configRef" :model="form" :rules="rules" label-width="100px">
         <el-form-item label="参数名称" prop="configName">
           <el-input v-model="form.configName" placeholder="请输入参数名称" />
@@ -73,7 +95,7 @@
           <el-input v-model="form.configValue" placeholder="请输入参数键值" />
         </el-form-item>
         <el-form-item label="备注" prop="remark">
-          <el-input v-model="form.remark" type="textarea" placeholder="请输入内容" />
+          <el-input v-model="form.remark" type="textarea" :rows="3" placeholder="请输入内容" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -87,12 +109,14 @@
 <script setup lang="ts">
 import { ref, reactive, toRefs } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Search, Refresh, Plus, Edit, Delete, Download, Filter } from '@element-plus/icons-vue'
 import { getConfigListApi, addConfigApi, updateConfigApi, deleteConfigApi, refreshCacheApi } from '@/api/system/config'
 import type { FormInstance } from 'element-plus'
 import type { SearchParams, PageResult } from '@/types'
 
 const configList = ref<any[]>([])
 const loading = ref(true)
+const showSearch = ref(true)
 const total = ref(0)
 const title = ref('')
 const open = ref(false)
@@ -235,16 +259,80 @@ getList()
   gap: 16px;
 }
 
+/* ============================================
+   Search Card
+   ============================================ */
+.search-card {
+  border: none;
+  border-radius: var(--osr-radius-lg);
+  box-shadow: var(--osr-shadow-base);
+
+  :deep(.el-card__body) {
+    padding: 16px 20px;
+  }
+}
+
+/* ============================================
+   Table Card
+   ============================================ */
+.table-card {
+  border: none;
+  border-radius: var(--osr-radius-lg);
+  box-shadow: var(--osr-shadow-base);
+  flex: 1;
+
+  :deep(.el-card__body) {
+    padding: 20px;
+  }
+}
+
+.action-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+
+  .action-left {
+    display: flex;
+    gap: 8px;
+  }
+}
+
+/* ============================================
+   Pagination
+   ============================================ */
 .pagination-wrapper {
   display: flex;
   justify-content: flex-end;
-  margin-top: 8px;
+  margin-top: 16px;
 }
 
+/* ============================================
+   Mobile Responsive
+   ============================================ */
 @media (max-width: 768px) {
-  .page-container :deep(.el-form) {
-    .el-form-item { margin-right: 0; }
-    .el-input, .el-select { width: 100% !important; }
+  .search-card :deep(.el-form) {
+    .el-form-item {
+      margin-right: 0;
+    }
+
+    .el-input,
+    .el-select {
+      width: 100% !important;
+    }
+  }
+
+  :deep(.el-table) {
+    font-size: 13px;
+
+    .el-table__cell {
+      padding: 8px 0;
+    }
+  }
+
+  .action-bar {
+    flex-wrap: wrap;
+    gap: 8px;
   }
 }
 </style>

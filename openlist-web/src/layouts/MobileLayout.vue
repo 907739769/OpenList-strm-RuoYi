@@ -180,10 +180,9 @@ const activeMenu = computed(() => route.path)
 // Main tabs for bottom tabbar (most frequently used pages)
 const mainTabs = [
   { path: '/dashboard', label: '首页', icon: Odometer },
-  { path: '/openlist/strm-task', label: 'STRM', icon: VideoCamera },
-  { path: '/openlist/copy-task', label: '同步', icon: Files },
-  { path: '/openlist/rename-task', label: '重命名', icon: EditPen },
-  { path: '/system/dict/type', label: '字典', icon: Document }
+  { path: '/openliststrm/strm', label: 'STRM记录', icon: VideoCamera },
+  { path: '/openliststrm/copy', label: '同步记录', icon: Files },
+  { path: '/openliststrm/renameDetail', label: '重命名记录', icon: EditPen }
 ]
 
 const isTabActive = (path: string) => {

@@ -1,8 +1,8 @@
 <template>
   <div class="dashboard">
-    <!-- Stat Cards -->
+    <!-- Stat Cards - 3 per row on desktop -->
     <el-row :gutter="16" class="stat-row">
-      <el-col :xs="12" :sm="8" :md="6" v-for="(stat, index) in statCards" :key="index">
+      <el-col :md="8" v-for="(stat, index) in statCards" :key="index">
         <el-card class="stat-card" :class="stat.type">
           <div class="stat-icon">
             <el-icon :size="28"><component :is="stat.icon" /></el-icon>
@@ -17,7 +17,7 @@
 
     <!-- Charts -->
     <el-row :gutter="16" class="chart-row">
-      <el-col :xs="24" :sm="24" :md="8" v-for="(chart, index) in chartData" :key="index">
+      <el-col :md="8" v-for="(chart, index) in chartData" :key="index">
         <el-card class="chart-card">
           <template #header>
             <div class="chart-header">
@@ -29,7 +29,7 @@
               </el-select>
             </div>
           </template>
-          <div :ref="chart.refKey" class="echarts-container" />
+          <div :ref="el => setChartContainer(el, index)" class="echarts-container" />
         </el-card>
       </el-col>
     </el-row>
@@ -37,11 +37,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick, type Ref } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import * as echarts from 'echarts'
 import { getCopyStatsApi, getStrmStatsApi, getRenameStatsApi } from '@/api/openlist/dashboard'
 import { Files, VideoCamera, EditPen, CircleCheck, CircleClose, Loading } from '@element-plus/icons-vue'
-import type { Component } from 'vue'
+import type { Component, Ref } from 'vue'
 
 interface StatCard {
   label: string
@@ -53,20 +53,22 @@ interface StatCard {
 interface ChartData {
   title: string
   range: string
-  refKey: string
   load: () => Promise<void>
-  chart: echarts.ECharts | null
+  chart: any
 }
 
 const statCards = ref<StatCard[]>([])
-let copyChart: echarts.ECharts | null = null
-let strmChart: echarts.ECharts | null = null
-let renameChart: echarts.ECharts | null = null
+const copyChart = ref<any>(null)
+const strmChart = ref<any>(null)
+const renameChart = ref<any>(null)
 
-const chartRefs: Record<string, Ref<HTMLElement | null>> = {
-  copyChartRef: ref(null),
-  strmChartRef: ref(null),
-  renameChartRef: ref(null)
+// Store container refs by index
+const chartContainers: Ref<HTMLElement | null>[] = [ref(null), ref(null), ref(null)]
+
+function setChartContainer(el: unknown, index: number) {
+  if (el instanceof HTMLElement) {
+    chartContainers[index].value = el
+  }
 }
 
 const chartData = ref<ChartData[]>([])
@@ -88,7 +90,7 @@ function getColor(name: string): string {
   return idx >= 0 ? colorMap[Object.keys(colorMap)[idx]] : defaultColors[Object.keys(colorMap).length + idx % defaultColors.length]
 }
 
-function renderChart(chart: echarts.ECharts, data: Record<string, number>, range: string) {
+function renderChart(chart: any, data: Record<string, number>, range: string) {
   const rangeTextMap: Record<string, string> = { today: '今日数据', yesterday: '昨日数据', all: '全部数据' }
   const title = rangeTextMap[range] || '全部数据'
 
@@ -124,93 +126,67 @@ function renderChart(chart: echarts.ECharts, data: Record<string, number>, range
   }
 }
 
-async function initChart(chartRef: Ref<HTMLElement | null>, chartInstance: echarts.ECharts | null, loadFn: () => Promise<void>): Promise<ChartData> {
-  await nextTick()
-  const el = chartRef.value
-  if (el && !chartInstance) {
-    const chart = echarts.init(el)
-    await loadFn()
-    return {
-      title: '',
-      range: 'today',
-      refKey: '',
-      load: loadFn,
-      chart
-    }
-  }
-  return {
-    title: '',
-    range: 'today',
-    refKey: '',
-    load: loadFn,
-    chart: chartInstance
-  }
-}
-
 const loadCopyChart = async () => {
-  if (!chartRefs.copyChartRef.value) return
-  if (!copyChart) {
-    await nextTick()
-    copyChart = echarts.init(chartRefs.copyChartRef.value)
+  const range = chartData.value[0].range
+  const container = chartContainers[0].value
+  if (!container) {
+    console.warn('copyChart container not found')
+    return
+  }
+  if (!copyChart.value) {
+    copyChart.value = echarts.init(container)
   }
   try {
-    const data: any = await getCopyStatsApi('today')
-    if (copyChart) renderChart(copyChart, data || {}, 'today')
+    const data: any = await getCopyStatsApi(range)
+    if (copyChart.value) renderChart(copyChart.value, data || {}, range)
   } catch (e) {
     console.error('Failed to load copy stats:', e)
-    if (copyChart) renderChart(copyChart, {}, 'today')
+    if (copyChart.value) renderChart(copyChart.value, {}, range)
   }
 }
 
 const loadStrmChart = async () => {
-  if (!chartRefs.strmChartRef.value) return
-  if (!strmChart) {
-    await nextTick()
-    strmChart = echarts.init(chartRefs.strmChartRef.value)
+  const range = chartData.value[1].range
+  const container = chartContainers[1].value
+  if (!container) {
+    console.warn('strmChart container not found')
+    return
+  }
+  if (!strmChart.value) {
+    strmChart.value = echarts.init(container)
   }
   try {
-    const data: any = await getStrmStatsApi('today')
-    if (strmChart) renderChart(strmChart, data || {}, 'today')
+    const data: any = await getStrmStatsApi(range)
+    if (strmChart.value) renderChart(strmChart.value, data || {}, range)
   } catch (e) {
     console.error('Failed to load strm stats:', e)
-    if (strmChart) renderChart(strmChart, {}, 'today')
+    if (strmChart.value) renderChart(strmChart.value, {}, range)
   }
 }
 
 const loadRenameChart = async () => {
-  if (!chartRefs.renameChartRef.value) return
-  if (!renameChart) {
-    await nextTick()
-    renameChart = echarts.init(chartRefs.renameChartRef.value)
+  const range = chartData.value[2].range
+  const container = chartContainers[2].value
+  if (!container) {
+    console.warn('renameChart container not found')
+    return
+  }
+  if (!renameChart.value) {
+    renameChart.value = echarts.init(container)
   }
   try {
-    const data: any = await getRenameStatsApi('today')
-    if (renameChart) renderChart(renameChart, data || {}, 'today')
+    const data: any = await getRenameStatsApi(range)
+    if (renameChart.value) renderChart(renameChart.value, data || {}, range)
   } catch (e) {
     console.error('Failed to load rename stats:', e)
-    if (renameChart) renderChart(renameChart, {}, 'today')
+    if (renameChart.value) renderChart(renameChart.value, {}, range)
   }
 }
 
 onMounted(async () => {
-  // Initialize charts
-  const copyTask = initChart(chartRefs.copyChartRef, copyChart, loadCopyChart)
-  const strmTask = initChart(chartRefs.strmChartRef, strmChart, loadStrmChart)
-  const renameTask = initChart(chartRefs.renameChartRef, renameChart, loadRenameChart)
+  console.log('[Dashboard] onMounted started')
 
-  const [copy, strm, rename] = await Promise.all([copyTask, strmTask, renameTask])
-
-  copyChart = copy.chart
-  strmChart = strm.chart
-  renameChart = rename.chart
-
-  chartData.value = [
-    { title: 'COPY 任务', range: 'today', refKey: 'copyChartRef', load: loadCopyChart, chart: copyChart },
-    { title: 'STRM 任务', range: 'today', refKey: 'strmChartRef', load: loadStrmChart, chart: strmChart },
-    { title: 'Rename 任务', range: 'today', refKey: 'renameChartRef', load: loadRenameChart, chart: renameChart }
-  ]
-
-  // Update stat cards
+  // Set stat cards
   statCards.value = [
     { label: 'COPY 任务', value: '0', icon: Files, type: 'primary' },
     { label: 'STRM 任务', value: '0', icon: VideoCamera, type: 'success' },
@@ -219,39 +195,59 @@ onMounted(async () => {
     { label: '失败数', value: '0', icon: CircleClose, type: 'warning' },
     { label: '处理中', value: '0', icon: Loading, type: 'primary' }
   ]
+  console.log('[Dashboard] statCards set:', statCards.value.length)
+
+  // Set chartData
+  chartData.value = [
+    { title: 'COPY 任务', range: 'today', load: loadCopyChart, chart: null },
+    { title: 'STRM 任务', range: 'today', load: loadStrmChart, chart: null },
+    { title: 'Rename 任务', range: 'today', load: loadRenameChart, chart: null }
+  ]
+  console.log('[Dashboard] chartData set:', chartData.value.length)
+
+  // Wait for DOM to render
+  await nextTick()
+  console.log('[Dashboard] DOM ready, containers:', chartContainers.map(c => c.value ? 'found' : 'MISSING'))
+
+  // Load charts
+  await loadCopyChart()
+  await loadStrmChart()
+  await loadRenameChart()
+  console.log('[Dashboard] All charts loaded')
 
   resizeHandler = () => {
-    copyChart?.resize()
-    strmChart?.resize()
-    renameChart?.resize()
+    copyChart.value?.resize()
+    strmChart.value?.resize()
+    renameChart.value?.resize()
   }
   window.addEventListener('resize', resizeHandler)
 })
 
 onUnmounted(() => {
   resizeHandler && window.removeEventListener('resize', resizeHandler)
-  copyChart?.dispose()
-  strmChart?.dispose()
-  renameChart?.dispose()
+  copyChart.value?.dispose()
+  strmChart.value?.dispose()
+  renameChart.value?.dispose()
 })
 </script>
 
 <style scoped lang="scss">
 .dashboard {
-  padding: 0;
+  padding: 24px;
 }
 
 /* ============================================
    Stat Cards
    ============================================ */
 .stat-row {
-  margin-bottom: 16px;
+  margin-bottom: 24px;
 }
 
 .stat-card {
   border: none;
   border-radius: var(--osr-radius-lg);
   box-shadow: var(--osr-shadow-base);
+  margin-bottom: 16px;
   cursor: default;
   transition: all var(--osr-transition-base);
 
@@ -360,6 +356,10 @@ onUnmounted(() => {
    Responsive
    ============================================ */
 @media (max-width: 768px) {
+  .dashboard {
+    padding: 16px;
+  }
+
   .stat-card :deep(.el-card__body) {
     padding: 16px;
   }
