@@ -140,15 +140,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh, Delete, VideoPlay, Filter } from '@element-plus/icons-vue'
 import { getRenameDetailListApi, executeRenameDetailApi } from '@/api/openlist/renameDetail'
+import { useAppStore } from '@/stores/app'
 import type { SearchParams, PageResult } from '@/types'
+
+const appStore = useAppStore()
+const showSearch = computed(() => appStore.device === 'desktop')
 
 const detailList = ref<any[]>([])
 const loading = ref(true)
-const showSearch = ref(true)
 const total = ref(0)
 const multiple = ref(true)
 const selectedIds = ref<number[]>([])

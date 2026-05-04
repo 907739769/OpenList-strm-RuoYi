@@ -131,19 +131,22 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, toRefs, watch, nextTick } from 'vue'
+import { ref, reactive, toRefs, watch, nextTick, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh, Plus, Delete, Filter, EditPen } from '@element-plus/icons-vue'
 import { getDictDataListApi, addDictDataApi, updateDictDataApi, deleteDictDataApi, getDictTypeListApi } from '@/api/system/dict'
+import { useAppStore } from '@/stores/app'
 import type { FormInstance } from 'element-plus'
 import type { SearchParams } from '@/types'
+
+const appStore = useAppStore()
+const showSearch = computed(() => appStore.device === 'desktop')
 
 const route = useRoute()
 
 const dataList = ref<any[]>([])
 const loading = ref(true)
-const showSearch = ref(true)
 const total = ref(0)
 const title = ref('')
 const open = ref(false)

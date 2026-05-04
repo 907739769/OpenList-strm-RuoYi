@@ -117,16 +117,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh, Plus, Edit, Delete, VideoPlay, Filter } from '@element-plus/icons-vue'
 import DirectoryTreeSelect from '@/components/DirectoryTreeSelect/index.vue'
 import { getStrmTaskListApi, addStrmTaskApi, updateStrmTaskApi, deleteStrmTaskApi, executeStrmTaskApi } from '@/api/openlist/strmTask'
+import { useAppStore } from '@/stores/app'
 import type { SearchParams, PageResult } from '@/types'
+
+const appStore = useAppStore()
+const showSearch = computed(() => appStore.device === 'desktop')
 
 const taskList = ref<any[]>([])
 const loading = ref(true)
-const showSearch = ref(true)
 const total = ref(0)
 const single = ref(true)
 const multiple = ref(true)
