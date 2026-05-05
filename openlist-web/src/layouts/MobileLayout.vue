@@ -102,6 +102,9 @@
         </div>
       </div>
     </div>
+
+    <!-- Password Change Dialog -->
+    <ChangePasswordDialog v-model:visible="showPasswordDialog" />
   </div>
 </template>
 
@@ -116,12 +119,14 @@ import {
   Setting, SwitchButton, Monitor, Document, Picture
 } from '@element-plus/icons-vue'
 import type { Component } from 'vue'
+import ChangePasswordDialog from '@/components/ChangePasswordDialog.vue'
 
 const route = useRoute()
 const router = useRouter()
 const appStore = useAppStore()
 const userStore = useUserStore()
 const menuOpen = ref(false)
+const showPasswordDialog = ref(false)
 
 // Map Font Awesome icon classes to Element Plus icons
 const iconMap: Record<string, Component> = {
@@ -192,7 +197,7 @@ const isTabActive = (path: string) => {
 
 const handleDropdownCommand = async (command: string) => {
   if (command === 'profile') {
-    // Could navigate to profile page
+    showPasswordDialog.value = true
   } else if (command === 'logout') {
     try {
       await ElMessageBox.confirm('确定要退出登录吗？', '提示', {
@@ -421,7 +426,8 @@ onUnmounted(() => {
   flex: 1;
   overflow-y: auto;
   padding: 12px;
-  padding-bottom: 64px; /* Space for tabbar */
+  /* tabbar 高度 56px + 安全区域，防止内容被遮挡 */
+  padding-bottom: calc(56px + env(safe-area-inset-bottom, 8px) + 8px);
   -webkit-overflow-scrolling: touch;
 }
 

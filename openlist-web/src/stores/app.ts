@@ -3,7 +3,7 @@ import { ref } from 'vue'
 
 export const useAppStore = defineStore('app', () => {
   const sidebarOpened = ref<boolean>(true)
-  const device = ref<'desktop' | 'mobile'>('desktop')
+  const device = ref<'desktop' | 'mobile'>(window.innerWidth < 768 ? 'mobile' : 'desktop')
 
   const toggleSidebar = () => {
     sidebarOpened.value = !sidebarOpened.value

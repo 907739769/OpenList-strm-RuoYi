@@ -82,12 +82,12 @@
         :key="record.strmId"
         class="record-card"
         :class="{ selected: selectedIds.includes(record.strmId) }"
-        @click="toggleSelect(record.strmId)"
+        @click="handleCardClick($event, record.strmId)"
       >
         <div class="card-checkbox">
           <el-checkbox
             :model-value="selectedIds.includes(record.strmId)"
-            @click.stop
+            size="large"
             @change="toggleSelect(record.strmId)"
           />
         </div>
@@ -131,33 +131,35 @@
       <div class="page-info">
         共 {{ total }} 条
       </div>
-      <div class="page-controls">
-        <el-button
-          :icon="ArrowLeft"
-          circle
+      <div class="page-controls-row">
+        <div class="page-controls">
+          <el-button
+            :icon="ArrowLeft"
+            circle
+            size="small"
+            :disabled="queryParams.pageNum <= 1"
+            @click="prevPage"
+          />
+          <span class="page-num">{{ queryParams.pageNum }}</span>
+          <el-button
+            :icon="ArrowRight"
+            circle
+            size="small"
+            :disabled="queryParams.pageNum >= totalPages"
+            @click="nextPage"
+          />
+        </div>
+        <el-select
+          v-model="queryParams.pageSize"
+          :width="80"
           size="small"
-          :disabled="queryParams.pageNum <= 1"
-          @click="prevPage"
-        />
-        <span class="page-num">{{ queryParams.pageNum }}</span>
-        <el-button
-          :icon="ArrowRight"
-          circle
-          size="small"
-          :disabled="queryParams.pageNum >= totalPages"
-          @click="nextPage"
-        />
+          @change="handleSizeChange"
+        >
+          <el-option :label="10" :value="10" />
+          <el-option :label="20" :value="20" />
+          <el-option :label="50" :value="50" />
+        </el-select>
       </div>
-      <el-select
-        v-model="queryParams.pageSize"
-        :width="80"
-        size="small"
-        @change="handleSizeChange"
-      >
-        <el-option :label="10" :value="10" />
-        <el-option :label="20" :value="20" />
-        <el-option :label="50" :value="50" />
-      </el-select>
     </div>
   </div>
 </template>
@@ -232,6 +234,13 @@ const toggleSelect = (id: number) => {
   } else {
     selectedIds.value.push(id)
   }
+}
+
+const handleCardClick = (event: Event, id: number) => {
+  const target = event.target as HTMLElement
+  // 如果点击的是 checkbox 或其子元素，跳过（由 checkbox 的 @change 处理）
+  if (target.closest('.card-checkbox')) return
+  toggleSelect(id)
 }
 
 const clearSelection = () => {
@@ -322,6 +331,14 @@ getList()
   flex-direction: column;
   gap: 10px;
   padding-bottom: 8px;
+  
+  @media (max-width: 768px) {
+    /* H5 端：分页栏不额外占满屏幕，收缩到内容高度 */
+    .pagination-bar {
+      /* 确保分页栏在卡片内自然收缩，不被底部导航栏遮挡 */
+      margin-bottom: 8px;
+    }
+  }
 }
 
 /* ============================================
@@ -469,7 +486,10 @@ getList()
 
   .card-checkbox {
     flex-shrink: 0;
+    display: flex;
+    align-items: flex-start;
     padding-top: 2px;
+    padding-left: 2px;
   }
 
   .card-content {
@@ -558,34 +578,67 @@ getList()
    ============================================ */
 .pagination-bar {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 4px;
+  flex-direction: column;
+  align-items: stretch;
   gap: 8px;
+  padding: 10px 4px;
 
   .page-info {
-    font-size: 12px;
+    font-size: 13px;
+    font-weight: 500;
     color: var(--osr-text-secondary);
-    white-space: nowrap;
+    text-align: center;
   }
 
-  .page-controls {
+  .page-controls-row {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 8px;
 
-    .page-num {
-      font-size: 15px;
-      font-weight: 600;
-      color: var(--osr-primary);
-      min-width: 28px;
-      text-align: center;
+    .page-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+
+      .page-num {
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--osr-primary);
+        min-width: 28px;
+        text-align: center;
+      }
+    }
+
+    :deep(.el-select) {
+      flex: 0 0 auto;
+
+      .el-input__wrapper {
+        border-radius: var(--osr-radius-sm);
+      }
     }
   }
 
-  :deep(.el-select) {
-    .el-input__wrapper {
-      border-radius: var(--osr-radius-sm);
+  @media (min-width: 576px) {
+    /* PC 端恢复一行显示 */
+    flex-direction: row;
+    justify-content: space-between;
+
+    .page-info {
+      text-align: left;
+      font-size: 12px;
+      font-weight: 400;
+    }
+
+    .page-controls-row {
+      .page-controls {
+        flex: 0 1 auto;
+      }
+
+      :deep(.el-select) {
+        margin-left: 8px;
+      }
     }
   }
 }

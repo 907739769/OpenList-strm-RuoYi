@@ -117,12 +117,8 @@
           </div>
           <div class="mobile-card-body">
             <div class="mobile-card-row">
-              <span class="mobile-card-label">源文件</span>
-              <span class="mobile-card-value mobile-card-value-clip">{{ item.copySrcFileName }}</span>
-            </div>
-            <div class="mobile-card-row">
               <span class="mobile-card-label">源路径</span>
-              <span class="mobile-card-value mobile-card-value-clip">{{ item.copySrcPath }}</span>
+              <span class="mobile-card-value mobile-card-value-path" :title="item.copySrcPath">{{ item.copySrcPath }}</span>
             </div>
             <div class="mobile-card-row">
               <span class="mobile-card-label">目标名</span>
@@ -130,7 +126,7 @@
             </div>
             <div class="mobile-card-row">
               <span class="mobile-card-label">目标路径</span>
-              <span class="mobile-card-value mobile-card-value-clip">{{ item.copyDstPath }}</span>
+              <span class="mobile-card-value mobile-card-value-path" :title="item.copyDstPath">{{ item.copyDstPath }}</span>
             </div>
             <div class="mobile-card-row">
               <span class="mobile-card-label">创建时间</span>
@@ -177,7 +173,7 @@ import { useAppStore } from '@/stores/app'
 import type { SearchParams, PageResult } from '@/types'
 
 const appStore = useAppStore()
-const showSearch = ref(appStore.device === 'desktop')
+const showSearch = ref(window.innerWidth >= 768)
 
 const recordList = ref<any[]>([])
 const loading = ref(true)
@@ -291,7 +287,7 @@ getList()
 .page-container {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
 /* ============================================
@@ -303,7 +299,7 @@ getList()
   box-shadow: var(--osr-shadow-base);
 
   :deep(.el-card__body) {
-    padding: 16px 20px;
+    padding: 14px 16px;
   }
 }
 
@@ -314,10 +310,11 @@ getList()
   border: none;
   border-radius: var(--osr-radius-lg);
   box-shadow: var(--osr-shadow-base);
-  flex: 1;
 
   :deep(.el-card__body) {
-    padding: 20px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
   }
 }
 
@@ -325,11 +322,12 @@ getList()
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 
   .action-left {
     display: flex;
-    gap: 8px;
+    gap: 6px;
+    flex-wrap: wrap;
   }
 }
 
@@ -339,13 +337,18 @@ getList()
 .pagination-wrapper {
   display: flex;
   justify-content: flex-end;
-  margin-top: 16px;
+  margin-top: auto;
+  padding-top: 12px;
 }
 
 /* ============================================
    Mobile Responsive
    ============================================ */
 @media (max-width: 768px) {
+  .page-container {
+    gap: 10px;
+  }
+
   .search-card :deep(.el-form) {
     .el-form-item {
       margin-right: 0;
@@ -367,7 +370,111 @@ getList()
 
   .action-bar {
     flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 10px;
+
+    .action-left {
+      gap: 4px;
+    }
+  }
+
+  .table-card :deep(.el-card__body) {
+    padding: 12px;
+  }
+
+  /* ============================================
+     Mobile Card List
+     ============================================ */
+  .mobile-card-list {
+    display: flex;
+    flex-direction: column;
     gap: 8px;
+  }
+
+  .mobile-card {
+    background: white;
+    border-radius: 8px;
+    border: 1px solid var(--osr-border-light);
+    overflow: hidden;
+
+    .mobile-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 12px 8px;
+      border-bottom: 1px solid var(--osr-border-light);
+      background: var(--osr-bg-page);
+
+      .mobile-card-title {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--osr-text-primary);
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        margin-right: 8px;
+      }
+    }
+
+    .mobile-card-body {
+      padding: 0;
+
+      .mobile-card-row {
+        display: flex;
+        align-items: flex-start;
+        padding: 8px 12px;
+        font-size: 13px;
+        border-bottom: 1px solid var(--osr-border-light);
+
+        &:last-child {
+          border-bottom: none;
+        }
+
+        .mobile-card-label {
+          width: 64px;
+          color: var(--osr-text-secondary);
+          flex-shrink: 0;
+          font-size: 12px;
+          line-height: 1.5;
+          padding-top: 1px;
+        }
+
+        .mobile-card-value {
+          flex: 1;
+          min-width: 0;
+          color: var(--osr-text-primary);
+          font-size: 13px;
+          line-height: 1.5;
+          word-break: break-all;
+
+          &.mobile-card-value-clip {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          &.mobile-card-value-path {
+            color: var(--osr-text-placeholder);
+            font-size: 12px;
+            line-height: 1.6;
+          }
+
+          &.mobile-card-value-light {
+            color: var(--osr-text-secondary);
+            font-size: 12px;
+          }
+        }
+      }
+    }
+
+    .mobile-card-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 2px;
+      padding: 8px 12px 10px;
+      border-top: 1px solid var(--osr-border-light);
+    }
   }
 }
 </style>

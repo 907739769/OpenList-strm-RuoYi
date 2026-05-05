@@ -205,7 +205,7 @@ import { useAppStore } from '@/stores/app'
 import type { SearchParams, PageResult } from '@/types'
 
 const appStore = useAppStore()
-const showSearch = ref(appStore.device === 'desktop')
+const showSearch = ref(window.innerWidth >= 768)
 
 const taskList = ref<any[]>([])
 const loading = ref(true)

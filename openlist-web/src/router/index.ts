@@ -4,6 +4,7 @@ import 'nprogress/nprogress.css'
 import Cookies from 'js-cookie'
 import type { MenuRoute } from '@/stores/user'
 import { useUserStore } from '@/stores/user'
+import { useAppStore } from '@/stores/app'
 
 NProgress.configure({ showSpinner: false })
 
@@ -53,7 +54,14 @@ const componentMap: Record<string, () => Promise<any>> = {
   'openliststrm/strm_task/index': () => import('@/views/openlist/strmTask/index.vue'),
   'openliststrm/strm/index': () => import('@/views/openlist/strmRecord/index.vue'),
   'openliststrm/renameTask/index': () => import('@/views/openlist/renameTask/index.vue'),
-  'openliststrm/renameDetail/index': () => import('@/views/openlist/renameDetail/index.vue')
+  'openliststrm/renameDetail/index': () => import('@/views/openlist/renameDetail/index.vue'),
+  'views-mobile/strmRecord/index': () => import('@/views-mobile/strmRecord/index.vue'),
+  'views-mobile/strmTask/index': () => import('@/views-mobile/strmTask/index.vue'),
+  'views-mobile/copyTask/index': () => import('@/views-mobile/copyTask/index.vue'),
+  'views-mobile/copyRecord/index': () => import('@/views-mobile/copyRecord/index.vue'),
+  'views-mobile/renameTask/index': () => import('@/views-mobile/renameTask/index.vue'),
+  'views-mobile/renameDetail/index': () => import('@/views-mobile/renameDetail/index.vue'),
+  'views-mobile/dashboard/index': () => import('@/views-mobile/dashboard/index.vue')
 }
 
 function convertMenuToRoute(menu: MenuRoute): RouteRecordRaw {
@@ -61,7 +69,13 @@ function convertMenuToRoute(menu: MenuRoute): RouteRecordRaw {
     ? menu.children.map(child => convertMenuToRoute(child))
     : []
 
-  const component = componentMap[menu.component || ''] || (() => import('@/views/error/404.vue'))
+  const isMobile = useAppStore().device === 'mobile'
+  let componentPath = menu.component || ''
+  if (isMobile && componentPath.startsWith('views/openlist/')) {
+    componentPath = componentPath.replace('views/openlist/', 'views-mobile/')
+  }
+
+  const component = componentMap[componentPath] || (() => import('@/views/error/404.vue'))
 
   const isLayout = menu.component === 'Layout'
   const route: RouteRecordRaw = {
@@ -125,6 +139,17 @@ router.beforeEach(async (to, _from, next) => {
       document.title = `${title} - OSR`
   }
 
+  const appStore = useAppStore()
+  const isMobile = window.innerWidth < 768
+  const newDevice = isMobile ? 'mobile' : 'desktop'
+  const deviceChanged = appStore.device !== newDevice
+
+  if (deviceChanged) {
+    appStore.toggleDevice(newDevice)
+    const userStore = useUserStore()
+    userStore.routes = []
+  }
+
   const hasToken = Cookies.get('token')
 
   if (hasToken) {
@@ -133,18 +158,16 @@ router.beforeEach(async (to, _from, next) => {
       NProgress.done()
     } else {
       const userStore = useUserStore()
-      if (!userStore.routes.length) {
-        try {
+      try {
+        if (!userStore.routes.length) {
           await userStore.getUserInfo()
           const menuRoutes = await userStore.getRouters()
           addDynamicRoutes(menuRoutes)
-          next({ path: '/dashboard', replace: true })
-        } catch {
-          userStore.clearToken()
-          next('/login')
         }
-      } else {
         next()
+      } catch {
+        userStore.clearToken()
+        next('/login')
       }
     }
   } else {
