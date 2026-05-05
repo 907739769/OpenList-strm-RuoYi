@@ -63,65 +63,89 @@
         </el-button>
       </div>
 
-      <!-- Table -->
-      <el-table v-loading="loading" :data="detailList" @selection-change="handleSelectionChange" class="modern-table">
+      <!-- Desktop Table -->
+      <el-table v-if="appStore.device === 'desktop'" v-loading="loading" :data="detailList" @selection-change="handleSelectionChange" class="modern-table">
         <el-table-column type="selection" width="50" align="center" />
-        <el-table-column label="媒体信息" width="120">
-          <template #default="scope">
-            <div>
-              <div class="media-info-title">{{ scope.row.title || '未识别' }}{{ scope.row.year ? ' (' + scope.row.year + ')' : '' }}</div>
-              <div class="media-info-meta">
-                {{ scope.row.mediaType || '' }}{{ scope.row.season ? ' · S' + scope.row.season : '' }}{{ scope.row.episode ? ' E' + scope.row.episode : '' }}
-              </div>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="文件变更对比" min-width="300">
+        <el-table-column label="文件信息" min-width="300">
           <template #default="scope">
             <div class="file-change-box">
               <div class="file-row">
-                <span class="file-label label-old">原</span>
-                <span class="file-name">{{ scope.row.originalName }}</span>
+                <span class="file-label label-src">原</span>
+                <span class="file-name">{{ scope.row.originalFileName }}</span>
+                <span class="file-path">{{ scope.row.originalFilePath }}</span>
               </div>
-              <div class="file-path">{{ scope.row.originalPath }}</div>
               <div class="file-row">
-                <span class="file-label label-new">新</span>
-                <span class="file-name">{{ scope.row.newName || '...' }}</span>
+                <span class="file-label label-dst">新</span>
+                <span class="file-name">{{ scope.row.newFileName }}</span>
+                <span class="file-path">{{ scope.row.newFilePath }}</span>
               </div>
-              <div class="file-path" v-if="scope.row.newPath">{{ scope.row.newPath }}</div>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="参数" width="200">
-          <template #default="scope">
-            <div class="tech-badges">
-              <el-tag v-if="scope.row.resolution" size="small" type="info">{{ scope.row.resolution }}</el-tag>
-              <el-tag v-if="scope.row.videoCodec" size="small" type="primary">{{ scope.row.videoCodec }}</el-tag>
-              <el-tag v-if="scope.row.source" size="small" type="warning">{{ scope.row.source }}</el-tag>
-              <el-tag v-if="scope.row.releaseGroup" size="small">{{ scope.row.releaseGroup }}</el-tag>
             </div>
           </template>
         </el-table-column>
         <el-table-column label="状态" prop="status" width="80" align="center">
           <template #default="scope">
-            <el-tag :type="scope.row.status === '1' ? 'success' : 'danger'">
-              {{ scope.row.status === '1' ? '成功' : '失败' }}
+            <el-tag :type="scope.row.status === '0' ? 'danger' : 'success'">
+              {{ scope.row.status === '0' ? '失败' : '成功' }}
             </el-tag>
           </template>
         </el-table-column>
         <el-table-column label="创建时间" prop="createTime" width="170" align="center" />
-        <el-table-column label="操作" align="center" width="220" fixed="right">
+        <el-table-column label="操作" align="center" width="260" fixed="right">
           <template #default="scope">
-            <el-button link type="primary" @click="handleEdit(scope.row)">编辑</el-button>
-            <el-button link type="danger" @click="handleDeleteOne(scope.row)">
-              <el-icon><Delete /></el-icon> 删除
+            <el-button link type="primary" @click="handleRetryOne(scope.row)">
+              <el-icon><Refresh /></el-icon> 重试
             </el-button>
-            <el-button link type="primary" @click="handleExecuteOne(scope.row)">
-              <el-icon><VideoPlay /></el-icon> 执行
+            <el-button link type="warning" @click="handleRemoveNetDiskOne(scope.row)">
+              <el-icon><Download /></el-icon> 删除网盘文件
+            </el-button>
+            <el-button link type="danger" @click="handleDeleteOne(scope.row)">
+              <el-icon><Delete /></el-icon> 删除记录
             </el-button>
           </template>
         </el-table-column>
       </el-table>
+
+      <!-- Mobile Card List -->
+      <div v-if="appStore.device === 'mobile'" v-loading="loading" class="mobile-card-list">
+        <div v-for="item in detailList" :key="item.id" class="mobile-card">
+          <div class="mobile-card-header">
+            <span class="mobile-card-title">{{ item.originalFileName }}</span>
+            <el-tag size="small" :type="item.status === '0' ? 'danger' : 'success'">
+              {{ item.status === '0' ? '失败' : '成功' }}
+            </el-tag>
+          </div>
+          <div class="mobile-card-body">
+            <div class="mobile-card-row">
+              <span class="mobile-card-label">原路径</span>
+              <span class="mobile-card-value mobile-card-value-clip">{{ item.originalFilePath }}</span>
+            </div>
+            <div class="mobile-card-row">
+              <span class="mobile-card-label">新文件名</span>
+              <span class="mobile-card-value mobile-card-value-clip">{{ item.newFileName }}</span>
+            </div>
+            <div class="mobile-card-row">
+              <span class="mobile-card-label">新路径</span>
+              <span class="mobile-card-value mobile-card-value-clip">{{ item.newFilePath }}</span>
+            </div>
+            <div class="mobile-card-row">
+              <span class="mobile-card-label">创建时间</span>
+              <span class="mobile-card-value mobile-card-value-light">{{ item.createTime }}</span>
+            </div>
+          </div>
+          <div class="mobile-card-actions">
+            <el-button link type="primary" size="small" @click="handleRetryOne(item)">
+              <el-icon><Refresh /></el-icon> 重试
+            </el-button>
+            <el-button link type="warning" size="small" @click="handleRemoveNetDiskOne(item)">
+              <el-icon><Download /></el-icon> 删网盘
+            </el-button>
+            <el-button link type="danger" size="small" @click="handleDeleteOne(item)">
+              <el-icon><Delete /></el-icon> 删记录
+            </el-button>
+          </div>
+        </div>
+        <el-empty v-if="!detailList.length" description="暂无数据" />
+      </div>
 
       <!-- Pagination -->
       <div class="pagination-wrapper">
@@ -142,7 +166,7 @@
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Refresh, Delete, VideoPlay, Filter } from '@element-plus/icons-vue'
+import { Search, Refresh, Delete, Filter } from '@element-plus/icons-vue'
 import { getRenameDetailListApi, executeRenameDetailApi } from '@/api/openlist/renameDetail'
 import { useAppStore } from '@/stores/app'
 import type { SearchParams, PageResult } from '@/types'
@@ -315,6 +339,85 @@ getList()
   .action-bar {
     flex-wrap: wrap;
     gap: 8px;
+  }
+}
+
+/* ============================================
+   Mobile Card List
+   ============================================ */
+.mobile-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 0;
+}
+
+.mobile-card {
+  background: white;
+  border-radius: var(--osr-radius-md);
+  box-shadow: var(--osr-shadow-sm);
+  border: 1px solid var(--osr-border-light);
+  overflow: hidden;
+
+  .mobile-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 14px 8px;
+    border-bottom: 1px solid var(--osr-border-light);
+
+    .mobile-card-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--osr-text-primary);
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      margin-right: 8px;
+      i { color: var(--osr-primary); margin-right: 4px; }
+    }
+  }
+
+  .mobile-card-body {
+    padding: 10px 14px;
+
+    .mobile-card-row {
+      display: flex;
+      padding: 4px 0;
+      font-size: 13px;
+
+      .mobile-card-label {
+        width: 72px;
+        color: var(--osr-text-secondary);
+        flex-shrink: 0;
+      }
+
+      .mobile-card-value {
+        flex: 1;
+        color: var(--osr-text-primary);
+        word-break: break-all;
+
+        &.mobile-card-value-clip {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          max-width: 200px;
+        }
+
+        &.mobile-card-value-light {
+          color: var(--osr-text-secondary);
+        }
+      }
+    }
+  }
+
+  .mobile-card-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 4px;
+    padding: 8px 14px 12px;
+    border-top: 1px solid var(--osr-border-light);
   }
 }
 </style>

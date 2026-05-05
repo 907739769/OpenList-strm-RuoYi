@@ -64,8 +64,8 @@
         </el-button>
       </div>
 
-      <!-- Table -->
-      <el-table v-loading="loading" :data="recordList" @selection-change="handleSelectionChange" class="modern-table">
+      <!-- Desktop Table -->
+      <el-table v-if="appStore.device === 'desktop'" v-loading="loading" :data="recordList" @selection-change="handleSelectionChange" class="modern-table">
         <el-table-column type="selection" width="50" align="center" />
         <el-table-column label="复制详情" min-width="300">
           <template #default="scope">
@@ -105,6 +105,52 @@
           </template>
         </el-table-column>
       </el-table>
+
+      <!-- Mobile Card List -->
+      <div v-if="appStore.device === 'mobile'" v-loading="loading" class="mobile-card-list">
+        <div v-for="item in recordList" :key="item.copyId" class="mobile-card">
+          <div class="mobile-card-header">
+            <span class="mobile-card-title">{{ item.copySrcFileName }}</span>
+            <el-tag size="small" :type="getCopyStatusType(item.copyStatus)">
+              {{ getCopyStatusText(item.copyStatus) }}
+            </el-tag>
+          </div>
+          <div class="mobile-card-body">
+            <div class="mobile-card-row">
+              <span class="mobile-card-label">源文件</span>
+              <span class="mobile-card-value mobile-card-value-clip">{{ item.copySrcFileName }}</span>
+            </div>
+            <div class="mobile-card-row">
+              <span class="mobile-card-label">源路径</span>
+              <span class="mobile-card-value mobile-card-value-clip">{{ item.copySrcPath }}</span>
+            </div>
+            <div class="mobile-card-row">
+              <span class="mobile-card-label">目标名</span>
+              <span class="mobile-card-value mobile-card-value-clip">{{ item.copyDstFileName }}</span>
+            </div>
+            <div class="mobile-card-row">
+              <span class="mobile-card-label">目标路径</span>
+              <span class="mobile-card-value mobile-card-value-clip">{{ item.copyDstPath }}</span>
+            </div>
+            <div class="mobile-card-row">
+              <span class="mobile-card-label">创建时间</span>
+              <span class="mobile-card-value mobile-card-value-light">{{ item.createTime }}</span>
+            </div>
+          </div>
+          <div class="mobile-card-actions">
+            <el-button link type="primary" size="small" @click="handleRetryOne(item)">
+              <el-icon><Refresh /></el-icon> 重试
+            </el-button>
+            <el-button link type="warning" size="small" @click="handleRemoveNetDiskOne(item)">
+              <el-icon><Download /></el-icon> 删网盘
+            </el-button>
+            <el-button link type="danger" size="small" @click="handleDeleteOne(item)">
+              <el-icon><Delete /></el-icon> 删记录
+            </el-button>
+          </div>
+        </div>
+        <el-empty v-if="!recordList.length" description="暂无数据" />
+      </div>
 
       <!-- Pagination -->
       <div class="pagination-wrapper">

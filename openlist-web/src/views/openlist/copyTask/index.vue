@@ -53,8 +53,8 @@
         </el-button>
       </div>
 
-      <!-- Table -->
-      <el-table v-loading="loading" :data="taskList" @selection-change="handleSelectionChange" class="modern-table">
+      <!-- Desktop Table -->
+      <el-table v-if="appStore.device === 'desktop'" v-loading="loading" :data="taskList" @selection-change="handleSelectionChange" class="modern-table">
         <el-table-column type="selection" width="50" align="center" />
         <el-table-column label="同步配置" min-width="300">
           <template #default="scope">
@@ -87,6 +87,46 @@
           </template>
         </el-table-column>
       </el-table>
+
+      <!-- Mobile Card List -->
+      <div v-if="appStore.device === 'mobile'" v-loading="loading" class="mobile-card-list">
+        <div v-for="item in taskList" :key="item.copyTaskId" class="mobile-card">
+          <div class="mobile-card-header">
+            <span class="mobile-card-title">
+              <span class="path-label label-src">源</span> {{ item.copyTaskSrc }}
+            </span>
+            <el-tag size="small" :type="item.copyTaskStatus === '1' ? 'success' : 'danger'">
+              {{ item.copyTaskStatus === '1' ? '启用' : '停用' }}
+            </el-tag>
+          </div>
+          <div class="mobile-card-body">
+            <div class="mobile-card-row">
+              <span class="mobile-card-label">目标</span>
+              <span class="mobile-card-value mobile-card-value-clip">{{ item.copyTaskDst }}</span>
+            </div>
+            <div v-if="item.monitorDir" class="mobile-card-row">
+              <span class="mobile-card-label">监控</span>
+              <span class="mobile-card-value mobile-card-value-clip">{{ item.monitorDir }}</span>
+            </div>
+            <div class="mobile-card-row">
+              <span class="mobile-card-label">创建时间</span>
+              <span class="mobile-card-value mobile-card-value-light">{{ item.createTime }}</span>
+            </div>
+          </div>
+          <div class="mobile-card-actions">
+            <el-button link type="primary" size="small" @click="handleUpdate(item)">
+              <el-icon><Edit /></el-icon> 修改
+            </el-button>
+            <el-button link type="danger" size="small" @click="handleDelete(item)">
+              <el-icon><Delete /></el-icon> 删除
+            </el-button>
+            <el-button link type="primary" size="small" @click="handleExecuteOne(item)">
+              <el-icon><VideoPlay /></el-icon> 执行
+            </el-button>
+          </div>
+        </div>
+        <el-empty v-if="!taskList.length" description="暂无数据" />
+      </div>
 
       <!-- Pagination -->
       <div class="pagination-wrapper">
@@ -354,6 +394,84 @@ getList()
   .action-bar {
     flex-wrap: wrap;
     gap: 8px;
+  }
+}
+
+/* ============================================
+   Mobile Card List
+   ============================================ */
+.mobile-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 0;
+}
+
+.mobile-card {
+  background: white;
+  border-radius: var(--osr-radius-md);
+  box-shadow: var(--osr-shadow-sm);
+  border: 1px solid var(--osr-border-light);
+  overflow: hidden;
+
+  .mobile-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 14px 8px;
+    border-bottom: 1px solid var(--osr-border-light);
+
+    .mobile-card-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--osr-text-primary);
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      margin-right: 8px;
+    }
+  }
+
+  .mobile-card-body {
+    padding: 10px 14px;
+
+    .mobile-card-row {
+      display: flex;
+      padding: 4px 0;
+      font-size: 13px;
+
+      .mobile-card-label {
+        width: 72px;
+        color: var(--osr-text-secondary);
+        flex-shrink: 0;
+      }
+
+      .mobile-card-value {
+        flex: 1;
+        color: var(--osr-text-primary);
+        word-break: break-all;
+
+        &.mobile-card-value-clip {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          max-width: 200px;
+        }
+
+        &.mobile-card-value-light {
+          color: var(--osr-text-secondary);
+        }
+      }
+    }
+  }
+
+  .mobile-card-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 4px;
+    padding: 8px 14px 12px;
+    border-top: 1px solid var(--osr-border-light);
   }
 }
 </style>
