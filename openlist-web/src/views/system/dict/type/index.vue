@@ -116,7 +116,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, toRefs, computed } from 'vue'
+import { ref, reactive, toRefs } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh, Plus, Delete, Filter, List, EditPen } from '@element-plus/icons-vue'
@@ -126,7 +126,7 @@ import type { FormInstance } from 'element-plus'
 import type { SearchParams, PageResult } from '@/types'
 
 const appStore = useAppStore()
-const showSearch = computed(() => appStore.device === 'desktop')
+const showSearch = ref(appStore.device === 'desktop')
 
 const router = useRouter()
 

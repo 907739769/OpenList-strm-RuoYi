@@ -159,7 +159,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh, Plus, Edit, Delete, VideoPlay, MagicStick, Filter, InfoFilled } from '@element-plus/icons-vue'
 import DirectoryTreeSelect from '@/components/DirectoryTreeSelect/index.vue'
@@ -168,7 +168,7 @@ import { useAppStore } from '@/stores/app'
 import type { SearchParams, PageResult } from '@/types'
 
 const appStore = useAppStore()
-const showSearch = computed(() => appStore.device === 'desktop')
+const showSearch = ref(appStore.device === 'desktop')
 
 const taskList = ref<any[]>([])
 const loading = ref(true)

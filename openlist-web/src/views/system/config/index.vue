@@ -107,7 +107,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, toRefs, computed } from 'vue'
+import { ref, reactive, toRefs } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh, Plus, Edit, Delete, Download, Filter } from '@element-plus/icons-vue'
 import { getConfigListApi, addConfigApi, updateConfigApi, deleteConfigApi, refreshCacheApi } from '@/api/system/config'
@@ -116,7 +116,7 @@ import type { FormInstance } from 'element-plus'
 import type { SearchParams, PageResult } from '@/types'
 
 const appStore = useAppStore()
-const showSearch = computed(() => appStore.device === 'desktop')
+const showSearch = ref(appStore.device === 'desktop')
 
 const configList = ref<any[]>([])
 const loading = ref(true)

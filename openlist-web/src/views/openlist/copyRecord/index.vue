@@ -123,7 +123,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh, Delete, Download, Filter } from '@element-plus/icons-vue'
 import { getCopyRecordListApi, retryCopyRecordApi, batchDeleteCopyRecordApi, batchRetryCopyRecordApi, batchRemoveCopyNetDiskApi } from '@/api/openlist/copyRecord'
@@ -131,7 +131,7 @@ import { useAppStore } from '@/stores/app'
 import type { SearchParams, PageResult } from '@/types'
 
 const appStore = useAppStore()
-const showSearch = computed(() => appStore.device === 'desktop')
+const showSearch = ref(appStore.device === 'desktop')
 
 const recordList = ref<any[]>([])
 const loading = ref(true)
