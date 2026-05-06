@@ -19,8 +19,21 @@ OpenList-strm-RuoYi/
 ├── Dockerfile.backend    # Backend Docker image (Eclipse Temurin 21)
 ├── Dockerfile.frontend   # Frontend Docker image (nginx)
 ├── nginx.conf            # Nginx config: SPA fallback, API/WebSocket proxy, caching
-├── sql/                  # DB schema (RuoYi framework-generated)
-└── config/               # External runtime config (not tracked in git)
+└── config/               # External runtime config (NOT in repo — created at deploy time)
+```
+
+## MODULE DEPENDENCIES
+```
+ruoyi-common  ← (base, no backend deps)
+    ↑
+ruoyi-system  ← depends on ruoyi-common
+    ↑
+ruoyi-framework ← depends on ruoyi-system
+    ↑              ↑              ↑
+ruoyi-admin   ruoyi-quartz   ruoyi-openliststrm
+(deploy)      (scheduled)    (custom business)
+    ↑
+openlist-web  ← (frontend, communicates via REST API)
 ```
 
 ## WHERE TO LOOK
@@ -84,7 +97,7 @@ docker-compose up -d
 
 ## NOTES
 - `sql/` is framework-generated RuoYi schema — user SQL is in `ruoyi-common/src/main/resources/sql/`
-- `config/` is excluded from git (runtime config only)
+- `config/` is excluded from git (runtime config only, created at deploy time)
 - Static assets in `ruoyi-admin/src/main/resources/static/` (jQuery, Bootstrap, Layui, Bootstrap-Table)
 - Thymeleaf templates in `ruoyi-openliststrm/src/main/resources/templates/openliststrm/`
 - Spring Boot excludes `DataSourceAutoConfiguration` — datasource configured manually via Druid
@@ -92,3 +105,5 @@ docker-compose up -d
 - `ruoyi-generator` removed from Maven modules (no longer used)
 - Backend runs on port 6895; frontend on port 80 (nginx); MySQL on 3306
 - Docker: `DB_HOST=mysql`, `SPRING_PROFILES_ACTIVE=druid`, cipher key via env var
+- Maven module names use hyphens (e.g., `ruoyi-openliststrm`) — consistent with project naming
+- Frontend dev server on port 3000, proxies `/api` to backend `localhost:6895`

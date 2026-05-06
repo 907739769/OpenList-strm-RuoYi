@@ -19,9 +19,14 @@ ruoyi-openliststrm/src/main/java/com/ruoyi/openliststrm/
 ├── task/OpenListStrmTask.java    — Quartz job: copy(), strm(), rename()
 ├── monitor/                      — File system monitoring
 │   ├── WatchServiceMonitor       — NIO WatchService
+│   ├── FileMonitor               — Monitor abstraction
+│   ├── FileEvent                 — File event domain
+│   ├── FileAlterationMonitorMonitor — Apache Commons Monitor wrapper
+│   ├── service/FileMonitorCoordinator — Monitor coordination service
 │   └── processor/
 │       ├── MediaRenameProcessor  — Parse → classify → organize
-│       └── MediaUploadProcessor  — Local file → cloud upload
+│       ├── MediaUploadProcessor  — Local file → cloud upload
+│       └── FileProcessor         — File processor interface
 ├── rename/                       — Media renaming engine
 │   ├── MediaParser.java          — Pipeline: extractors → TMDb → OpenAI
 │   ├── CategoryRule.java         — Genre/language classification

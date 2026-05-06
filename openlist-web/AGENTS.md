@@ -12,14 +12,18 @@ openlist-web/src/
 │   ├── monitor/                 — Job management APIs
 │   ├── openlist/                — STRM, sync, rename, notify APIs
 │   └── system/                  — User, role, dept, menu APIs
-├── views/                        — Page components (Vue SFC)
+├── views/                        — Desktop page components (Vue SFC)
 │   ├── auth/                    — Login page
 │   ├── dashboard/               — Home dashboard
 │   ├── error/                   — 403/404 pages
 │   ├── monitor/                 — Job management views
 │   ├── openlist/                — STRM, sync, rename, Telegram views
 │   └── system/                  — User, role, dept, menu, dict views
-├── views-mobile/                 — Mobile-optimized views
+├── views-mobile/                 — Mobile-optimized views (separate routing)
+│   ├── dashboard/               — Mobile dashboard
+│   ├── strmRecord/              — Mobile STRM record
+│   ├── renameDetail/            — Mobile rename detail
+│   └── ...                      — Other mobile-optimized pages
 ├── layouts/
 │   ├── DesktopLayout.vue         — Sidebar + header + main (desktop)
 │   └── MobileLayout.vue          — Collapsible nav (mobile)

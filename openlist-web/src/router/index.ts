@@ -64,15 +64,72 @@ const componentMap: Record<string, () => Promise<any>> = {
   'views-mobile/dashboard/index': () => import('@/views-mobile/dashboard/index.vue')
 }
 
+/**
+ * Normalize backend component path to consistent desktop format (openlist/...).
+ * Backend may send different path formats depending on menu configuration version:
+ *   - "openlist/xxx/index" (canonical)
+ *   - "openliststrm/copy/index" (legacy alias)
+ *   - "openlist/xxx" (without /index)
+ */
+function normalizeComponentPath(component: string): string {
+  if (!component) return component
+
+  // Already in canonical format
+  if (component.startsWith('views/openlist/')) return component
+
+  // Legacy openliststrm aliases -> desktop component paths
+  const aliasMap: Record<string, string> = {
+    'openliststrm/task/index': 'openlist/copyTask/index',
+    'openliststrm/copy/index': 'openlist/copyRecord/index',
+    'openliststrm/strm_task/index': 'openlist/strmTask/index',
+    'openliststrm/strm/index': 'openlist/strmRecord/index',
+    'openliststrm/renameTask/index': 'openlist/renameTask/index',
+    'openliststrm/renameDetail/index': 'openlist/renameDetail/index',
+  }
+  if (aliasMap[component]) return aliasMap[component]
+
+  // 'openlist/xxx/index' format (from DB url like /openlist/copy)
+  // Map to the correct component: openlist/copyRecord, openlist/strmTask, etc.
+  const directPathMap: Record<string, string> = {
+    'openlist/copy/index': 'openlist/copyRecord/index',
+    'openlist/copyTask/index': 'openlist/copyTask/index',
+    'openlist/strmTask/index': 'openlist/strmTask/index',
+    'openlist/strmRecord/index': 'openlist/strmRecord/index',
+    'openlist/renameTask/index': 'openlist/renameTask/index',
+    'openlist/renameDetail/index': 'openlist/renameDetail/index',
+    'openlist/copy/index/index': 'openlist/copyRecord/index',
+    'openlist/strmTask/index/index': 'openlist/strmTask/index',
+    'openlist/strmRecord/index/index': 'openlist/strmRecord/index',
+    'openlist/copyTask/index/index': 'openlist/copyTask/index',
+    'openlist/renameTask/index/index': 'openlist/renameTask/index',
+    'openlist/renameDetail/index/index': 'openlist/renameDetail/index',
+  }
+  if (directPathMap[component]) return directPathMap[component]
+
+  // Direct openlist/xxx -> ensure /index suffix
+  if (component.startsWith('openlist/')) {
+    return component.endsWith('/index')
+      ? component
+      : `${component}/index`
+  }
+
+  return component
+}
+
 function convertMenuToRoute(menu: MenuRoute): RouteRecordRaw {
   const children = menu.children && menu.children.length > 0
     ? menu.children.map(child => convertMenuToRoute(child))
     : []
 
-  const isMobile = useAppStore().device === 'mobile'
   let componentPath = menu.component || ''
-  if (isMobile && componentPath.startsWith('views/openlist/')) {
-    componentPath = componentPath.replace('views/openlist/', 'views-mobile/')
+
+  // 1. Normalize to canonical desktop format
+  componentPath = normalizeComponentPath(componentPath)
+
+  // 2. Convert to mobile view on mobile devices
+  const isMobile = useAppStore().device === 'mobile'
+  if (isMobile && componentPath.startsWith('openlist/')) {
+    componentPath = componentPath.replace('openlist/', 'views-mobile/')
   }
 
   const component = componentMap[componentPath] || (() => import('@/views/error/404.vue'))
