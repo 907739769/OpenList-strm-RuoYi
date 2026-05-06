@@ -1,67 +1,72 @@
-# openlist-web — Vue 3 Admin Frontend
+# Frontend (openlist-web) — AGENTS.md
+
+**Scope:** `openlist-web/`
 
 ## OVERVIEW
-Vue 3 + Vite 5 + Element Plus admin frontend. TypeScript. Pinia state management. Responsive desktop/mobile layouts. 53+ source files.
+
+Vue 3 + TypeScript + Vite 5 + Element Plus + Pinia 管理后台，支持桌面端和移动端双布局。
 
 ## STRUCTURE
+
 ```
-openlist-web/src/
-├── api/                          — Axios API layer
-│   ├── auth.ts                  — Login/logout/token
-│   ├── request.ts               — Axios instance (interceptors, baseURL, token)
-│   ├── monitor/                 — Job management APIs
-│   ├── openlist/                — STRM, sync, rename, notify APIs
-│   └── system/                  — User, role, dept, menu APIs
-├── views/                        — Desktop page components (Vue SFC)
-│   ├── auth/                    — Login page
-│   ├── dashboard/               — Home dashboard
-│   ├── error/                   — 403/404 pages
-│   ├── monitor/                 — Job management views
-│   ├── openlist/                — STRM, sync, rename, Telegram views
-│   └── system/                  — User, role, dept, menu, dict views
-├── views-mobile/                 — Mobile-optimized views (separate routing)
-│   ├── dashboard/               — Mobile dashboard
-│   ├── strmRecord/              — Mobile STRM record
-│   ├── renameDetail/            — Mobile rename detail
-│   └── ...                      — Other mobile-optimized pages
-├── layouts/
-│   ├── DesktopLayout.vue         — Sidebar + header + main (desktop)
-│   └── MobileLayout.vue          — Collapsible nav (mobile)
-├── components/                   — Reusable UI components
-├── composables/                  — Vue composables (useXxx)
-├── stores/
-│   ├── app.ts                   — App state (sidebar, theme, device)
-│   ├── permission.ts            — Route permission/menus
-│   └── user.ts                  — User info, tokens, permissions
-├── router/index.ts              — Vue Router (dynamic route injection)
-├── styles/                      — Global SCSS variables, resets
-├── utils/                       — Frontend utilities
-├── types/                       — TypeScript type definitions
-├── assets/                      — Static assets (icons, images)
-├── App.vue                      — Root component
-├── main.ts                      — App bootstrap (Pinia, Router, ElementPlus)
-└── auto-imports.d.ts            — Unplugin auto-imports (Vue, ElementPlus)
+openlist-web/
+├── src/
+│   ├── api/              # API 层（auth/monitor/openlist/system/request）
+│   ├── assets/           # 静态资源
+│   ├── components/       # 公共组件（ChangePasswordDialog/DirectoryTreeSelect/OpenListTree）
+│   ├── composables/      # 组合式函数（useBreakpoint.vue）
+│   ├── layouts/          # 布局（DesktopLayout.vue/MobileLayout.vue）
+│   ├── router/           # 路由（index.ts — 动态路由 + componentMap）
+│   ├── stores/           # Pinia 状态（app.ts/user.ts/permission.ts）
+│   ├── styles/           # 全局 SCSS
+│   ├── types/            # TypeScript 类型定义
+│   ├── utils/            # 工具（pwa.ts）
+│   ├── views/            # 桌面端页面（auth/dashboard/monitor/openlist/system/error）
+│   ├── views-mobile/     # 移动端页面
+│   ├── App.vue
+│   └── main.ts
+├── e2e/                  # Playwright E2E 测试
+├── vite.config.ts        # Vite 配置
+└── package.json
 ```
 
 ## WHERE TO LOOK
-| Task | Location |
-|------|----------|
-| API request instance | `api/request.ts` |
-| OpenList business APIs | `api/openlist/` |
-| STRM/sync/rename views | `views/openlist/` |
-| User auth flow | `api/auth.ts`, `stores/user.ts` |
-| Dynamic route injection | `router/index.ts`, `stores/permission.ts` |
-| Desktop layout | `layouts/DesktopLayout.vue` |
-| Mobile layout | `layouts/MobileLayout.vue` |
-| ESLint config | `.eslintrc` (if exists) or `eslint` in package.json |
+
+| 功能 | 位置 |
+|------|------|
+| 入口 | `src/main.ts` |
+| 路由/动态路由 | `src/router/index.ts` |
+| API 请求封装 | `src/api/request.ts` |
+| 认证 API | `src/api/auth.ts` |
+| 业务 API | `src/api/openlist/` |
+| 状态管理 | `src/stores/` |
+| 桌面布局 | `src/layouts/DesktopLayout.vue` |
+| 移动端布局 | `src/layouts/MobileLayout.vue` |
+| 桌面端页面 | `src/views/` |
+| 移动端页面 | `src/views-mobile/` |
 
 ## CONVENTIONS
-- **API layer**: Functions return `Promise<IResp>` — `request.get/post/put/delete` wrappers
-- **State management**: Pinia stores (`defineStore` composition API style)
-- **Routing**: Static routes + dynamic routes injected from backend menu data
-- **Layouts**: `DesktopLayout` for desktop, `MobileLayout` for mobile (device detection via `stores/app.ts`)
-- **Component style**: Vue 3 SFC with `<script setup lang="ts">`
-- **Auto-imports**: `unplugin-auto-import` + `unplugin-vue-components` — no manual imports for Vue/ElementPlus
-- **PWA**: `vite-plugin-pwa` for offline support
-- **E2E tests**: Playwright (`playwright.config.ts`, `e2e/`)
-- **Build**: `vue-tsc && vite build` (type-check + production build)
+
+- **组件**：PascalCase，`<script setup lang="ts">`
+- **API 函数**：`{name}Api(data)` 命名，返回解包后的 data
+- **Store**：Pinia composition API 风格
+- **路由**：动态路由，`componentMap` 硬编码映射后端返回的 component 路径
+- **路径别名**：`@/` → `src/`
+- **自动导入**：`unplugin-auto-import` + `unplugin-vue-components`
+- **移动端适配**：`device === 'mobile'` 时 `openlist/` → `views-mobile/`
+- **Token**：js-cookie，请求头 `Authorization: Bearer {token}`
+- **SCSS**：CSS 变量系统（`--osr-*` 前缀）
+
+## ANTI-PATTERNS
+
+- **componentMap 硬编码**：新增页面需同步修改 `router/index.ts`
+- **permission.ts 未启用**：`hasPermission()` 始终返回 true
+
+## COMMANDS
+
+```bash
+npm run dev           # 开发模式（:3000）
+npm run build         # 生产构建
+npm run lint          # ESLint 修复
+npm run test:e2e      # Playwright E2E 测试
+```

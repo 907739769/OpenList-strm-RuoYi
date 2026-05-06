@@ -146,7 +146,7 @@ const taskList = ref<any[]>([])
 const loading = ref(true)
 const total = ref(0)
 const selectedIds = ref<number[]>([])
-const searchCollapsed = ref(false)
+const searchCollapsed = ref(true)
 const queryRef = ref<any>()
 
 const totalPages = computed(() => Math.ceil(total.value / queryParams.pageSize) || 1)
