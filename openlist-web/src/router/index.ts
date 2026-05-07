@@ -32,6 +32,18 @@ export const constantRoutes: RouteRecordRaw[] = [
     name: 'Dashboard',
     component: () => import('@/views/dashboard/index.vue'),
     meta: { title: '首页', icon: 'Odometer' }
+  },
+  {
+    path: '/system/dict/type',
+    name: 'DictType',
+    component: () => import('@/views/system/dict/type/index.vue'),
+    meta: { title: '字典类型', icon: 'List' }
+  },
+  {
+    path: '/system/dict/data',
+    name: 'DictData',
+    component: () => import('@/views/system/dict/data/index.vue'),
+    meta: { title: '字典数据' }
   }
 ]
 

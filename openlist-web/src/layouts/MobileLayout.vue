@@ -20,6 +20,7 @@
             :default-active="activeMenu"
             router
             class="drawer-menu-list"
+            @select="menuOpen = false"
           >
             <el-menu-item index="/dashboard">
               <el-icon><Odometer /></el-icon>
@@ -163,21 +164,7 @@ function getIconComponent(icon?: string): Component | undefined {
 const sidebarMenus = computed(() => userStore.routes)
 
 const pageTitle = computed(() => {
-  const titles: Record<string, string> = {
-    '/dashboard': '首页',
-    '/system/user': '用户管理',
-    '/system/role': '角色管理',
-    '/system/dict': '字典管理',
-    '/system/config': '系统配置',
-    '/openlist/strm-task': 'STRM任务',
-    '/openlist/copy-task': '同步任务',
-    '/openlist/rename-task': '重命名任务',
-    '/monitor/job': '定时任务'
-  }
-  for (const key of Object.keys(titles)) {
-    if (route.path.startsWith(key)) return titles[key]
-  }
-  return 'OSR'
+  return (route.meta?.title as string) || 'OSR'
 })
 
 const activeMenu = computed(() => route.path)

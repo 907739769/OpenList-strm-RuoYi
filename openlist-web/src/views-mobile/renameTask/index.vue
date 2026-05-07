@@ -58,6 +58,11 @@
       </el-button>
     </div>
 
+    <!-- Add Button (FAB) -->
+    <el-button class="fab-add" type="primary" size="large" round @click="handleAdd">
+      <el-icon><Plus /></el-icon> 新增
+    </el-button>
+
     <!-- Task List -->
     <div class="task-list" v-loading="loading">
       <div
@@ -94,8 +99,17 @@
           </div>
         </div>
         <div class="card-actions" @click.stop>
-          <el-button link type="primary" size="small" icon="VideoPlay" @click="handleExecuteOne(task)">
+          <el-button link type="primary" size="small" :icon="Edit" @click="handleUpdate(task)">
+            修改
+          </el-button>
+          <el-button link type="danger" size="small" :icon="Delete" @click="handleDelete(task)">
+            删除
+          </el-button>
+          <el-button link type="primary" size="small" :icon="VideoPlay" @click="handleExecuteOne(task)">
             执行
+          </el-button>
+          <el-button link type="primary" size="small" :icon="MagicStick" @click="handleTestOne(task)">
+            测试
           </el-button>
         </div>
       </div>
@@ -157,6 +171,58 @@
         </el-button>
       </template>
     </el-dialog>
+
+    <!-- Add/Edit Dialog -->
+    <el-dialog v-model="open" :title="dialogTitle" width="90%" append-to-body class="modern-dialog">
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="90px">
+        <el-form-item label="源目录" prop="sourceFolder">
+          <DirectoryTreeSelect v-model="form.sourceFolder" type="local" placeholder="请选择源目录" />
+        </el-form-item>
+        <el-form-item label="目标目录" prop="targetRoot">
+          <DirectoryTreeSelect v-model="form.targetRoot" type="local" placeholder="请选择目标目录" />
+        </el-form-item>
+        <el-form-item label="状态" prop="status">
+          <el-radio-group v-model="form.status">
+            <el-radio value="0">停用</el-radio>
+            <el-radio value="1">启用</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="备注" prop="remark">
+          <el-input v-model="form.remark" type="textarea" :rows="3" placeholder="请输入内容" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="open = false">取 消</el-button>
+        <el-button type="primary" @click="submitForm" :loading="submitLoading">确 定</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- Test Dialog -->
+    <el-dialog v-model="testOpen" :title="testTitle" width="90%" append-to-body class="modern-dialog">
+      <el-form label-width="90px">
+        <el-form-item label="原文件名">
+          <el-input v-model="testForm.filename" type="textarea" :rows="3" placeholder="例如: The.Movie.2024.1080p.mkv" />
+        </el-form-item>
+        <el-form-item label="重命名模板">
+          <el-input v-model="testForm.template" type="textarea" :rows="4" placeholder="留空则使用默认配置" />
+          <div style="color:#999;font-size:12px"><el-icon><InfoFilled /></el-icon> 留空则使用默认配置</div>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" :loading="testLoading" @click="doTest">
+            <el-icon><MagicStick /></el-icon> 开始分析
+          </el-button>
+        </el-form-item>
+      </el-form>
+
+      <div v-if="testResult" style="margin-top:16px">
+        <el-alert title="重命名结果预览" type="success" :closable="false" style="margin-bottom:12px">
+          <div style="font-family:Consolas,monospace;word-break:break-all;white-space:pre-wrap">{{ testResult.renamed }}</div>
+        </el-alert>
+        <el-alert title="识别参数详情" type="info" :closable="false">
+          <pre style="max-height:300px;overflow:auto;font-size:12px;background:#f5f5f5;padding:10px;border-radius:4px">{{ JSON.stringify(testResult.info, null, 2) }}</pre>
+        </el-alert>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -165,11 +231,16 @@ import { ref, reactive, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Search, ArrowDown, ArrowLeft, ArrowRight,
-  Location, Clock, VideoPlay, CopyDocument
+  Location, Clock, VideoPlay, CopyDocument, Plus, Edit, Delete, MagicStick, InfoFilled
 } from '@element-plus/icons-vue'
+import DirectoryTreeSelect from '@/components/DirectoryTreeSelect/index.vue'
 import {
   getRenameTaskListApi,
-  executeRenameTaskApi
+  addRenameTaskApi,
+  updateRenameTaskApi,
+  deleteRenameTaskApi,
+  executeRenameTaskApi,
+  testParseRenameApi
 } from '@/api/openlist/renameTask'
 import type { SearchParams, PageResult } from '@/types'
 
@@ -297,6 +368,122 @@ const handleBatchExecute = async () => {
     ElMessage.success('批量执行成功')
     getList()
   } catch (e) { if (e !== 'cancel') console.error(e) }
+}
+
+// --- Dialog State ---
+
+const open = ref(false)
+const dialogTitle = ref('')
+const submitLoading = ref(false)
+const formRef = ref<any>()
+
+const initForm = (): any => ({
+  id: undefined,
+  sourceFolder: undefined,
+  targetRoot: undefined,
+  status: '1',
+  remark: undefined
+})
+
+const form = ref<any>(initForm())
+
+const rules = reactive({
+  sourceFolder: [{ required: true, message: '源目录不能为空', trigger: 'blur' }],
+  targetRoot: [{ required: true, message: '目标目录不能为空', trigger: 'blur' }]
+})
+
+const handleAdd = () => {
+  dialogTitle.value = '新增重命名任务'
+  form.value = initForm()
+  open.value = true
+}
+
+const handleUpdate = (row?: any) => {
+  const id = row?.id
+  if (!id) {
+    ElMessage.warning('请选择数据项')
+    return
+  }
+  dialogTitle.value = '修改重命名任务'
+  getRenameTaskListApi({ ...queryParams, pageNum: 1, pageSize: 100 }).then((res: PageResult) => {
+    const task = res.records.find((t: any) => t.id === id)
+    if (task) {
+      form.value = { ...task }
+      open.value = true
+    } else {
+      ElMessage.error('任务不存在')
+    }
+  })
+}
+
+const submitForm = async () => {
+  if (!formRef.value) return
+  await formRef.value.validate()
+  submitLoading.value = true
+  try {
+    if (form.value.id) {
+      await updateRenameTaskApi(form.value)
+      ElMessage.success('修改成功')
+    } else {
+      await addRenameTaskApi(form.value)
+      ElMessage.success('新增成功')
+    }
+    open.value = false
+    getList()
+  } finally {
+    submitLoading.value = false
+  }
+}
+
+const handleDelete = async (row?: any) => {
+  const id = row?.id
+  if (!id) {
+    ElMessage.warning('请选择数据项')
+    return
+  }
+  try {
+    await ElMessageBox.confirm(`是否确认删除重命名任务"${row.sourceFolder}"？`, '警告', { type: 'warning' })
+    await deleteRenameTaskApi(id)
+    ElMessage.success('删除成功')
+    getList()
+  } catch (e) { if (e !== 'cancel') console.error(e) }
+}
+
+// --- Test Dialog ---
+
+const testOpen = ref(false)
+const testTitle = ref('文件名重命名测试')
+const testLoading = ref(false)
+const testResult = ref<any>(null)
+const testForm = reactive({ filename: '', template: '' })
+
+const handleTestOne = (row: any) => {
+  testTitle.value = `文件名重命名测试 - ${row.sourceFolder}`
+  testForm.filename = ''
+  testForm.template = ''
+  testResult.value = null
+  testOpen.value = true
+}
+
+const doTest = async () => {
+  if (!testForm.filename.trim()) {
+    ElMessage.warning('请输入文件名')
+    return
+  }
+  testLoading.value = true
+  try {
+    const res = await testParseRenameApi(testForm.filename, testForm.template || undefined) as any
+    if (res.code === 200) {
+      testResult.value = res.data
+      ElMessage.success('分析成功')
+    } else {
+      ElMessage.error(res.message || '分析失败')
+    }
+  } catch (e) {
+    ElMessage.error('请求失败')
+  } finally {
+    testLoading.value = false
+  }
 }
 
 getList()
@@ -661,5 +848,61 @@ getList()
   background: var(--osr-bg-page);
   border-radius: var(--osr-radius-sm);
   padding: 12px;
+}
+
+/* ============================================
+   FAB Add Button
+   ============================================ */
+.fab-add {
+  position: fixed;
+  right: 20px;
+  bottom: calc(56px + 16px + env(safe-area-inset-bottom, 0px));
+  z-index: 1000;
+  padding: 12px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: all var(--osr-transition-fast);
+
+  &:active {
+    transform: scale(0.96);
+  }
+
+  @media (min-width: 768px) {
+    right: 40px;
+    bottom: calc(56px + 24px);
+    padding: 14px 24px;
+    font-size: 15px;
+  }
+}
+
+/* ============================================
+   Card Actions
+   ============================================ */
+.task-card {
+  .card-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+    padding-left: 8px;
+    border-left: 1px solid var(--osr-border-light);
+
+    .el-button {
+      font-size: 11px;
+      padding: 2px 4px;
+      height: auto;
+      white-space: nowrap;
+    }
+  }
+}
+
+/* ============================================
+   Dialog
+   ============================================ */
+:deep(.modern-dialog) {
+  .el-dialog__body {
+    padding: 16px;
+  }
 }
 </style>

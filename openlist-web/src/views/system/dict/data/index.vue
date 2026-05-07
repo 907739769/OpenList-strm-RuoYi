@@ -37,6 +37,9 @@
     <el-card class="table-card">
       <div class="action-bar">
         <div class="action-left">
+          <el-button type="primary" @click="handleBack">
+            <el-icon><ArrowLeft /></el-icon> 返回
+          </el-button>
           <el-button type="primary" @click="handleAdd">
             <el-icon><Plus /></el-icon> 新增
           </el-button>
@@ -172,9 +175,9 @@
 
 <script setup lang="ts">
 import { ref, reactive, toRefs, watch, nextTick } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Refresh, Plus, Delete, Filter, EditPen } from '@element-plus/icons-vue'
+import { Search, Refresh, Plus, Delete, Filter, EditPen, ArrowLeft } from '@element-plus/icons-vue'
 import { getDictDataListApi, addDictDataApi, updateDictDataApi, deleteDictDataApi, getDictTypeListApi } from '@/api/system/dict'
 import { useAppStore } from '@/stores/app'
 import type { FormInstance } from 'element-plus'
@@ -183,7 +186,12 @@ import type { SearchParams } from '@/types'
 const appStore = useAppStore()
 const showSearch = ref(window.innerWidth >= 768)
 
+const router = useRouter()
 const route = useRoute()
+
+const handleBack = () => {
+  router.push('/system/dict/type')
+}
 
 const dataList = ref<any[]>([])
 const loading = ref(true)
