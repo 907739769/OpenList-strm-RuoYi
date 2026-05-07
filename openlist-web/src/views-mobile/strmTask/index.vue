@@ -70,7 +70,7 @@
           <div class="card-top">
             <div class="task-name-row">
               <el-icon class="task-icon" :size="18"><VideoCamera /></el-icon>
-              <span class="task-name" :title="task.strmTaskPath">{{ task.strmTaskPath }}</span>
+              <span class="task-name" @click.stop="showFullText(task.strmTaskPath, 'STRM目录')">{{ task.strmTaskPath }}</span>
             </div>
             <el-tag :type="task.strmTaskStatus === '1' ? 'success' : 'danger'" size="small" effect="light">
               {{ task.strmTaskStatus === '1' ? '启用' : '停用' }}
@@ -126,6 +126,25 @@
         </el-select>
       </div>
     </div>
+
+    <!-- Full Text Dialog -->
+    <el-dialog
+      v-model="fullTextVisible"
+      :title="fullTextTitle"
+      width="85%"
+      :close-on-click-modal="true"
+      class="full-text-dialog"
+    >
+      <div class="full-text-content">{{ fullTextContent }}</div>
+      <template #footer>
+        <el-button size="small" @click="copyToClipboard(fullTextContent)">
+          <el-icon><CopyDocument /></el-icon> 复制
+        </el-button>
+        <el-button size="small" type="primary" @click="fullTextVisible = false">
+          关闭
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -134,7 +153,7 @@ import { ref, reactive, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Search, ArrowDown, ArrowLeft, ArrowRight,
-  VideoCamera, Clock, VideoPlay
+  VideoCamera, Clock, VideoPlay, CopyDocument
 } from '@element-plus/icons-vue'
 import {
   getStrmTaskListApi,
@@ -148,6 +167,34 @@ const total = ref(0)
 const selectedIds = ref<number[]>([])
 const searchCollapsed = ref(true)
 const queryRef = ref<any>()
+
+// Full text dialog
+const fullTextVisible = ref(false)
+const fullTextTitle = ref('')
+const fullTextContent = ref('')
+
+const showFullText = (content: string, title: string) => {
+  fullTextTitle.value = title
+  fullTextContent.value = content
+  fullTextVisible.value = true
+}
+
+const copyToClipboard = async (text: string) => {
+  try {
+    await navigator.clipboard.writeText(text)
+    ElMessage.success('已复制到剪贴板')
+  } catch {
+    const textarea = document.createElement('textarea')
+    textarea.value = text
+    textarea.style.position = 'fixed'
+    textarea.style.opacity = '0'
+    document.body.appendChild(textarea)
+    textarea.select()
+    document.execCommand('copy')
+    document.body.removeChild(textarea)
+    ElMessage.success('已复制到剪贴板')
+  }
+}
 
 const totalPages = computed(() => Math.ceil(total.value / queryParams.pageSize) || 1)
 
@@ -438,7 +485,16 @@ getList()
       color: var(--osr-text-primary);
       overflow: hidden;
       text-overflow: ellipsis;
-      white-space: nowrap;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      line-height: 1.4;
+      cursor: pointer;
+      word-break: break-all;
+
+      &:hover {
+        color: var(--osr-primary);
+      }
     }
   }
 
@@ -538,5 +594,27 @@ getList()
       }
     }
   }
+}
+
+/* ============================================
+   Full Text Dialog
+   ============================================ */
+:deep(.full-text-dialog) {
+  .el-dialog__body {
+    padding: 16px;
+  }
+}
+
+.full-text-content {
+  word-break: break-all;
+  white-space: pre-wrap;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--osr-text-primary);
+  max-height: 400px;
+  overflow-y: auto;
+  background: var(--osr-bg-page);
+  border-radius: var(--osr-radius-sm);
+  padding: 12px;
 }
 </style>

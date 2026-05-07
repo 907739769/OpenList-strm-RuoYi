@@ -116,19 +116,19 @@
           <div class="card-top">
             <div class="file-name-row">
               <el-icon class="file-icon" :size="18"><Document /></el-icon>
-              <span class="file-name" :title="record.originalFileName">{{ record.originalFileName }}</span>
+              <span class="file-name" @click.stop="showFullText(record.originalFileName, '原文件名')">{{ record.originalFileName }}</span>
             </div>
             <el-tag :type="record.status === '1' ? 'success' : 'danger'" size="small" effect="light">
               {{ record.status === '1' ? '成功' : '失败' }}
             </el-tag>
           </div>
-          <div class="file-path" :title="record.originalFilePath">
-            <el-icon><Location /></el-icon>
-            {{ record.originalFilePath }}
+          <div class="file-path" @click.stop="showFullText(record.originalFilePath, '原路径')">
+            <el-icon class="path-icon"><Location /></el-icon>
+            <span class="path-text">{{ record.originalFilePath }}</span>
           </div>
-          <div class="file-path new-path" :title="record.newFilePath">
-            <el-icon><Location /></el-icon>
-            {{ record.newFilePath }}
+          <div class="file-path new-path" @click.stop="showFullText(record.newFilePath, '新路径')">
+            <el-icon class="path-icon"><Location /></el-icon>
+            <span class="path-text">{{ record.newFilePath }}</span>
           </div>
           <div class="card-time">
             <el-icon><Clock /></el-icon>
@@ -183,6 +183,25 @@
         </el-select>
       </div>
     </div>
+
+    <!-- Full Text Dialog -->
+    <el-dialog
+      v-model="fullTextVisible"
+      :title="fullTextTitle"
+      width="85%"
+      :close-on-click-modal="true"
+      class="full-text-dialog"
+    >
+      <div class="full-text-content">{{ fullTextContent }}</div>
+      <template #footer>
+        <el-button size="small" @click="copyToClipboard(fullTextContent)">
+          <el-icon><CopyDocument /></el-icon> 复制
+        </el-button>
+        <el-button size="small" type="primary" @click="fullTextVisible = false">
+          关闭
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -192,7 +211,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Search, ArrowDown, ArrowLeft, ArrowRight,
   Document, Location, Clock,
-  RefreshLeft, Delete
+  RefreshLeft, Delete, CopyDocument
 } from '@element-plus/icons-vue'
 import {
   getRenameDetailListApi,
@@ -207,6 +226,34 @@ const selectedIds = ref<number[]>([])
 const dateRange = ref<string[] | null>(null)
 const searchCollapsed = ref(true)
 const queryRef = ref<any>()
+
+// Full text dialog
+const fullTextVisible = ref(false)
+const fullTextTitle = ref('')
+const fullTextContent = ref('')
+
+const showFullText = (content: string, title: string) => {
+  fullTextTitle.value = title
+  fullTextContent.value = content
+  fullTextVisible.value = true
+}
+
+const copyToClipboard = async (text: string) => {
+  try {
+    await navigator.clipboard.writeText(text)
+    ElMessage.success('已复制到剪贴板')
+  } catch {
+    const textarea = document.createElement('textarea')
+    textarea.value = text
+    textarea.style.position = 'fixed'
+    textarea.style.opacity = '0'
+    document.body.appendChild(textarea)
+    textarea.select()
+    document.execCommand('copy')
+    document.body.removeChild(textarea)
+    ElMessage.success('已复制到剪贴板')
+  }
+}
 
 const totalPages = computed(() => Math.ceil(total.value / queryParams.pageSize) || 1)
 
@@ -528,28 +575,52 @@ getList()
       color: var(--osr-text-primary);
       overflow: hidden;
       text-overflow: ellipsis;
-      white-space: nowrap;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      line-height: 1.4;
+      cursor: pointer;
+      word-break: break-all;
+
+      &:hover {
+        color: var(--osr-primary);
+      }
     }
   }
 
   .file-path {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 3px;
     font-size: 12px;
     color: var(--osr-text-secondary);
     margin-bottom: 6px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    cursor: pointer;
+    line-height: 1.5;
 
-    .el-icon {
+    .path-icon {
       flex-shrink: 0;
+      margin-top: 2px;
       color: var(--osr-text-disabled);
     }
 
-    &.new-path {
+    .path-text {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      word-break: break-all;
+    }
+
+    &.new-path .path-text {
       color: var(--osr-success);
+    }
+
+    &:hover {
+      color: var(--osr-primary);
     }
   }
 
@@ -649,5 +720,27 @@ getList()
       }
     }
   }
+}
+
+/* ============================================
+   Full Text Dialog
+   ============================================ */
+:deep(.full-text-dialog) {
+  .el-dialog__body {
+    padding: 16px;
+  }
+}
+
+.full-text-content {
+  word-break: break-all;
+  white-space: pre-wrap;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--osr-text-primary);
+  max-height: 400px;
+  overflow-y: auto;
+  background: var(--osr-bg-page);
+  border-radius: var(--osr-radius-sm);
+  padding: 12px;
 }
 </style>
