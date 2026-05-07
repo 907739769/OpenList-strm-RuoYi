@@ -45,7 +45,7 @@ services:
       mysql:
         condition: service_healthy
     volumes:
-      - /data/upload:/data/upload
+      - /data:/data
 
   frontend:
     build:

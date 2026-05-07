@@ -10,10 +10,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.InitBinder;
+import com.baomidou.mybatisplus.core.conditions.Wrapper;
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.domain.AjaxResult.Type;
+import com.ruoyi.common.core.domain.PageResult;
 import com.ruoyi.common.core.domain.entity.SysUser;
 import com.ruoyi.common.core.page.PageDomain;
 import com.ruoyi.common.core.page.TableDataInfo;
@@ -83,6 +87,38 @@ public class BaseController
     protected void clearPage()
     {
         PageUtils.clearPage();
+    }
+
+    /**
+     * MyBatis-Plus 分页查询辅助方法
+     * 使用 MyBatis-Plus 原生 Page 对象进行分页，解决 PageHelper 与 MyBatis-Plus 不兼容问题
+     *
+     * @param baseMapper BaseMapper 实例
+     * @param wrapper    查询条件包装器
+     * @return 分页结果
+     */
+    @SuppressWarnings("unchecked")
+    protected <T, M extends BaseMapper<T>> PageResult<T> selectPage(M baseMapper, Wrapper<T> wrapper)
+    {
+        PageDomain pageDomain = TableSupport.buildPageRequest();
+        Integer pageNum = pageDomain.getPageNum();
+        Integer pageSize = pageDomain.getPageSize();
+        if (pageNum == null || pageNum < 1) pageNum = 1;
+        if (pageSize == null || pageSize < 1) pageSize = 10;
+
+        // 先查总数
+        long total = baseMapper.selectCount(wrapper);
+
+        // 再查分页数据
+        Page<T> mpPage = new Page<>(pageNum, pageSize);
+        String orderByColumn = SqlUtil.escapeOrderBySql(pageDomain.getOrderBy());
+        if (StringUtils.isNotEmpty(orderByColumn))
+        {
+            mpPage.addOrder(com.baomidou.mybatisplus.core.metadata.OrderItem.desc(orderByColumn));
+        }
+        baseMapper.selectPage(mpPage, wrapper);
+
+        return PageResult.of(mpPage.getRecords(), total, (int) mpPage.getCurrent(), (int) mpPage.getSize());
     }
 
     /**

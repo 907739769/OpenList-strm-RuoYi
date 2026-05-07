@@ -149,37 +149,42 @@
 
     <!-- Pagination -->
     <div class="pagination-bar" v-if="total > 0">
-      <div class="page-info">
-        共 {{ total }} 条
+      <div class="pagination-info">
+        <span class="total-text">共 {{ total }} 条</span>
       </div>
-      <div class="page-controls-row">
-        <div class="page-controls">
-          <el-button
-            :icon="ArrowLeft"
-            circle
-            size="small"
-            :disabled="queryParams.pageNum <= 1"
-            @click="prevPage"
-          />
-          <span class="page-num">{{ queryParams.pageNum }}</span>
-          <el-button
-            :icon="ArrowRight"
-            circle
-            size="small"
-            :disabled="queryParams.pageNum >= totalPages"
-            @click="nextPage"
-          />
+      <div class="pagination-controls">
+        <el-button
+          :icon="ArrowLeft"
+          text
+          size="small"
+          :disabled="queryParams.pageNum <= 1"
+          @click="prevPage"
+          class="page-btn"
+        />
+        <div class="page-num-box">
+          <span class="current-page">{{ queryParams.pageNum }}</span>
+          <span class="page-divider">/</span>
+          <span class="total-pages">{{ totalPages }}</span>
         </div>
+        <el-button
+          :icon="ArrowRight"
+          text
+          size="small"
+          :disabled="queryParams.pageNum >= totalPages"
+          @click="nextPage"
+          class="page-btn"
+        />
         <el-select
           v-model="queryParams.pageSize"
-          :width="80"
           size="small"
           @change="handleSizeChange"
+          class="page-size-select"
         >
           <el-option :label="10" :value="10" />
           <el-option :label="20" :value="20" />
           <el-option :label="50" :value="50" />
         </el-select>
+        <span class="page-size-label">条/页</span>
       </div>
     </div>
 
@@ -418,7 +423,12 @@ getList()
   display: flex;
   flex-direction: column;
   gap: 10px;
+  min-height: calc(100vh - 120px);
   padding-bottom: 8px;
+
+  .record-list {
+    flex: 1;
+  }
 
   @media (max-width: 768px) {
     .pagination-bar {
@@ -692,66 +702,99 @@ getList()
    ============================================ */
 .pagination-bar {
   display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 8px;
-  padding: 10px 4px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: var(--osr-surface);
+  border-radius: var(--osr-radius-lg);
+  box-shadow: var(--osr-shadow-base);
+  gap: 12px;
 
-  .page-info {
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--osr-text-secondary);
-    text-align: center;
+  .pagination-info {
+    flex-shrink: 0;
+
+    .total-text {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--osr-text-secondary);
+    }
   }
 
-  .page-controls-row {
+  .pagination-controls {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 8px;
+    gap: 6px;
+    flex: 1;
+    justify-content: flex-end;
 
-    .page-controls {
+    .page-btn {
+      padding: 4px;
+      min-width: unset;
+      height: unset;
+
+      :deep(.el-icon) {
+        font-size: 18px;
+        color: var(--osr-text-primary);
+      }
+
+      &:disabled {
+        :deep(.el-icon) {
+          color: var(--osr-text-disabled);
+        }
+      }
+    }
+
+    .page-num-box {
       display: flex;
       align-items: center;
-      gap: 8px;
-      flex: 1;
+      gap: 2px;
+      padding: 4px 10px;
+      background: var(--osr-bg-page);
+      border-radius: var(--osr-radius-sm);
+      border: 1px solid var(--osr-border-light);
 
-      .page-num {
-        font-size: 15px;
-        font-weight: 600;
+      .current-page {
+        font-size: 16px;
+        font-weight: 700;
         color: var(--osr-primary);
-        min-width: 28px;
-        text-align: center;
+        line-height: 1;
+      }
+
+      .page-divider {
+        font-size: 12px;
+        color: var(--osr-text-disabled);
+        margin: 0 2px;
+      }
+
+      .total-pages {
+        font-size: 13px;
+        color: var(--osr-text-secondary);
+        line-height: 1;
       }
     }
 
-    :deep(.el-select) {
-      flex: 0 0 auto;
+    .page-size-select {
+      width: 64px;
 
-      .el-input__wrapper {
+      :deep(.el-input__wrapper) {
+        padding: 0 8px;
+        height: 28px;
         border-radius: var(--osr-radius-sm);
+        box-shadow: 0 0 0 1px var(--osr-border-light) inset;
+      }
+
+      :deep(.el-input__inner) {
+        font-size: 13px;
+        text-align: center;
+        color: var(--osr-text-primary);
       }
     }
-  }
 
-  @media (min-width: 576px) {
-    flex-direction: row;
-    justify-content: space-between;
-
-    .page-info {
-      text-align: left;
+    .page-size-label {
       font-size: 12px;
-      font-weight: 400;
-    }
-
-    .page-controls-row {
-      .page-controls {
-        flex: 0 1 auto;
-      }
-
-      :deep(.el-select) {
-        margin-left: 8px;
-      }
+      color: var(--osr-text-secondary);
+      flex-shrink: 0;
+      white-space: nowrap;
     }
   }
 }

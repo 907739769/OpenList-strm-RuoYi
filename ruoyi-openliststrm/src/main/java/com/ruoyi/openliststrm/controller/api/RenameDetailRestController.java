@@ -1,6 +1,5 @@
 package com.ruoyi.openliststrm.controller.api;
 
-import com.github.pagehelper.PageHelper;
 import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.PageResult;
 import com.ruoyi.common.core.domain.Result;
@@ -44,12 +43,7 @@ public class RenameDetailRestController extends BaseController
     @GetMapping({ "", "/list" })
     public Result<PageResult<RenameDetailPlus>> list(RenameDetailPlus renameDetail)
     {
-        startPage();
-        List<RenameDetailPlus> list = renameDetailPlusService.list(buildQueryWrapper(renameDetail));
-        long total = PageHelper.count(() -> renameDetailPlusService.list(buildQueryWrapper(renameDetail)));
-        int page = getPageNum();
-        int size = getPageSize();
-        return Result.success(PageResult.of(list, total, page, size));
+        return Result.success(selectPage(renameDetailPlusService.getBaseMapper(), buildQueryWrapper(renameDetail)));
     }
 
     /**
@@ -234,23 +228,5 @@ public class RenameDetailRestController extends BaseController
         }
         wrapper.orderByDesc("create_time");
         return wrapper;
-    }
-
-    /**
-     * 获取当前页码
-     */
-    private int getPageNum()
-    {
-        String pageNumStr = com.ruoyi.common.utils.ServletUtils.getRequest().getParameter("pageNum");
-        return pageNumStr != null ? Integer.parseInt(pageNumStr) : 1;
-    }
-
-    /**
-     * 获取每页大小
-     */
-    private int getPageSize()
-    {
-        String pageSizeStr = com.ruoyi.common.utils.ServletUtils.getRequest().getParameter("pageSize");
-        return pageSizeStr != null ? Integer.parseInt(pageSizeStr) : 10;
     }
 }

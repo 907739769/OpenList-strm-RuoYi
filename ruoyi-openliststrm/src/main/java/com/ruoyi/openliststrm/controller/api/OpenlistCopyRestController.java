@@ -1,6 +1,5 @@
 package com.ruoyi.openliststrm.controller.api;
 
-import com.github.pagehelper.PageHelper;
 import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.PageResult;
 import com.ruoyi.common.core.domain.Result;
@@ -41,12 +40,7 @@ public class OpenlistCopyRestController extends BaseController
     @GetMapping({ "", "/list" })
     public Result<PageResult<OpenlistCopyPlus>> list(OpenlistCopyPlus openlistCopy)
     {
-        startPage();
-        List<OpenlistCopyPlus> list = openlistCopyPlusService.list(buildQueryWrapper(openlistCopy));
-        long total = PageHelper.count(() -> openlistCopyPlusService.list(buildQueryWrapper(openlistCopy)));
-        int page = getPage();
-        int size = getPageSize();
-        return Result.success(PageResult.of(list, total, page, size));
+        return Result.success(selectPage(openlistCopyPlusService.getBaseMapper(), buildQueryWrapper(openlistCopy)));
     }
 
     /**
@@ -220,23 +214,5 @@ public class OpenlistCopyRestController extends BaseController
         }
         wrapper.last("ORDER BY create_time DESC");
         return wrapper;
-    }
-
-    /**
-     * 获取当前页码
-     */
-    private int getPage()
-    {
-        String pageNum = com.ruoyi.common.utils.ServletUtils.getRequest().getParameter("pageNum");
-        return pageNum != null ? Integer.parseInt(pageNum) : 1;
-    }
-
-    /**
-     * 获取每页大小
-     */
-    private int getPageSize()
-    {
-        String pageSize = com.ruoyi.common.utils.ServletUtils.getRequest().getParameter("pageSize");
-        return pageSize != null ? Integer.parseInt(pageSize) : 10;
     }
 }

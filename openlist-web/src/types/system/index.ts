@@ -13,10 +13,8 @@ export interface SysUser {
   createTime: string
   updateTime: string
   remark: string
-  dept?: SysDept
   roles: SysRole[]
   roleIds?: number[]
-  postIds?: number[]
 }
 
 export interface SysRole {
@@ -33,21 +31,6 @@ export interface SysRole {
   menuIds?: number[]
   deptIds?: number[]
   sysUser?: SysUser[]
-}
-
-export interface SysDept {
-  deptId: number
-  parentId: number
-  ancestors: string
-  deptName: string
-  orderNum: number
-  leader: string
-  phone: string
-  email: string
-  status: string
-  delFlag: string
-  createTime: string
-  children?: SysDept[]
 }
 
 export interface SysMenu {
@@ -105,24 +88,3 @@ export interface SysDictData {
   remark: string
 }
 
-export interface SysNotice {
-  noticeId: number
-  noticeTitle: string
-  noticeType: string
-  noticeContent: string
-  status: string
-  createTime: string
-  updateTime: string
-  remark: string
-}
-
-export interface SysPost {
-  postId: number
-  postCode: string
-  postName: string
-  postSort: number
-  status: string
-  remark: string
-  createTime: string
-  updateTime: string
-}

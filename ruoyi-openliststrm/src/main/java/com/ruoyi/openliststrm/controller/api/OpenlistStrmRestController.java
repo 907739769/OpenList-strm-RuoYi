@@ -1,6 +1,5 @@
 package com.ruoyi.openliststrm.controller.api;
 
-import com.github.pagehelper.PageHelper;
 import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.PageResult;
 import com.ruoyi.common.core.domain.Result;
@@ -40,12 +39,7 @@ public class OpenlistStrmRestController extends BaseController
     @GetMapping({ "", "/list" })
     public Result<PageResult<OpenlistStrmPlus>> list(OpenlistStrmPlus openlistStrm)
     {
-        startPage();
-        List<OpenlistStrmPlus> list = openlistStrmPlusService.list(buildWrapper(openlistStrm));
-        long total = PageHelper.count(() -> openlistStrmPlusService.list(buildWrapper(openlistStrm)));
-        int page = getPageNum();
-        int size = getPageSize();
-        return Result.success(PageResult.of(list, total, page, size));
+        return Result.success(selectPage(openlistStrmPlusService.getBaseMapper(), buildWrapper(openlistStrm)));
     }
 
     /**
@@ -162,17 +156,5 @@ public class OpenlistStrmRestController extends BaseController
         }
         wrapper.orderByDesc("create_time");
         return wrapper;
-    }
-
-    private int getPageNum()
-    {
-        String pageNumStr = com.ruoyi.common.utils.ServletUtils.getRequest().getParameter("pageNum");
-        return pageNumStr != null ? Integer.parseInt(pageNumStr) : 1;
-    }
-
-    private int getPageSize()
-    {
-        String pageSizeStr = com.ruoyi.common.utils.ServletUtils.getRequest().getParameter("pageSize");
-        return pageSizeStr != null ? Integer.parseInt(pageSizeStr) : 10;
     }
 }
