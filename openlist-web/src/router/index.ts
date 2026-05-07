@@ -135,8 +135,9 @@ function convertMenuToRoute(menu: MenuRoute): RouteRecordRaw {
   const component = componentMap[componentPath] || (() => import('@/views/error/404.vue'))
 
   const isLayout = menu.component === 'Layout'
+  const routePath = menu.path || ''
   const route: RouteRecordRaw = {
-    path: menu.path.startsWith('/') ? menu.path : '/' + menu.path,
+    path: routePath.startsWith('/') ? routePath : '/' + routePath,
     name: menu.name,
     component: isLayout ? Layout : component,
     meta: {
@@ -168,18 +169,23 @@ function extractLeafRoutes(menus: MenuRoute[]): MenuRoute[] {
 }
 
 export function addDynamicRoutes(menuList: MenuRoute[]) {
+  if (!Array.isArray(menuList) || menuList.length === 0) {
+    return
+  }
+
   const leafMenus = extractLeafRoutes(menuList)
-  console.log('[router] leafMenus:', leafMenus.map(m => `${m.path}(${m.component})`))
 
   for (const menu of leafMenus) {
-    const route = convertMenuToRoute(menu)
-    const existing = router.getRoutes().find(r => r.path === route.path && r.name === route.name)
-    if (existing) {
-      console.log('[router] skipping duplicate route:', route.path, route.name)
-      continue
+    try {
+      const route = convertMenuToRoute(menu)
+      const existing = router.getRoutes().find(r => r.path === route.path && r.name === route.name)
+      if (existing) {
+        continue
+      }
+      router.addRoute(route)
+    } catch (e) {
+      console.error('[router] failed to add route for menu:', menu, e)
     }
-    console.log('[router] ADDING route:', route.path, route.name)
-    router.addRoute(route)
   }
 }
 
@@ -199,12 +205,9 @@ router.beforeEach(async (to, _from, next) => {
   const appStore = useAppStore()
   const isMobile = window.innerWidth < 768
   const newDevice = isMobile ? 'mobile' : 'desktop'
-  const deviceChanged = appStore.device !== newDevice
 
-  if (deviceChanged) {
+  if (appStore.device !== newDevice) {
     appStore.toggleDevice(newDevice)
-    const userStore = useUserStore()
-    userStore.routes = []
   }
 
   const hasToken = Cookies.get('token')
@@ -219,10 +222,17 @@ router.beforeEach(async (to, _from, next) => {
         if (!userStore.routes.length) {
           await userStore.getUserInfo()
           const menuRoutes = await userStore.getRouters()
-          addDynamicRoutes(menuRoutes)
+          if (menuRoutes && (menuRoutes as any).length > 0) {
+            addDynamicRoutes(menuRoutes as MenuRoute[])
+            // Routes were just added - use replace to force re-navigation
+            // next() does not trigger route matching for already-current path
+            router.replace(to.path)
+            return
+          }
         }
         next()
-      } catch {
+      } catch (e) {
+        console.error('[router] guard error:', e)
         userStore.clearToken()
         next('/login')
       }

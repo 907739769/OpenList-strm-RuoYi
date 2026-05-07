@@ -203,6 +203,10 @@ const getList = async () => {
     const res = await getStrmRecordListApi(queryParams) as PageResult
     recordList.value = res.records || []
     total.value = res.total || 0
+  } catch (e) {
+    console.error('[STRM Record] API error:', e)
+    recordList.value = []
+    total.value = 0
   } finally {
     loading.value = false
   }
@@ -322,7 +326,11 @@ const handleRemoveNetDiskOne = async (row: any) => {
   } catch (e) { if (e !== 'cancel') console.error(e) }
 }
 
-getList()
+try {
+  getList()
+} catch (e) {
+  console.error('[STRM Record] Failed to load data on mount:', e)
+}
 </script>
 
 <style scoped lang="scss">
