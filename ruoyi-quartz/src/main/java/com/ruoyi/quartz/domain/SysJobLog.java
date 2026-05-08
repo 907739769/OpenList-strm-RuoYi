@@ -3,6 +3,9 @@ package com.ruoyi.quartz.domain;
 import java.util.Date;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
 import com.ruoyi.common.annotation.Excel;
 import com.ruoyi.common.core.domain.BaseEntity;
 
@@ -11,12 +14,14 @@ import com.ruoyi.common.core.domain.BaseEntity;
  * 
  * @author ruoyi
  */
+@TableName("sys_job_log")
 public class SysJobLog extends BaseEntity
 {
     private static final long serialVersionUID = 1L;
 
     /** ID */
     @Excel(name = "日志序号")
+    @TableId(value = "job_log_id", type = IdType.AUTO)
     private Long jobLogId;
 
     /** 任务名称 */

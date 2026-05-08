@@ -24,11 +24,6 @@
 		<result property="remark"         column="remark"         />
 	</resultMap>
 
-	<sql id="selectMenuVo">
-        select menu_id, menu_name, parent_id, order_num, url, target, menu_type, visible, is_refresh, ifnull(perms,'') as perms, icon, create_by, create_time 
-		from sys_menu
-    </sql>
-
 	<select id="selectMenusByUserId" parameterType="Long" resultMap="SysMenuResult">
 		select distinct m.menu_id, m.parent_id, m.menu_name, m.url, m.visible, m.is_refresh, ifnull(m.perms,'') as perms, m.target, m.menu_type, m.icon, m.order_num, m.create_time
 		from sys_menu m
@@ -47,7 +42,8 @@
 	</select>
 
 	<select id="selectMenuAll" resultMap="SysMenuResult">
-		<include refid="selectMenuVo"/>
+		select menu_id, menu_name, parent_id, order_num, url, target, menu_type, visible, is_refresh, ifnull(perms,'') as perms, icon, create_by, create_time 
+		from sys_menu
 		order by parent_id, order_num
 	</select>
 
@@ -86,7 +82,8 @@
 	</select>
 
 	<select id="selectMenuList" parameterType="SysMenu" resultMap="SysMenuResult">
-		<include refid="selectMenuVo"/>
+		select menu_id, menu_name, parent_id, order_num, url, target, menu_type, visible, is_refresh, ifnull(perms,'') as perms, icon, create_by, create_time 
+		from sys_menu
 		<where>
 			<if test="menuName != null and menuName != ''">
 				AND menu_name like concat('%', #{menuName}, '%')
@@ -130,7 +127,8 @@
 	</select>
 
 	<select id="checkMenuNameUnique" parameterType="SysMenu" resultMap="SysMenuResult">
-		<include refid="selectMenuVo"/>
+		select menu_id, menu_name, parent_id, order_num, url, target, menu_type, visible, is_refresh, ifnull(perms,'') as perms, icon, create_by, create_time 
+		from sys_menu
 		where menu_name=#{menuName} and parent_id = #{parentId} limit 1
 	</select>
 
@@ -194,4 +192,4 @@
 	    where menu_id = #{menuId}
 	</update>
 
-</mapper> 
+</mapper>

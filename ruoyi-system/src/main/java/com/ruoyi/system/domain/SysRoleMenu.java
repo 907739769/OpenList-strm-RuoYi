@@ -1,5 +1,8 @@
 package com.ruoyi.system.domain;
 
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
@@ -8,9 +11,11 @@ import org.apache.commons.lang3.builder.ToStringStyle;
  * 
  * @author ruoyi
  */
+@TableName("sys_role_menu")
 public class SysRoleMenu
 {
     /** 角色ID */
+    @TableId(value = "role_id", type = IdType.INPUT)
     private Long roleId;
     
     /** 菜单ID */

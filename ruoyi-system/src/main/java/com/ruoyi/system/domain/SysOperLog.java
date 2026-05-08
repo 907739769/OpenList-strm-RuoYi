@@ -3,6 +3,10 @@ package com.ruoyi.system.domain;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 import java.util.Date;
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
 import com.ruoyi.common.annotation.Excel;
 import com.ruoyi.common.annotation.Excel.ColumnType;
 import com.ruoyi.common.core.domain.BaseEntity;
@@ -12,12 +16,14 @@ import com.ruoyi.common.core.domain.BaseEntity;
  * 
  * @author ruoyi
  */
+@TableName("sys_oper_log")
 public class SysOperLog extends BaseEntity
 {
     private static final long serialVersionUID = 1L;
 
     /** 日志主键 */
     @Excel(name = "操作序号", cellType = ColumnType.NUMERIC)
+    @TableId(value = "oper_id", type = IdType.AUTO)
     private Long operId;
 
     /** 操作模块 */
@@ -29,6 +35,7 @@ public class SysOperLog extends BaseEntity
     private Integer businessType;
 
     /** 业务类型数组 */
+    @TableField(exist = false)
     private Integer[] businessTypes;
 
     /** 请求方法 */
@@ -81,6 +88,7 @@ public class SysOperLog extends BaseEntity
 
     /** 操作时间 */
     @Excel(name = "操作时间", width = 30, dateFormat = "yyyy-MM-dd HH:mm:ss")
+    @TableField("oper_time")
     private Date operTime;
 
     /** 消耗时间 */

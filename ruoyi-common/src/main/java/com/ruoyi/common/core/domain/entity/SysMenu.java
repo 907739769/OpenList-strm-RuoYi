@@ -5,6 +5,10 @@ import java.util.ArrayList;
 import jakarta.validation.constraints.*;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
 import com.ruoyi.common.core.domain.BaseEntity;
 import com.ruoyi.common.utils.StringUtils;
 
@@ -13,17 +17,20 @@ import com.ruoyi.common.utils.StringUtils;
  * 
  * @author ruoyi
  */
+@TableName("sys_menu")
 public class SysMenu extends BaseEntity
 {
     private static final long serialVersionUID = 1L;
 
     /** 菜单ID */
+    @TableId(value = "menu_id", type = IdType.AUTO)
     private Long menuId;
 
     /** 菜单名称 */
     private String menuName;
 
     /** 父菜单名称 */
+    @TableField(exist = false)
     private String parentName;
 
     /** 父菜单ID */
@@ -45,6 +52,7 @@ public class SysMenu extends BaseEntity
     private String visible;
 
     /** 是否刷新（0刷新 1不刷新） */
+    @TableField("is_refresh")
     private String isRefresh;
 
     /** 权限字符串 */
@@ -54,6 +62,7 @@ public class SysMenu extends BaseEntity
     private String icon;
 
     /** 子菜单 */
+    @TableField(exist = false)
     private List<SysMenu> children = new ArrayList<SysMenu>();
 
     public Long getMenuId()

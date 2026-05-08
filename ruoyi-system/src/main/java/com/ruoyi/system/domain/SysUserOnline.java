@@ -3,6 +3,10 @@ package com.ruoyi.system.domain;
 import java.util.Date;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
 import com.ruoyi.common.core.domain.BaseEntity;
 import com.ruoyi.common.enums.OnlineStatus;
 
@@ -11,11 +15,13 @@ import com.ruoyi.common.enums.OnlineStatus;
  * 
  * @author ruoyi
  */
+@TableName("sys_user_online")
 public class SysUserOnline extends BaseEntity
 {
     private static final long serialVersionUID = 1L;
     
     /** 用户会话id */
+    @TableId(value = "sessionId", type = IdType.INPUT)
     private String sessionId;
 
     /** 部门名称 */
@@ -37,15 +43,19 @@ public class SysUserOnline extends BaseEntity
     private String os;
 
     /** session创建时间 */
+    @TableField("start_timestamp")
     private Date startTimestamp;
 
     /** session最后访问时间 */
+    @TableField("last_access_time")
     private Date lastAccessTime;
 
     /** 超时时间，单位为毫秒 */
+    @TableField("expire_time")
     private Long expireTime;
 
     /** 在线状态 */
+    @TableField(exist = false)
     private OnlineStatus status = OnlineStatus.on_line;
 
     public String getSessionId()

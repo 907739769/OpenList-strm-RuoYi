@@ -18,27 +18,18 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		<result property="expireTime"        column="expire_time"       />
 	</resultMap>
 	
-	<sql id="selectOnlineVo">
-       select sessionId, login_name, dept_name, ipaddr, login_location, browser, os, status, start_timestamp, last_access_time, expire_time 
-	   from sys_user_online
-    </sql>
-    
-	<select id="selectOnlineById" parameterType="String" resultMap="SysUserOnlineResult">
-		<include refid="selectOnlineVo"/>
-		where sessionId = #{sessionId}
-	</select>
-
 	<insert id="saveOnline" parameterType="SysUserOnline">
 		replace into sys_user_online(sessionId, login_name, dept_name, ipaddr, login_location, browser, os, status, start_timestamp, last_access_time, expire_time)
         values (#{sessionId}, #{loginName}, #{deptName}, #{ipaddr}, #{loginLocation}, #{browser}, #{os}, #{status}, #{startTimestamp}, #{lastAccessTime}, #{expireTime})
 	</insert>
 	
- 	<delete id="deleteOnlineById" parameterType="String">
- 		delete from sys_user_online where sessionId = #{sessionId}
- 	</delete>
- 	
- 	<select id="selectUserOnlineList" parameterType="SysUserOnline" resultMap="SysUserOnlineResult">
-		<include refid="selectOnlineVo"/>
+  	<delete id="deleteOnlineById" parameterType="String">
+  		delete from sys_user_online where sessionId = #{sessionId}
+  	</delete>
+  	
+  	<select id="selectUserOnlineList" parameterType="SysUserOnline" resultMap="SysUserOnlineResult">
+        select sessionId, login_name, dept_name, ipaddr, login_location, browser, os, status, start_timestamp, last_access_time, expire_time 
+	   from sys_user_online
 		<where>
 			<if test="ipaddr != null and ipaddr != ''">
 				AND ipaddr like concat('%', #{ipaddr}, '%')
@@ -50,8 +41,9 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 	</select>
 	
 	<select id="selectOnlineByExpired" parameterType="String" resultMap="SysUserOnlineResult">
-		<include refid="selectOnlineVo"/> o 
+        select sessionId, login_name, dept_name, ipaddr, login_location, browser, os, status, start_timestamp, last_access_time, expire_time 
+	   from sys_user_online o 
 		WHERE o.last_access_time <![CDATA[ <= ]]> #{lastAccessTime} ORDER BY o.last_access_time ASC
 	</select>
 
-</mapper> 
+</mapper>

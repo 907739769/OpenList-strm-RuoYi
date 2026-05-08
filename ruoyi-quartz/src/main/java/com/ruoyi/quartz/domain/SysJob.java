@@ -5,6 +5,9 @@ import java.util.Date;
 import jakarta.validation.constraints.*;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
 import com.ruoyi.common.annotation.Excel;
 import com.ruoyi.common.annotation.Excel.ColumnType;
 import com.ruoyi.common.constant.ScheduleConstants;
@@ -17,12 +20,14 @@ import com.ruoyi.quartz.util.CronUtils;
  * 
  * @author ruoyi
  */
+@TableName("sys_job")
 public class SysJob extends BaseEntity implements Serializable
 {
     private static final long serialVersionUID = 1L;
 
     /** 任务ID */
     @Excel(name = "任务序号", cellType = ColumnType.NUMERIC)
+    @TableId(value = "job_id", type = IdType.AUTO)
     private Long jobId;
 
     /** 任务名称 */

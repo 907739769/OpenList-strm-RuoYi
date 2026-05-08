@@ -102,17 +102,6 @@
             <artifactId>mybatis-plus-generator</artifactId>
             <version>3.5.7</version>
         </dependency>
-        <!-- MyBatis 3.5.16 for MyBatis-Plus 3.5.6 compatibility -->
-        <dependency>
-            <groupId>org.mybatis</groupId>
-            <artifactId>mybatis</artifactId>
-            <version>3.5.16</version>
-        </dependency>
-        <dependency>
-            <groupId>org.freemarker</groupId>
-            <artifactId>freemarker</artifactId>
-            <version>2.3.31</version>
-        </dependency>
 
         <dependency>
             <groupId>org.projectlombok</groupId>
