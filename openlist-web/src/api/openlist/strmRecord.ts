@@ -14,7 +14,7 @@ export function batchRetryStrmRecordApi(recordIds: number[]) {
 }
 
 export function batchDeleteStrmRecordApi(recordIds: number[]) {
-  return request.delete('/openliststrm/strm-records', { data: recordIds })
+  return request.post('/openliststrm/strm-records/batchDelete', null, { params: { ids: recordIds.join(',') } })
 }
 
 export function batchRemoveStrmNetDiskApi(recordIds: number[]) {

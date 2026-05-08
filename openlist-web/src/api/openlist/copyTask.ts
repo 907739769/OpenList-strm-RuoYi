@@ -17,6 +17,10 @@ export function deleteCopyTaskApi(taskId: number) {
   return request.delete(`/openliststrm/copy-tasks/${taskId}`)
 }
 
+export function batchDeleteCopyTaskApi(recordIds: number[]) {
+  return request.post('/openliststrm/copy-tasks/batchDelete', null, { params: { ids: recordIds.join(',') } })
+}
+
 export function executeCopyTaskApi(taskIds: number[]) {
   return request.post('/openliststrm/copy-tasks/execute', taskIds)
 }

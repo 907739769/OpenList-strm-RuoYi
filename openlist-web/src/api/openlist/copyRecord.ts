@@ -14,7 +14,7 @@ export function batchRetryCopyRecordApi(recordIds: number[]) {
 }
 
 export function batchDeleteCopyRecordApi(recordIds: number[]) {
-  return request.delete('/openliststrm/copy-records', { data: recordIds })
+  return request.post('/openliststrm/copy-records/batchDelete', null, { params: { ids: recordIds.join(',') } })
 }
 
 export function batchRemoveCopyNetDiskApi(recordIds: number[]) {

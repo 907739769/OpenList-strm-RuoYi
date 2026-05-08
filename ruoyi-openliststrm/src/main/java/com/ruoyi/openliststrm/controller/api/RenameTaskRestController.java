@@ -128,7 +128,7 @@ public class RenameTaskRestController extends BaseController
     /**
      * 批量删除重命名任务配置
      */
-    @DeleteMapping
+    @PostMapping("/batchDelete")
     public Result<Void> batchDelete(@RequestParam("ids") String ids)
     {
         if (ids == null || ids.trim().isEmpty())

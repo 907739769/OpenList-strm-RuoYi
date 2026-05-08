@@ -17,6 +17,10 @@ export function deleteStrmTaskApi(taskId: number) {
   return request.delete(`/openliststrm/strm-tasks/${taskId}`)
 }
 
+export function batchDeleteStrmTaskApi(recordIds: number[]) {
+  return request.post('/openliststrm/strm-tasks/batchDelete', null, { params: { ids: recordIds.join(',') } })
+}
+
 export function executeStrmTaskApi(taskIds: number[]) {
   return request.post('/openliststrm/strm-tasks/execute', taskIds)
 }

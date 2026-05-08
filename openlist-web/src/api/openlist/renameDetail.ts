@@ -5,6 +5,10 @@ export function getRenameDetailListApi(params: SearchParams) {
   return request.get<any, PageResult<any>>('/openliststrm/rename-details', { params })
 }
 
+export function batchDeleteRenameDetailApi(recordIds: number[]) {
+  return request.post('/openliststrm/rename-details/batchDelete', null, { params: { ids: recordIds.join(',') } })
+}
+
 export function executeRenameDetailApi(detailIds: number[]) {
   return request.post('/openliststrm/rename-details/execute', detailIds)
 }

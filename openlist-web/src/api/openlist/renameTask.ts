@@ -17,6 +17,10 @@ export function deleteRenameTaskApi(taskId: number) {
   return request.delete(`/openliststrm/rename-tasks/${taskId}`)
 }
 
+export function batchDeleteRenameTaskApi(recordIds: number[]) {
+  return request.post('/openliststrm/rename-tasks/batchDelete', null, { params: { ids: recordIds.join(',') } })
+}
+
 export function executeRenameTaskApi(taskIds: number[]) {
   return request.post('/openliststrm/rename-tasks/execute', taskIds)
 }

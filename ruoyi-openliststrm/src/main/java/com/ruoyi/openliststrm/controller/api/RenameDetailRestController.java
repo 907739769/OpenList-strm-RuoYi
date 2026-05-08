@@ -119,7 +119,7 @@ public class RenameDetailRestController extends BaseController
     /**
      * 批量删除重命名明细
      */
-    @DeleteMapping
+    @PostMapping("/batchDelete")
     public Result<Void> batchDelete(@RequestParam("ids") String ids)
     {
         if (ids == null || ids.trim().isEmpty())

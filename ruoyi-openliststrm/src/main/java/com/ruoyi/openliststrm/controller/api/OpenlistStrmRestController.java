@@ -85,7 +85,7 @@ public class OpenlistStrmRestController extends BaseController
     /**
      * 批量删除strm生成
      */
-    @DeleteMapping
+    @PostMapping("/batchDelete")
     public Result<Void> batchRemove(@RequestParam("ids") String ids)
     {
         List<String> idList = Arrays.stream(Convert.toStrArray(ids)).collect(Collectors.toList());

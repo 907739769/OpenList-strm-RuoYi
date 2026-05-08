@@ -117,7 +117,7 @@ public class OpenlistCopyTaskRestController extends BaseController
     /**
      * 批量删除文件同步任务
      */
-    @DeleteMapping
+    @PostMapping("/batchDelete")
     public Result<Void> batchDelete(@RequestParam("ids") String ids)
     {
         if (ids == null || ids.trim().isEmpty())
