@@ -79,7 +79,6 @@ spring:
       matching-strategy: ant_path_matcher
   autoconfigure:
     exclude:
-      - com.github.pagehelper.autoconfigure.PageHelperAutoConfiguration
       - org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
       - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
 
@@ -93,12 +92,6 @@ mybatis-plus:
   configLocation: classpath:mybatis/mybatis-config.xml
   global-config:
     banner: false
-
-# PageHelper分页插件
-pagehelper:
-  helperDialect: mysql
-  supportMethodsArguments: true
-  params: count=countSql
 
 # Shiro
 shiro:

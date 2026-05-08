@@ -22,7 +22,6 @@
         <druid.version>1.2.23</druid.version>
         <kaptcha.version>2.3.3</kaptcha.version>
         <yauaa.version>7.32.0</yauaa.version>
-        <pagehelper.boot.version>2.1.0</pagehelper.boot.version>
         <fastjson2.version>2.0.51</fastjson2.version>
         <oshi.version>6.6.0</oshi.version>
         <commons.io.version>2.21.0</commons.io.version>
@@ -106,13 +105,6 @@
                 <groupId>nl.basjes.parse.useragent</groupId>
                 <artifactId>yauaa</artifactId>
                 <version>${yauaa.version}</version>
-            </dependency>
-
-            <!-- pagehelper 分页插件 -->
-            <dependency>
-                <groupId>com.github.pagehelper</groupId>
-                <artifactId>pagehelper-spring-boot-starter</artifactId>
-                <version>${pagehelper.boot.version}</version>
             </dependency>
 
             <!-- 获取系统信息 -->

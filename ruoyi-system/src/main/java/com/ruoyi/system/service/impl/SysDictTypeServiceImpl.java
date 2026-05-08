@@ -20,6 +20,7 @@ import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.system.mapper.SysDictDataMapper;
 import com.ruoyi.system.mapper.SysDictTypeMapper;
 import com.ruoyi.system.service.ISysDictTypeService;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 
 /**
  * 字典 业务层处理
@@ -46,6 +47,19 @@ public class SysDictTypeServiceImpl implements ISysDictTypeService
 
     /**
      * 根据条件分页查询字典类型
+     * 
+     * @param page 分页对象
+     * @param dictType 字典类型信息
+     * @return 字典类型集合信息
+     */
+    @Override
+    public List<SysDictType> selectDictTypeListPage(Page<SysDictType> page, SysDictType dictType)
+    {
+        return dictTypeMapper.selectDictTypeListPage(page, dictType);
+    }
+
+    /**
+     * 根据条件查询字典类型
      * 
      * @param dictType 字典类型信息
      * @return 字典类型集合信息

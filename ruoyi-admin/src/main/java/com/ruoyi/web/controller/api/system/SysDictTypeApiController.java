@@ -12,10 +12,12 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import com.github.pagehelper.PageInfo;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.PageResult;
 import com.ruoyi.common.core.domain.Result;
+import com.ruoyi.common.core.page.PageDomain;
+import com.ruoyi.common.core.page.TableSupport;
 import com.ruoyi.common.annotation.Anonymous;
 import com.ruoyi.common.core.domain.entity.SysDictData;
 import com.ruoyi.common.core.domain.entity.SysDictType;
@@ -49,10 +51,10 @@ public class SysDictTypeApiController extends BaseController
     @GetMapping("/list")
     public Result<PageResult<SysDictType>> list(SysDictType dictType)
     {
-        startPage();
-        List<SysDictType> list = dictTypeService.selectDictTypeList(dictType);
-        PageInfo<SysDictType> pageInfo = new PageInfo<>(list);
-        return Result.success(PageResult.of(list, pageInfo.getTotal(), pageInfo.getPageNum(), pageInfo.getPageSize()));
+        PageDomain pageDomain = TableSupport.buildPageRequest();
+        Page<SysDictType> page = new Page<>(pageDomain.getPageNum(), pageDomain.getPageSize());
+        List<SysDictType> list = dictTypeService.selectDictTypeListPage(page, dictType);
+        return Result.success(PageResult.of(list, page.getTotal(), (int) page.getCurrent(), (int) page.getSize()));
     }
 
     /**

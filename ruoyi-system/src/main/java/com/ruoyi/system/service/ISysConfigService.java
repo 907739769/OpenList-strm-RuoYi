@@ -1,6 +1,7 @@
 package com.ruoyi.system.service;
 
 import java.util.List;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ruoyi.system.domain.SysConfig;
 
 /**
@@ -25,6 +26,15 @@ public interface ISysConfigService
      * @return 参数键值
      */
     public String selectConfigByKey(String configKey);
+
+    /**
+     * 查询参数配置列表（分页）
+     * 
+     * @param page 分页对象
+     * @param config 参数配置信息
+     * @return 参数配置集合
+     */
+    public List<SysConfig> selectConfigListPage(Page<SysConfig> page, SysConfig config);
 
     /**
      * 查询参数配置列表

@@ -134,7 +134,7 @@
     </el-card>
 
     <!-- Dialog -->
-    <el-dialog v-model="open" :title="title" width="520px" append-to-body class="modern-dialog">
+    <el-dialog v-model="open" :title="title" :width="appStore.device === 'mobile' ? '90%' : '520px'" append-to-body class="modern-dialog">
       <el-form ref="dataRef" :model="form" :rules="rules" label-width="100px">
         <el-form-item label="字典类型">
           <el-input v-model="form.dictType" :disabled="true" placeholder="未选择字典类型" />
@@ -552,6 +552,45 @@ getList()
       gap: 2px;
       padding: 8px 12px 10px;
       border-top: 1px solid var(--osr-border-light);
+    }
+  }
+
+  /* ============================================
+     Mobile Dialog Form
+     ============================================ */
+  :deep(.modern-dialog) {
+    .el-dialog__header {
+      .el-dialog__title {
+        font-size: 16px;
+      }
+    }
+
+    .el-dialog__body {
+      padding: 16px;
+
+      .el-form-item {
+        margin-bottom: 14px;
+      }
+
+      .el-form-item__label {
+        font-size: 13px;
+      }
+
+      .el-input,
+      .el-textarea,
+      .el-select,
+      .el-input-number {
+        width: 100% !important;
+      }
+    }
+
+    .el-dialog__footer {
+      padding: 10px 16px 16px;
+      gap: 8px;
+
+      .el-button {
+        flex: 1;
+      }
     }
   }
 }

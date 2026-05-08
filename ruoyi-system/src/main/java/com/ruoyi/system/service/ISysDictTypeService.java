@@ -1,6 +1,7 @@
 package com.ruoyi.system.service;
 
 import java.util.List;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ruoyi.common.core.domain.Ztree;
 import com.ruoyi.common.core.domain.entity.SysDictData;
 import com.ruoyi.common.core.domain.entity.SysDictType;
@@ -14,6 +15,15 @@ public interface ISysDictTypeService
 {
     /**
      * 根据条件分页查询字典类型
+     * 
+     * @param page 分页对象
+     * @param dictType 字典类型信息
+     * @return 字典类型集合信息
+     */
+    public List<SysDictType> selectDictTypeListPage(Page<SysDictType> page, SysDictType dictType);
+
+    /**
+     * 根据条件查询字典类型
      * 
      * @param dictType 字典类型信息
      * @return 字典类型集合信息

@@ -13,18 +13,15 @@ import org.springframework.web.bind.annotation.InitBinder;
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.github.pagehelper.PageHelper;
-import com.github.pagehelper.PageInfo;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.domain.AjaxResult.Type;
 import com.ruoyi.common.core.domain.PageResult;
 import com.ruoyi.common.core.domain.entity.SysUser;
 import com.ruoyi.common.core.page.PageDomain;
-import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.core.page.TableSupport;
+import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.utils.CurrentUserService;
 import com.ruoyi.common.utils.DateUtils;
-import com.ruoyi.common.utils.PageUtils;
 import com.ruoyi.common.utils.ServletUtils;
 import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.common.utils.StringUtils;
@@ -61,32 +58,27 @@ public class BaseController
     }
 
     /**
-     * 设置请求分页数据
+     * 设置请求分页数据（已废弃 - 请使用 MyBatis-Plus Page 对象）
      */
+    @Deprecated
     protected void startPage()
     {
-        PageUtils.startPage();
     }
 
     /**
-     * 设置请求排序数据
+     * 设置请求排序数据（已废弃）
      */
+    @Deprecated
     protected void startOrderBy()
     {
-        PageDomain pageDomain = TableSupport.buildPageRequest();
-        if (StringUtils.isNotEmpty(pageDomain.getOrderBy()))
-        {
-            String orderBy = SqlUtil.escapeOrderBySql(pageDomain.getOrderBy());
-            PageHelper.orderBy(orderBy);
-        }
     }
 
     /**
-     * 清理分页的线程变量
+     * 清理分页的线程变量（已废弃）
      */
+    @Deprecated
     protected void clearPage()
     {
-        PageUtils.clearPage();
     }
 
     /**
@@ -146,15 +138,16 @@ public class BaseController
     }
 
     /**
-     * 响应请求分页数据
+     * 响应请求分页数据（已废弃 - 请使用 MyBatis-Plus Page 对象）
      */
     @SuppressWarnings({ "rawtypes", "unchecked" })
+    @Deprecated
     protected TableDataInfo getDataTable(List<?> list)
     {
         TableDataInfo rspData = new TableDataInfo();
         rspData.setCode(0);
         rspData.setRows(list);
-        rspData.setTotal(new PageInfo(list).getTotal());
+        rspData.setTotal(0);
         return rspData;
     }
 

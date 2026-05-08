@@ -15,6 +15,7 @@ import com.ruoyi.common.exception.job.TaskException;
 import com.ruoyi.quartz.domain.SysJob;
 import com.ruoyi.quartz.mapper.SysJobMapper;
 import com.ruoyi.quartz.service.ISysJobService;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ruoyi.quartz.util.CronUtils;
 import com.ruoyi.quartz.util.ScheduleUtils;
 
@@ -48,10 +49,23 @@ public class SysJobServiceImpl implements ISysJobService
     }
 
     /**
+     * 获取quartz调度器的计划任务列表（分页）
+     * 
+     * @param page 分页对象
+     * @param job 调度信息
+     * @return 调度任务集合
+     */
+    @Override
+    public List<SysJob> selectJobListPage(Page<SysJob> page, SysJob job)
+    {
+        return jobMapper.selectJobListPage(page, job);
+    }
+
+    /**
      * 获取quartz调度器的计划任务列表
      * 
      * @param job 调度信息
-     * @return
+     * @return 调度任务集合
      */
     @Override
     public List<SysJob> selectJobList(SysJob job)

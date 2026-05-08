@@ -14,11 +14,13 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import com.github.pagehelper.PageInfo;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ruoyi.common.constant.Constants;
 import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.PageResult;
 import com.ruoyi.common.core.domain.Result;
+import com.ruoyi.common.core.page.PageDomain;
+import com.ruoyi.common.core.page.TableSupport;
 import com.ruoyi.common.annotation.Anonymous;
 import com.ruoyi.common.exception.job.TaskException;
 import com.ruoyi.common.utils.StringUtils;
@@ -51,10 +53,10 @@ public class MonitorJobApiController extends BaseController
     @GetMapping("/list")
     public Result<PageResult<SysJob>> list(SysJob job)
     {
-        startPage();
-        List<SysJob> list = jobService.selectJobList(job);
-        PageInfo<SysJob> pageInfo = new PageInfo<>(list);
-        return Result.success(PageResult.of(list, pageInfo.getTotal(), pageInfo.getPageNum(), pageInfo.getPageSize()));
+        PageDomain pageDomain = TableSupport.buildPageRequest();
+        Page<SysJob> page = new Page<>(pageDomain.getPageNum(), pageDomain.getPageSize());
+        List<SysJob> list = jobService.selectJobListPage(page, job);
+        return Result.success(PageResult.of(list, page.getTotal(), (int) page.getCurrent(), (int) page.getSize()));
     }
 
     /**

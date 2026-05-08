@@ -13,6 +13,7 @@ import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.system.domain.SysConfig;
 import com.ruoyi.system.mapper.SysConfigMapper;
 import com.ruoyi.system.service.ISysConfigService;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 
 /**
  * 参数配置 服务层实现
@@ -71,6 +72,19 @@ public class SysConfigServiceImpl implements ISysConfigService
             return retConfig.getConfigValue();
         }
         return StringUtils.EMPTY;
+    }
+
+    /**
+     * 查询参数配置列表（分页）
+     * 
+     * @param page 分页对象
+     * @param config 参数配置信息
+     * @return 参数配置集合
+     */
+    @Override
+    public List<SysConfig> selectConfigListPage(Page<SysConfig> page, SysConfig config)
+    {
+        return configMapper.selectConfigListPage(page, config);
     }
 
     /**
