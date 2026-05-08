@@ -549,6 +549,7 @@ getList()
   flex-direction: column;
   gap: 10px;
   min-height: 200px;
+  flex: 1;
 }
 
 .task-card {
