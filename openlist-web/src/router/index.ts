@@ -37,13 +37,13 @@ export const constantRoutes: RouteRecordRaw[] = [
     path: '/system/dict/type',
     name: 'DictType',
     component: () => import('@/views/system/dict/type/index.vue'),
-    meta: { title: '字典类型', icon: 'List' }
+    meta: { title: '字典管理', icon: 'List', hidden: false }
   },
   {
     path: '/system/dict/data',
     name: 'DictData',
     component: () => import('@/views/system/dict/data/index.vue'),
-    meta: { title: '字典数据' }
+    meta: { title: '字典数据', hidden: false }
   }
 ]
 
@@ -250,7 +250,7 @@ router.beforeEach(async (to, _from, next) => {
       }
     }
   } else {
-    if (to.meta?.hidden === undefined && to.path !== '/login') {
+    if (to.meta?.hidden !== true && to.path !== '/login') {
       next(`/login?redirect=${to.path}`)
     } else {
       next()
