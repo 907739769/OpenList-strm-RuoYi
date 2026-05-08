@@ -66,18 +66,30 @@
       <!-- Desktop Table -->
       <el-table v-if="appStore.device === 'desktop'" v-loading="loading" :data="detailList" @selection-change="handleSelectionChange" class="modern-table">
         <el-table-column type="selection" width="50" align="center" />
-        <el-table-column label="文件信息" min-width="300">
+        <el-table-column label="重命名详情" min-width="400">
           <template #default="scope">
-            <div class="file-change-box">
-              <div class="file-row">
-                <span class="file-label label-src">原</span>
-                <span class="file-name">{{ scope.row.originalFileName }}</span>
-                <span class="file-path">{{ scope.row.originalFilePath }}</span>
+            <div class="rename-compare">
+              <!-- Name comparison -->
+              <div class="rename-name-row">
+                <div class="rename-side rename-original">
+                  <span class="rename-badge rename-badge-original">原</span>
+                  <span class="rename-filename" :title="scope.row.originalName">{{ scope.row.originalName }}</span>
+                </div>
+                <el-icon class="rename-arrow" :size="16"><ArrowRight /></el-icon>
+                <div class="rename-side rename-new">
+                  <span class="rename-badge rename-badge-new">新</span>
+                  <span class="rename-filename" :title="scope.row.newName">{{ scope.row.newName }}</span>
+                </div>
               </div>
-              <div class="file-row">
-                <span class="file-label label-dst">新</span>
-                <span class="file-name">{{ scope.row.newFileName }}</span>
-                <span class="file-path">{{ scope.row.newFilePath }}</span>
+              <!-- Path comparison -->
+              <div class="rename-path-row">
+                <div class="rename-side rename-original">
+                  <span class="rename-path-text" :title="scope.row.originalPath">{{ scope.row.originalPath }}</span>
+                </div>
+                <el-icon class="rename-arrow" :size="12"><ArrowRight /></el-icon>
+                <div class="rename-side rename-new">
+                  <span class="rename-path-text" :title="scope.row.newPath">{{ scope.row.newPath }}</span>
+                </div>
               </div>
             </div>
           </template>
@@ -109,7 +121,11 @@
       <div v-if="appStore.device === 'mobile'" v-loading="loading" class="mobile-card-list">
         <div v-for="item in detailList" :key="item.id" class="mobile-card">
           <div class="mobile-card-header">
-            <span class="mobile-card-title">{{ item.originalFileName }}</span>
+            <div class="mobile-rename-header">
+              <span class="mobile-rename-original" :title="item.originalName">{{ item.originalName }}</span>
+              <el-icon class="mobile-rename-arrow" :size="14"><ArrowRight /></el-icon>
+              <span class="mobile-rename-new" :title="item.newName">{{ item.newName }}</span>
+            </div>
             <el-tag size="small" :type="item.status === '0' ? 'danger' : 'success'">
               {{ item.status === '0' ? '失败' : '成功' }}
             </el-tag>
@@ -117,15 +133,11 @@
           <div class="mobile-card-body">
             <div class="mobile-card-row">
               <span class="mobile-card-label">原路径</span>
-              <span class="mobile-card-value mobile-card-value-path" :title="item.originalFilePath">{{ item.originalFilePath }}</span>
-            </div>
-            <div class="mobile-card-row">
-              <span class="mobile-card-label">新文件名</span>
-              <span class="mobile-card-value mobile-card-value-clip">{{ item.newFileName }}</span>
+              <span class="mobile-card-value mobile-card-value-path" :title="item.originalPath">{{ item.originalPath }}</span>
             </div>
             <div class="mobile-card-row">
               <span class="mobile-card-label">新路径</span>
-              <span class="mobile-card-value mobile-card-value-path" :title="item.newFilePath">{{ item.newFilePath }}</span>
+              <span class="mobile-card-value mobile-card-value-path" :title="item.newPath">{{ item.newPath }}</span>
             </div>
             <div class="mobile-card-row">
               <span class="mobile-card-label">创建时间</span>
@@ -166,7 +178,7 @@
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Refresh, Delete, Filter } from '@element-plus/icons-vue'
+import { Search, Refresh, Delete, Filter, ArrowRight } from '@element-plus/icons-vue'
 import { getRenameDetailListApi, executeRenameDetailApi } from '@/api/openlist/renameDetail'
 import { useAppStore } from '@/stores/app'
 import type { SearchParams, PageResult } from '@/types'
@@ -308,6 +320,106 @@ getList()
 }
 
 /* ============================================
+   Rename Comparison (PC Table)
+   ============================================ */
+:deep(.rename-compare) {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  .rename-name-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 28px;
+
+    .rename-side {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      min-width: 0;
+      flex: 1;
+
+      .rename-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 20px;
+        height: 20px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 700;
+        flex-shrink: 0;
+
+        &.rename-badge-original {
+          background: #fef2f2;
+          color: #ef4444;
+          border: 1px solid #fecaca;
+        }
+
+        &.rename-badge-new {
+          background: #f0fdf4;
+          color: #22c55e;
+          border: 1px solid #bbf7d0;
+        }
+      }
+
+      .rename-filename {
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--osr-text-primary);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        line-height: 1.4;
+
+        &.rename-original .rename-filename {
+          color: #dc2626;
+          text-decoration: line-through;
+          text-decoration-color: #dc2626;
+        }
+
+        &.rename-new .rename-filename {
+          color: #16a34a;
+          font-weight: 600;
+        }
+      }
+    }
+
+    .rename-arrow {
+      flex-shrink: 0;
+      color: var(--osr-text-disabled);
+    }
+  }
+
+  .rename-path-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+
+    .rename-side {
+      min-width: 0;
+      flex: 1;
+
+      .rename-path-text {
+        color: var(--osr-text-secondary);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        display: block;
+        line-height: 1.4;
+      }
+    }
+
+    .rename-arrow {
+      flex-shrink: 0;
+      color: var(--osr-text-disabled);
+    }
+  }
+}
+
+/* ============================================
    Pagination
    ============================================ */
 .pagination-wrapper {
@@ -381,16 +493,41 @@ getList()
       border-bottom: 1px solid var(--osr-border-light);
       background: var(--osr-bg-page);
 
-      .mobile-card-title {
-        font-size: 14px;
-        font-weight: 600;
-        color: var(--osr-text-primary);
+      .mobile-rename-header {
+        display: flex;
+        align-items: center;
+        gap: 4px;
         flex: 1;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        margin-right: 8px;
-        i { color: var(--osr-primary); margin-right: 4px; }
+        min-width: 0;
+
+        .mobile-rename-original {
+          font-size: 13px;
+          font-weight: 500;
+          color: #dc2626;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          text-decoration: line-through;
+          text-decoration-color: #dc2626;
+          flex: 1;
+          min-width: 0;
+        }
+
+        .mobile-rename-arrow {
+          flex-shrink: 0;
+          color: var(--osr-text-disabled);
+        }
+
+        .mobile-rename-new {
+          font-size: 13px;
+          font-weight: 600;
+          color: #16a34a;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          flex-shrink: 0;
+          min-width: 0;
+        }
       }
     }
 

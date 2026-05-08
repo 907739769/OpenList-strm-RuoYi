@@ -113,22 +113,36 @@
           />
         </div>
         <div class="card-content">
-          <div class="card-top">
-            <div class="file-name-row">
-              <el-icon class="file-icon" :size="18"><Document /></el-icon>
-              <span class="file-name" @click.stop="showFullText(record.originalFileName, '原文件名')">{{ record.originalFileName }}</span>
+          <!-- Rename comparison header -->
+          <div class="rename-compare-header">
+            <div class="rename-side rename-original-side">
+              <span class="rename-label rename-label-original">原</span>
+              <span class="rename-filename rename-filename-original" @click.stop="showFullText(record.originalName, '原文件名')" :title="record.originalName">
+                {{ record.originalName }}
+              </span>
             </div>
-            <el-tag :type="record.status === '1' ? 'success' : 'danger'" size="small" effect="light">
-              {{ record.status === '1' ? '成功' : '失败' }}
-            </el-tag>
+            <el-icon class="rename-arrow-icon" :size="16"><ArrowRight /></el-icon>
+            <div class="rename-side rename-new-side">
+              <span class="rename-label rename-label-new">新</span>
+              <span class="rename-filename rename-filename-new" @click.stop="showFullText(record.newName, '新文件名')" :title="record.newName">
+                {{ record.newName }}
+              </span>
+            </div>
           </div>
-          <div class="file-path" @click.stop="showFullText(record.originalFilePath, '原路径')">
-            <el-icon class="path-icon"><Location /></el-icon>
-            <span class="path-text">{{ record.originalFilePath }}</span>
-          </div>
-          <div class="file-path new-path" @click.stop="showFullText(record.newFilePath, '新路径')">
-            <el-icon class="path-icon"><Location /></el-icon>
-            <span class="path-text">{{ record.newFilePath }}</span>
+          <el-tag :type="record.status === '1' ? 'success' : 'danger'" size="small" effect="light" class="status-tag">
+            {{ record.status === '1' ? '成功' : '失败' }}
+          </el-tag>
+          <!-- Path comparison -->
+          <div class="rename-paths">
+            <div class="rename-path-item rename-path-original" @click.stop="showFullText(record.originalPath, '原路径')">
+              <el-icon class="path-icon"><Location /></el-icon>
+              <span class="path-text">{{ record.originalPath }}</span>
+            </div>
+            <el-icon class="rename-path-arrow" :size="12"><ArrowRight /></el-icon>
+            <div class="rename-path-item rename-path-new" @click.stop="showFullText(record.newPath, '新路径')">
+              <el-icon class="path-icon"><Location /></el-icon>
+              <span class="path-text">{{ record.newPath }}</span>
+            </div>
           </div>
           <div class="card-time">
             <el-icon><Clock /></el-icon>
@@ -215,7 +229,7 @@ import { ref, reactive, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Search, ArrowDown, ArrowLeft, ArrowRight,
-  Document, Location, Clock,
+  Location, Clock,
   RefreshLeft, Delete, CopyDocument
 } from '@element-plus/icons-vue'
 import {
@@ -347,7 +361,7 @@ const handleSizeChange = () => {
 
 const handleRetryOne = async (row: any) => {
   try {
-    await ElMessageBox.confirm(`是否确认重试重命名记录"${row.originalFileName}"？`, '提示', { type: 'warning' })
+    await ElMessageBox.confirm(`是否确认重试重命名记录"${row.originalName}"？`, '提示', { type: 'warning' })
     await executeRenameDetailApi([row.id])
     ElMessage.success('重试成功')
     getList()
@@ -374,7 +388,7 @@ const handleBatchDelete = async () => {
 
 const handleDeleteOne = async (row: any) => {
   try {
-    await ElMessageBox.confirm(`是否确认删除重命名记录"${row.originalFileName}"？`, '警告', { type: 'warning' })
+    await ElMessageBox.confirm(`是否确认删除重命名记录"${row.originalName}"？`, '警告', { type: 'warning' })
     await executeRenameDetailApi([row.id])
     ElMessage.success('删除成功')
     getList()
@@ -557,80 +571,134 @@ getList()
   .card-content {
     flex: 1;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
   }
 
-  .card-top {
+  /* Rename comparison header */
+  .rename-compare-header {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    margin-bottom: 6px;
-    gap: 8px;
-  }
+    gap: 4px;
 
-  .file-name-row {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    min-width: 0;
-    flex: 1;
+    .rename-side {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      min-width: 0;
+      flex: 1;
 
-    .file-icon {
-      color: var(--osr-primary);
-      flex-shrink: 0;
-    }
+      .rename-label {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 18px;
+        height: 18px;
+        border-radius: 4px;
+        font-size: 10px;
+        font-weight: 700;
+        flex-shrink: 0;
 
-    .file-name {
-      font-size: 14px;
-      font-weight: 500;
-      color: var(--osr-text-primary);
-      overflow: hidden;
-      text-overflow: ellipsis;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      line-height: 1.4;
-      cursor: pointer;
-      word-break: break-all;
+        &.rename-label-original {
+          background: #fef2f2;
+          color: #ef4444;
+          border: 1px solid #fecaca;
+        }
 
-      &:hover {
-        color: var(--osr-primary);
+        &.rename-label-new {
+          background: #f0fdf4;
+          color: #22c55e;
+          border: 1px solid #bbf7d0;
+        }
+      }
+
+      .rename-filename {
+        font-size: 14px;
+        font-weight: 500;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        line-height: 1.4;
+        cursor: pointer;
+        word-break: break-all;
+
+        &.rename-filename-original {
+          color: #dc2626;
+          text-decoration: line-through;
+          text-decoration-color: #dc2626;
+          flex: 1;
+          min-width: 0;
+        }
+
+        &.rename-filename-new {
+          color: #16a34a;
+          font-weight: 600;
+          flex-shrink: 0;
+        }
       }
     }
-  }
 
-  .file-path {
-    display: flex;
-    align-items: flex-start;
-    gap: 3px;
-    font-size: 12px;
-    color: var(--osr-text-secondary);
-    margin-bottom: 6px;
-    cursor: pointer;
-    line-height: 1.5;
-
-    .path-icon {
+    .rename-arrow-icon {
       flex-shrink: 0;
-      margin-top: 2px;
       color: var(--osr-text-disabled);
     }
+  }
 
-    .path-text {
+  .status-tag {
+    align-self: flex-start;
+  }
+
+  /* Path comparison */
+  .rename-paths {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 11px;
+
+    .rename-path-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 3px;
       flex: 1;
       min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      word-break: break-all;
+      cursor: pointer;
+
+      .path-icon {
+        flex-shrink: 0;
+        margin-top: 1px;
+        color: var(--osr-text-disabled);
+        font-size: 12px;
+      }
+
+      .path-text {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        word-break: break-all;
+        line-height: 1.4;
+      }
+
+      &:hover .path-text {
+        color: var(--osr-primary);
+      }
+
+      &.rename-path-original .path-text {
+        color: var(--osr-text-secondary);
+      }
+
+      &.rename-path-new .path-text {
+        color: var(--osr-success);
+      }
     }
 
-    &.new-path .path-text {
-      color: var(--osr-success);
-    }
-
-    &:hover {
-      color: var(--osr-primary);
+    .rename-path-arrow {
+      flex-shrink: 0;
+      color: var(--osr-text-disabled);
     }
   }
 
