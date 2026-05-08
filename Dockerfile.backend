@@ -4,7 +4,7 @@ WORKDIR /app
 
 COPY ruoyi-admin/target/ruoyi-admin.jar /app/
 
-# Create required directories with proper permissions
+# Create required directories with proper permissions, 打包镜像前记得重新打包jar
 RUN mkdir -p /data/upload /data/logs /data/strm && chmod -R 777 /data
 
 EXPOSE 6895
