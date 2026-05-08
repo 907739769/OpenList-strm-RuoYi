@@ -4,26 +4,28 @@ import com.baomidou.mybatisplus.core.handlers.MetaObjectHandler;
 import org.apache.ibatis.reflection.MetaObject;
 import org.springframework.stereotype.Component;
 
+import java.text.SimpleDateFormat;
 import java.util.Date;
 
 /**
  * MyBatis-Plus 自动填充处理器
- * 使用 java.util.Date 类型匹配实体类字段
+ * 使用 java.util.Date + String.class 匹配实体类 String 类型字段
  */
 @Component
 public class MyMetaObjectHandler implements MetaObjectHandler {
 
-    private static final String DATE_TIME_PATTERN = "yyyy-MM-dd HH:mm:ss";
+    private static final SimpleDateFormat SDF = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
     @Override
     public void insertFill(MetaObject metaObject) {
-        this.strictInsertFill(metaObject, "createTime", Date.class, new Date());
-        this.strictInsertFill(metaObject, "updateTime", Date.class, new Date());
+        String now = SDF.format(new Date());
+        this.strictInsertFill(metaObject, "createTime", String.class, now);
+        this.strictInsertFill(metaObject, "updateTime", String.class, now);
     }
 
     @Override
     public void updateFill(MetaObject metaObject) {
-        this.strictUpdateFill(metaObject, "updateTime", Date.class, new Date());
+        this.strictUpdateFill(metaObject, "updateTime", String.class, SDF.format(new Date()));
     }
 
 }
