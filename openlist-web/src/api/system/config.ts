@@ -23,5 +23,5 @@ export function deleteConfigApi(configId: number) {
 }
 
 export function refreshCacheApi() {
-  return request.put('/system/config/refreshCache')
+  return request.post('/system/config/refreshCache')
 }

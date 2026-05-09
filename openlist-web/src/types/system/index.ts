@@ -62,6 +62,7 @@ export interface SysConfig {
   configType: string
   createTime: string
   updateTime: string
+  remark?: string
 }
 
 export interface SysDictType {
