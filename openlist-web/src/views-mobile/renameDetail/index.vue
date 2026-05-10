@@ -234,7 +234,8 @@ import {
 } from '@element-plus/icons-vue'
 import {
   getRenameDetailListApi,
-  executeRenameDetailApi
+  executeRenameDetailApi,
+  batchDeleteRenameDetailApi
 } from '@/api/openlist/renameDetail'
 import type { SearchParams, PageResult } from '@/types'
 
@@ -380,7 +381,7 @@ const handleBatchExecute = async () => {
 const handleBatchDelete = async () => {
   try {
     await ElMessageBox.confirm(`是否确认删除选中的 ${selectedIds.value.length} 条记录？`, '警告', { type: 'warning' })
-    await executeRenameDetailApi(selectedIds.value)
+    await batchDeleteRenameDetailApi(selectedIds.value)
     ElMessage.success('删除成功')
     getList()
   } catch (e) { if (e !== 'cancel') console.error(e) }
@@ -389,7 +390,7 @@ const handleBatchDelete = async () => {
 const handleDeleteOne = async (row: any) => {
   try {
     await ElMessageBox.confirm(`是否确认删除重命名记录"${row.originalName}"？`, '警告', { type: 'warning' })
-    await executeRenameDetailApi([row.id])
+    await batchDeleteRenameDetailApi([row.id])
     ElMessage.success('删除成功')
     getList()
   } catch (e) { if (e !== 'cancel') console.error(e) }

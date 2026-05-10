@@ -179,7 +179,7 @@
 import { ref, reactive } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh, Delete, Filter, ArrowRight } from '@element-plus/icons-vue'
-import { getRenameDetailListApi, executeRenameDetailApi } from '@/api/openlist/renameDetail'
+import { getRenameDetailListApi, executeRenameDetailApi, batchDeleteRenameDetailApi } from '@/api/openlist/renameDetail'
 import { useAppStore } from '@/stores/app'
 import type { SearchParams, PageResult } from '@/types'
 
@@ -229,7 +229,7 @@ const handleSelectionChange = (selection: any[]) => { multiple.value = !selectio
 const handleDelete = async () => {
   try {
     await ElMessageBox.confirm(`是否确认删除重命名详情编号为"${selectedIds.value}"的数据项？`, '警告', { type: 'warning' })
-    await executeRenameDetailApi(selectedIds.value.map(id => id)) // reuse delete via batch
+    await batchDeleteRenameDetailApi(selectedIds.value)
     ElMessage.success('删除成功')
     getList()
   } catch (e) { if (e !== 'cancel') console.error(e) }
@@ -238,7 +238,7 @@ const handleDelete = async () => {
 const handleDeleteOne = async (row: any) => {
   try {
     await ElMessageBox.confirm(`是否确认删除重命名详情编号为"${row.id}"的数据项？`, '警告', { type: 'warning' })
-    await executeRenameDetailApi([row.id])
+    await batchDeleteRenameDetailApi([row.id])
     ElMessage.success('删除成功')
     getList()
   } catch (e) { if (e !== 'cancel') console.error(e) }
