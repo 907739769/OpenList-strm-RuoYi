@@ -57,7 +57,7 @@ public class RequestLogFilter implements Filter {
         if (httpRequest instanceof ContentCachingRequestWrapper) {
             wrappedRequest = (ContentCachingRequestWrapper) httpRequest;
         } else {
-            wrappedRequest = new ContentCachingRequestWrapper(httpRequest);
+            wrappedRequest = new ContentCachingRequestWrapper(httpRequest, 8192);
         }
 
         try {

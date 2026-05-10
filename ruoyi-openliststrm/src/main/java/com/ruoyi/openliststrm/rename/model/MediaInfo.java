@@ -41,4 +41,42 @@ public class MediaInfo {
         this.originalName = originalName;
     }
 
+    public String getOriginalTitle() { return originalTitle; }
+    public void setOriginalTitle(String originalTitle) { this.originalTitle = originalTitle; }
+    public String getTitle() { return title; }
+    public void setTitle(String title) { this.title = title; }
+    public String getYear() { return year; }
+    public void setYear(String year) { this.year = year; }
+    public String getSeason() { return season; }
+    public void setSeason(String season) { this.season = season; }
+    public String getEpisode() { return episode; }
+    public void setEpisode(String episode) { this.episode = episode; }
+    public String getOriginalName() { return originalName; }
+    public void setOriginalName(String originalName) { this.originalName = originalName; }
+    public String getEnglishTitle() { return englishTitle; }
+    public void setEnglishTitle(String englishTitle) { this.englishTitle = englishTitle; }
+    public String getTmdbId() { return tmdbId; }
+    public void setTmdbId(String tmdbId) { this.tmdbId = tmdbId; }
+    public String getResolution() { return resolution; }
+    public void setResolution(String resolution) { this.resolution = resolution; }
+    public String getVideoCodec() { return videoCodec; }
+    public void setVideoCodec(String videoCodec) { this.videoCodec = videoCodec; }
+    public String getAudioCodec() { return audioCodec; }
+    public void setAudioCodec(String audioCodec) { this.audioCodec = audioCodec; }
+    public String getSource() { return source; }
+    public void setSource(String source) { this.source = source; }
+    public List<String> getTags() { return tags; }
+    public void setTags(List<String> tags) { this.tags = tags; }
+    public String getReleaseGroup() { return releaseGroup; }
+    public void setReleaseGroup(String releaseGroup) { this.releaseGroup = releaseGroup; }
+    public String getExtension() { return extension; }
+    public void setExtension(String extension) { this.extension = extension; }
+    public List<String> getGenreIds() { return genreIds; }
+    public void setGenreIds(List<String> genreIds) { this.genreIds = genreIds; }
+    public String getOriginalLanguage() { return originalLanguage; }
+    public void setOriginalLanguage(String originalLanguage) { this.originalLanguage = originalLanguage; }
+    public List<String> getOriginCountries() { return originCountries; }
+    public void setOriginCountries(List<String> originCountries) { this.originCountries = originCountries; }
+    public Map<String, Object> getMetadata() { return metadata; }
+    public void setMetadata(Map<String, Object> metadata) { this.metadata = metadata; }
 }
