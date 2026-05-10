@@ -1,57 +1,44 @@
-# Core Business Module — AGENTS.md
-
-**Scope:** `ruoyi-openliststrm/`
+# ruoyi-openliststrm 模块知识库
 
 ## OVERVIEW
-
-核心业务模块：STRM 文件生成、文件夹同步、文件重命名、Telegram Bot 控制、TMDb 元数据、第三方回调自动化。84 个 Java 文件，18 个子包。
+核心业务模块，实现 OpenList 云盘集成、strm 文件流媒体生成、媒体自动重命名、Telegram Bot 通知、文件监控四大功能。
 
 ## STRUCTURE
-
 ```
-ruoyi-openliststrm/src/main/java/com/ruoyi/openliststrm/
-├── api/            # OpenList API 客户端（云盘接口封装）
-├── config/         # 模块配置
-├── controller/     # REST 控制器
-│   └── api/        # 业务 API 控制器
-├── domain/         # 实体类（MyBatis XML 风格）
-├── enums/          # 状态枚举
-├── helper/         # 辅助类
-├── mapper/         # MyBatis Mapper XML（传统风格）
-├── model/          # 数据模型
-├── monitor/        # 文件监控（WatchService）
-├── mybatisplus/    # MyBatis-Plus 实体/Mapper/Service（STRM/Copy/Rename）
-├── openai/         # OpenAI 集成（文件重命名元数据生成）
-├── rename/         # 文件重命名引擎
-├── req/            # 请求 DTO
-├── service/        # STRM/Copy 业务服务
-├── task/           # 定时任务
-├── tg/             # Telegram Bot
-├── tmdb/           # TMDb 元数据服务
-└── upload/         # 上传任务管理
+src/main/java/com/ruoyi/openliststrm/
+├── api/                # OpenList API 客户端封装
+├── config/             # 模块配置（OpenList 连接参数）
+├── controller/api/     # REST API 控制器（copy/strm/rename/dashboard）
+├── enums/              # 业务枚举（CopyStatusEnum, StrmStatusEnum）
+├── helper/             # 核心工具层（AsynHelper, CopyHelper, StrmHelper, TgHelper 等）
+├── monitor/            # 文件监控系统（WatchService + processor 链）
+├── mybatisplus/        # MyBatis-Plus 实体/Mapper/Service（copy/strm 表）
+└── rename/             # 重命名规则引擎
 ```
 
 ## WHERE TO LOOK
-
-| 功能 | 位置 |
+| 任务 | 位置 |
 |------|------|
-| STRM 定时任务 | `task/` |
-| Telegram Bot | `tg/` |
-| 文件重命名 | `rename/` + `openai/` + `tmdb/` |
-| 文件夹同步 | `service/` + `api/` |
-| 第三方回调 | `controller/api/` |
-| MyBatis-Plus 实体 | `mybatisplus/domain/` |
-| 传统 MyBatis Mapper | `mapper/` |
+| OpenList API 客户端 | `api/OpenlistApi.java` |
+| Copy 业务 API | `controller/api/OpenlistCopyRestController.java` |
+| Strm 业务 API | `controller/api/OpenlistStrmRestController.java` |
+| 重命名任务 API | `controller/api/RenameTaskRestController.java` |
+| CopyHelper 核心逻辑 | `helper/CopyHelper.java` |
+| StrmHelper 核心逻辑 | `helper/StrmHelper.java` |
+| Telegram Bot | `helper/TgHelper.java` |
+| 文件监控协调器 | `monitor/service/FileMonitorCoordinator.java` |
+| 媒体重命名处理器 | `monitor/processor/MediaRenameProcessor.java` |
+| 媒体上传处理器 | `monitor/processor/MediaUploadProcessor.java` |
+| MyBatis-Plus Mapper | `mybatisplus/mapper/` |
+| 数据库映射 XML | `src/main/resources/mapper/mybatisplus/` |
 
 ## CONVENTIONS
-
-- **双 ORM 风格**：本模块同时使用 MyBatis XML（`mapper/` + `domain/`）和 MyBatis-Plus（`mybatisplus/`），新代码建议统一用 MyBatis-Plus
-- **BaseEntity 两套**：`com.ruoyi.common.core.domain.BaseEntity`（手动字段）和 `com.ruoyi.common.mybatisplus.BaseEntity`（仅 createTime/updateTime）
-- **REST API 路径**：`/api/openlist/` 前缀
-- **定时任务**：使用 `@Scheduled` 或 RuoYi Quartz 调度
-- **异常处理**：业务异常使用 `ServiceException`
+- 控制器统一继承 REST 风格，路径以 `/api/openlist/` 前缀
+- 业务逻辑集中在 `helper/` 层，控制器只做参数校验和响应封装
+- MyBatis-Plus 实体使用 `Plus` 后缀（如 `OpenlistCopyPlus`）
+- 文件监控采用 WatchService + 事件处理器链模式
 
 ## ANTI-PATTERNS
-
-- **双 ORM 并存**：与 system 模块一样，本模块也有 MyBatis XML 和 MyBatis-Plus 混合
-- **无测试**：本模块无 `src/test/java`
+- 不要在控制器中写业务逻辑，必须下沉到 helper 层
+- 不要在 monitor 处理器中直接操作数据库，通过 service 层
+- Strm 生成路径需与 ruoyi.profile 配置保持一致
