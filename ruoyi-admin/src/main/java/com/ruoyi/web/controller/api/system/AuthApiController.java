@@ -1,7 +1,5 @@
 package com.ruoyi.web.controller.api.system;
 
-import com.google.code.kaptcha.Constants;
-import com.google.code.kaptcha.Producer;
 import com.ruoyi.common.config.JwtConfigProperties;
 import com.ruoyi.common.core.domain.JwtTokenDto;
 import com.ruoyi.common.core.domain.Result;
@@ -26,13 +24,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
-import jakarta.annotation.Resource;
-import javax.imageio.ImageIO;
-import jakarta.servlet.ServletOutputStream;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.http.HttpSession;
-import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.util.*;
 
@@ -73,24 +65,9 @@ public class AuthApiController extends BaseController {
     @Autowired
     private JwtTokenUtil jwtTokenUtil;
 
-    @Resource(name = "captchaProducer")
-    private Producer captchaProducer;
-
-    @Resource(name = "captchaProducerMath")
-    private Producer captchaProducerMath;
-
     @Operation(summary = "用户登录")
     @PostMapping("/login")
     public Result<JwtTokenDto> login(@Validated @RequestBody LoginRequest request) {
-        if (StringUtils.isNotBlank(request.getCode()) && StringUtils.isNotBlank(request.getUuid())) {
-            HttpSession session = ServletUtils.getRequest().getSession();
-            String capText = (String) session.getAttribute(Constants.KAPTCHA_SESSION_KEY);
-            if (capText == null || !capText.equalsIgnoreCase(request.getCode())) {
-                return Result.error(400, "验证码错误");
-            }
-            session.removeAttribute(Constants.KAPTCHA_SESSION_KEY);
-        }
-
         SysUser user = null;
         try {
             user = loginService.login(request.getUsername(), request.getPassword());
@@ -249,45 +226,6 @@ public class AuthApiController extends BaseController {
         return authHeader;
     }
 
-    @Operation(summary = "获取验证码图片")
-    @GetMapping("/captchaImage")
-    public void getCaptchaImage(HttpServletRequest request, HttpServletResponse response, String type) {
-        ServletOutputStream out = null;
-        try {
-            HttpSession session = request.getSession();
-            response.setDateHeader("Expires", 0);
-            response.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
-            response.addHeader("Cache-Control", "post-check=0, pre-check=0");
-            response.setHeader("Pragma", "no-cache");
-            response.setContentType("image/jpeg");
-
-            String capStr = null;
-            String code = null;
-            BufferedImage bi = null;
-            if ("math".equals(type)) {
-                String capText = captchaProducerMath.createText();
-                capStr = capText.substring(0, capText.lastIndexOf("@"));
-                code = capText.substring(capText.lastIndexOf("@") + 1);
-                bi = captchaProducerMath.createImage(capStr);
-            } else {
-                capStr = code = captchaProducer.createText();
-                bi = captchaProducer.createImage(capStr);
-            }
-            session.setAttribute(Constants.KAPTCHA_SESSION_KEY, code);
-            out = response.getOutputStream();
-            ImageIO.write(bi, "jpg", out);
-            out.flush();
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            try {
-                if (out != null) out.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-    }
-
     @Operation(summary = "修改密码")
     @PostMapping("/changePassword")
     public Result<Void> changePassword(@RequestBody ChangePasswordRequest request,
@@ -331,8 +269,6 @@ public class AuthApiController extends BaseController {
         @jakarta.validation.constraints.NotBlank(message = "密码不能为空")
         private String password;
         private Boolean rememberMe;
-        private String code;
-        private String uuid;
 
         public String getUsername() { return username; }
         public void setUsername(String username) { this.username = username; }
@@ -340,9 +276,5 @@ public class AuthApiController extends BaseController {
         public void setPassword(String password) { this.password = password; }
         public Boolean getRememberMe() { return rememberMe; }
         public void setRememberMe(Boolean rememberMe) { this.rememberMe = rememberMe; }
-        public String getCode() { return code; }
-        public void setCode(String code) { this.code = code; }
-        public String getUuid() { return uuid; }
-        public void setUuid(String uuid) { this.uuid = uuid; }
     }
 }

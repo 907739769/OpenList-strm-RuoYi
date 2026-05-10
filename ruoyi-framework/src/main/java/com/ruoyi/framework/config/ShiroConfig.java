@@ -44,11 +44,6 @@ public class ShiroConfig
     @Value("${shiro.session.kickoutAfter}")
     private boolean kickoutAfter;
 
-    @Value("${shiro.user.captchaEnabled}")
-    private boolean captchaEnabled;
-
-    @Value("${shiro.user.captchaType}")
-    private String captchaType;
 
     @Value("${shiro.cookie.domain}")
     private String domain;

@@ -40,8 +40,7 @@ public class JwtAuthFilter implements jakarta.servlet.Filter {
         HttpServletResponse httpResponse = (HttpServletResponse) response;
         String path = httpRequest.getRequestURI();
 
-        if (path.startsWith("/api/auth/login") || path.startsWith("/api/auth/register")
-                || path.startsWith("/api/auth/captchaImage")) {
+        if (path.startsWith("/api/auth/login") || path.startsWith("/api/auth/register")) {
             chain.doFilter(request, response);
             return;
         }

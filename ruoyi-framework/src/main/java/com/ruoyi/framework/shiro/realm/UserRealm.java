@@ -21,7 +21,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import com.ruoyi.common.core.domain.entity.SysUser;
-import com.ruoyi.common.exception.user.CaptchaException;
 import com.ruoyi.common.exception.user.RoleBlockedException;
 import com.ruoyi.common.exception.user.UserBlockedException;
 import com.ruoyi.common.exception.user.UserNotExistsException;
@@ -98,10 +97,6 @@ public class UserRealm extends AuthorizingRealm
         try
         {
             user = loginService.login(username, password);
-        }
-        catch (CaptchaException e)
-        {
-            throw new AuthenticationException(e.getMessage(), e);
         }
         catch (UserNotExistsException e)
         {
