@@ -244,7 +244,6 @@
                     <source>${java.version}</source>
                     <target>${java.version}</target>
                     <encoding>${project.build.sourceEncoding}</encoding>
-                    <release>${java.version}</release>
                     <annotationProcessorPaths>
                         <path>
                             <groupId>org.projectlombok</groupId>
@@ -252,6 +251,12 @@
                             <version>1.18.46</version>
                         </path>
                     </annotationProcessorPaths>
+                    <!-- Enable preview features for Java 21+ (Structured Concurrency, Virtual Threads, etc.) -->
+                    <compilerArgs>
+                        <arg>--enable-preview</arg>
+                    </compilerArgs>
+                    <!-- Enable preview features for surefire plugin (tests) -->
+                    <forceJavacCompilerUse>true</forceJavacCompilerUse>
                 </configuration>
             </plugin>
             <!-- YUI Compressor (CSS/JS压缩) -->
@@ -293,6 +298,24 @@
                         <exclude>**/bootstrap-table-*.js</exclude>
                         <exclude>**/service-worker.js</exclude>
                     </excludes>
+                </configuration>
+            </plugin>
+            <!-- Maven Surefire Plugin - Enable preview features for tests -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.5</version>
+                <configuration>
+                    <argLine>--enable-preview</argLine>
+                </configuration>
+            </plugin>
+            <!-- Maven Failsafe Plugin - Enable preview features for integration tests -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <version>3.2.5</version>
+                <configuration>
+                    <argLine>--enable-preview</argLine>
                 </configuration>
             </plugin>
         </plugins>

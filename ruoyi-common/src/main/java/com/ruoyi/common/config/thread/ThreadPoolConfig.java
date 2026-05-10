@@ -6,6 +6,7 @@ import org.apache.commons.lang3.concurrent.BasicThreadFactory;
 import org.slf4j.MDC;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import java.util.Map;
@@ -18,59 +19,37 @@ import java.util.concurrent.*;
  **/
 @Configuration
 public class ThreadPoolConfig {
-    // 核心线程池大小
-    private int corePoolSize = 50;
-
-    // 最大可创建的线程数
-    private int maxPoolSize = 200;
-
-    // 队列最大长度
-    private int queueCapacity = 1000;
-
-    // 线程池维护线程所允许的空闲时间
-    private int keepAliveSeconds = 300;
 
     @Bean(name = "threadPoolTaskExecutor")
-    public ThreadPoolTaskExecutor threadPoolTaskExecutor() {
-        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor() {
-            @Override
-            public void execute(Runnable task) {
-                super.execute(wrap(task));
-            }
-
-            @Override
-            public Future<?> submit(Runnable task) {
-                return super.submit(wrap(task));
-            }
-
+    public TaskExecutor threadPoolTaskExecutor() {
+        // Java 21+ 虚拟线程执行器 - 适合 I/O 密集型任务
+        ExecutorService virtualExecutor = Executors.newVirtualThreadPerTaskExecutor();
+        return task -> {
+            if (task == null) return;
+            Runnable wrapped = Threads.wrap(task);
+            virtualExecutor.execute(wrapped);
         };
-        executor.setMaxPoolSize(maxPoolSize);
-        executor.setCorePoolSize(corePoolSize);
-        executor.setQueueCapacity(queueCapacity);
-        executor.setKeepAliveSeconds(keepAliveSeconds);
-        // 线程池对拒绝任务(无线程可用)的处理策略
-        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
-        return executor;
     }
 
     /**
      * 执行周期性或定时任务
+     * 注意：定时轮询任务不适合虚拟线程，保持传统线程池
      */
     @Bean(name = "scheduledExecutorService")
     protected ScheduledExecutorService scheduledExecutorService() {
-        return new ScheduledThreadPoolExecutor(corePoolSize,
+        return new ScheduledThreadPoolExecutor(10,
                 new BasicThreadFactory.Builder().namingPattern("schedule-pool-%d").daemon(true).build(),
                 new ThreadPoolExecutor.CallerRunsPolicy()) {
 
 
             @Override
             public void execute(Runnable command) {
-                super.execute(wrap(command));
+                super.execute(Threads.wrap(command));
             }
 
             @Override
             public ScheduledFuture<?> schedule(Runnable command, long delay, TimeUnit unit) {
-                return super.schedule(wrap(command), delay, unit);
+                return super.schedule(Threads.wrap(command), delay, unit);
             }
 
             @Override
@@ -78,7 +57,7 @@ public class ThreadPoolConfig {
                                                           long initialDelay,
                                                           long period,
                                                           TimeUnit unit) {
-                return super.scheduleAtFixedRate(wrap(command), initialDelay, period, unit);
+                return super.scheduleAtFixedRate(Threads.wrap(command), initialDelay, period, unit);
             }
 
             @Override
@@ -86,7 +65,7 @@ public class ThreadPoolConfig {
                                                              long initialDelay,
                                                              long delay,
                                                              TimeUnit unit) {
-                return super.scheduleWithFixedDelay(wrap(command), initialDelay, delay, unit);
+                return super.scheduleWithFixedDelay(Threads.wrap(command), initialDelay, delay, unit);
             }
 
             @Override
@@ -95,11 +74,6 @@ public class ThreadPoolConfig {
                 Threads.printException(r, t);
             }
         };
-    }
-
-    // 统一包装Runnable任务
-    private Runnable wrap(Runnable task) {
-        return Threads.wrap(task);
     }
 
 }

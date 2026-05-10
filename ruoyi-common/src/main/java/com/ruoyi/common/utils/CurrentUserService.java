@@ -18,14 +18,14 @@ public class CurrentUserService {
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
             if (auth != null && auth.isAuthenticated() && auth.getPrincipal() != null) {
                 Object principal = auth.getPrincipal();
-                if (principal instanceof SysUser) {
-                    return ((SysUser) principal).getLoginName();
+                if (principal instanceof SysUser user) {
+                    return user.getLoginName();
                 }
-                if (principal instanceof String) {
-                    return (String) principal;
+                if (principal instanceof String s) {
+                    return s;
                 }
-                if (principal instanceof User) {
-                    return ((User) principal).getUsername();
+                if (principal instanceof User user) {
+                    return user.getUsername();
                 }
             }
         } catch (Exception e) { /* Spring Security context not available */ }
@@ -37,8 +37,8 @@ public class CurrentUserService {
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
             if (auth != null && auth.isAuthenticated() && auth.getPrincipal() != null) {
                 Object principal = auth.getPrincipal();
-                if (principal instanceof SysUser) {
-                    return ((SysUser) principal).getUserId();
+                if (principal instanceof SysUser user) {
+                    return user.getUserId();
                 }
             }
         } catch (Exception e) { /* Spring Security context not available */ }
@@ -50,8 +50,8 @@ public class CurrentUserService {
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
             if (auth != null && auth.isAuthenticated() && auth.getPrincipal() != null) {
                 Object principal = auth.getPrincipal();
-                if (principal instanceof SysUser) {
-                    return (SysUser) principal;
+                if (principal instanceof SysUser user) {
+                    return user;
                 }
             }
         } catch (Exception e) { /* Spring Security context not available */ }
@@ -59,8 +59,8 @@ public class CurrentUserService {
             ServletRequestAttributes attrs = (ServletRequestAttributes) RequestContextHolder.currentRequestAttributes();
             HttpServletRequest request = attrs.getRequest();
             Object user = request.getAttribute("currentUser");
-            if (user instanceof SysUser) {
-                return (SysUser) user;
+            if (user instanceof SysUser sysUser) {
+                return sysUser;
             }
         } catch (Exception e) { }
         try { return ShiroUtils.getSysUser(); } catch (Exception e) { return null; }
