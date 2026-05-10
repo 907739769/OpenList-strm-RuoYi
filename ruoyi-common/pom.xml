@@ -23,6 +23,18 @@
             <artifactId>spring-web</artifactId>
         </dependency>
 
+        <!-- Spring事务管理 -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-tx</artifactId>
+        </dependency>
+
+        <!-- Spring JDBC (动态数据源需要) -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-jdbc</artifactId>
+        </dependency>
+
         <!--Shiro核心框架 (Jakarta EE 9+ compatible) -->
         <dependency>
             <groupId>org.apache.shiro</groupId>
@@ -78,11 +90,17 @@
             <artifactId>jakarta.servlet-api</artifactId>
         </dependency>
 
-        <!-- MyBatis-Plus (Spring Boot 3.x compatible) -->
+        <!-- MyBatis-Plus -->
         <dependency>
             <groupId>com.baomidou</groupId>
             <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
             <version>3.5.7</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-jdbc</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>

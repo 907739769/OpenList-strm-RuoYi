@@ -47,10 +47,10 @@
             <artifactId>ruoyi-openliststrm</artifactId>
         </dependency>
 
-        <!-- knife4j-openapi3-jakarta-spring-boot-starter (Spring Boot 3.x compatible) -->
+        <!-- Swagger Annotations -->
         <dependency>
-            <groupId>com.github.xiaoymin</groupId>
-            <artifactId>knife4j-openapi3-jakarta-spring-boot-starter</artifactId>
+            <groupId>io.swagger.core.v3</groupId>
+            <artifactId>swagger-annotations</artifactId>
         </dependency>
 
     </dependencies>
@@ -60,7 +60,7 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
-                <version>3.2.5</version>
+                <version>4.0.6</version>
                 <configuration>
                     <fork>true</fork> <!-- 如果没有该配置，devtools不会生效 -->
                 </configuration>
