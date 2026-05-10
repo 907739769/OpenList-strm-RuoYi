@@ -25,7 +25,6 @@
         <oshi.version>6.6.6</oshi.version>
         <commons.io.version>2.21.0</commons.io.version>
         <poi.version>5.3.0</poi.version>
-        <velocity.version>2.3</velocity.version>
         <telegrambots.version>6.9.7.1</telegrambots.version>
         <eclipse-collections.version>11.1.0</eclipse-collections.version>
         <pebble.version>3.2.2</pebble.version>
@@ -118,13 +117,6 @@
                 <groupId>org.apache.poi</groupId>
                 <artifactId>poi-ooxml</artifactId>
                 <version>${poi.version}</version>
-            </dependency>
-
-            <!-- velocity代码生成使用模板 -->
-            <dependency>
-                <groupId>org.apache.velocity</groupId>
-                <artifactId>velocity-engine-core</artifactId>
-                <version>${velocity.version}</version>
             </dependency>
 
             <!-- 阿里JSON解析器 (FastJSON2) -->
@@ -257,47 +249,6 @@
                     </compilerArgs>
                     <!-- Enable preview features for surefire plugin (tests) -->
                     <forceJavacCompilerUse>true</forceJavacCompilerUse>
-                </configuration>
-            </plugin>
-            <!-- YUI Compressor (CSS/JS压缩) -->
-            <plugin>
-                <groupId>net.alchim31.maven</groupId>
-                <artifactId>yuicompressor-maven-plugin</artifactId>
-                <version>1.5.1</version>
-                <executions>
-                    <execution>
-                        <phase>prepare-package</phase>
-                        <goals>
-                            <goal>compress</goal>
-                        </goals>
-                    </execution>
-                </executions>
-                <configuration>
-                    <!-- 读取js,css文件采用UTF-8编码 -->
-                    <encoding>UTF-8</encoding>
-                    <!-- 是否忽略警告 -->
-                    <jswarn>false</jswarn>
-                    <!-- 是否添加.min后缀 -->
-                    <nosuffix>true</nosuffix>
-                    <!-- 压缩多少字节换行 -->
-                    <linebreakpos>50000</linebreakpos>
-                    <!-- 源目录，即需压缩的根目录 -->
-                    <sourceDirectory>src/main/resources/static</sourceDirectory>
-                    <!-- 若存在已压缩的文件，会先对比源文件是否有改动。有改动便压缩，无改动就不压缩 -->
-                    <force>true</force>
-                    <includes>
-                        <include>**/*.js</include>
-                        <include>**/*.css</include>
-                    </includes>
-                    <excludes>
-                        <exclude>**/*.min.js</exclude>
-                        <exclude>**/*.min.css</exclude>
-                        <exclude>**/fileinput.js</exclude>
-                        <exclude>**/bootstrap-treetable.js</exclude>
-                        <exclude>**/jquery.validate.extend.js</exclude>
-                        <exclude>**/bootstrap-table-*.js</exclude>
-                        <exclude>**/service-worker.js</exclude>
-                    </excludes>
                 </configuration>
             </plugin>
             <!-- Maven Surefire Plugin - Enable preview features for tests -->

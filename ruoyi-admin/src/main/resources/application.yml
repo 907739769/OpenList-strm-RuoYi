@@ -6,8 +6,6 @@ ruoyi:
   version: 1.0.4
   # 版权年份
   copyrightYear: 2025
-  # 实例演示开关
-  demoEnabled: false
   # 文件路径 示例（ Windows配置D:/ruoyi/uploadPath，Linux配置 /home/ruoyi/uploadPath）
   profile: /data/upload
   # 获取ip地址开关
@@ -147,7 +145,7 @@ xss:
   # 过滤开关
   enabled: true
   # 排除链接（多个用逗号分隔）
-  excludes: /system/notice/*
+  excludes: /druid
   # 匹配链接
   urlPatterns: /system/*,/monitor/*,/tool/*
 

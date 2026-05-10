@@ -107,6 +107,7 @@
             <groupId>com.baomidou</groupId>
             <artifactId>mybatis-plus-generator</artifactId>
             <version>3.5.7</version>
+            <scope>provided</scope>
         </dependency>
 
         <dependency>
@@ -117,7 +118,7 @@
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-test</artifactId>
-            <scope>compile</scope> <!-- 注意这里用 compile 而不是 test -->
+            <scope>test</scope>
         </dependency>
 
         <!-- JWT (jjwt) -->
