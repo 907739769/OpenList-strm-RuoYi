@@ -15,8 +15,11 @@ import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.annotation.EnableTransactionManagement;
 import com.alibaba.druid.pool.DruidDataSource;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import com.ruoyi.common.enums.DataSourceType;
 import com.ruoyi.common.utils.spring.SpringUtils;
 import com.ruoyi.framework.config.properties.DruidProperties;
@@ -28,6 +31,7 @@ import com.ruoyi.framework.datasource.DynamicDataSource;
  * @author ruoyi
  */
 @Configuration
+@EnableTransactionManagement
 public class DruidConfig
 {
     @Bean
@@ -55,6 +59,15 @@ public class DruidConfig
         targetDataSources.put(DataSourceType.MASTER.name(), masterDataSource);
         setDataSource(targetDataSources, DataSourceType.SLAVE.name(), "slaveDataSource");
         return new DynamicDataSource(masterDataSource, targetDataSources);
+    }
+
+    /**
+     * 事务管理器
+     */
+    @Bean
+    public PlatformTransactionManager transactionManager(DataSource dynamicDataSource)
+    {
+        return new DataSourceTransactionManager(dynamicDataSource);
     }
 
     /**

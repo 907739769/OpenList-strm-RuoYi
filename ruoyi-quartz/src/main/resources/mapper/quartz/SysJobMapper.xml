@@ -47,6 +47,23 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		from sys_job
 	</select>
 	
+  	<select id="selectJobById" parameterType="Long" resultType="SysJob">
+  		select job_id, job_name, job_group, invoke_target, cron_expression, misfire_policy, concurrent, status, create_by, create_time, remark
+  		from sys_job
+  		where job_id = #{jobId}
+  	</select>
+
+  	<delete id="deleteJobById" parameterType="Long">
+  		delete from sys_job where job_id = #{jobId}
+  	</delete>
+
+  	<delete id="deleteJobByIds" parameterType="Long">
+  		delete from sys_job where job_id in
+  		<foreach item="jobId" collection="array" open="(" separator="," close=")">
+  			#{jobId}
+  		</foreach>
+  	</delete>
+
   	<update id="updateJob" parameterType="SysJob">
   		update sys_job
   		<set>
