@@ -79,8 +79,10 @@ spring:
       matching-strategy: ant_path_matcher
   autoconfigure:
     exclude:
-      - org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
-      - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
+      - org.springframework.boot.security.autoconfigure.SecurityAutoConfiguration
+      - org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
+      - org.springframework.boot.security.autoconfigure.web.servlet.SecurityFilterAutoConfiguration
+      - org.springframework.boot.security.autoconfigure.web.servlet.ServletWebSecurityAutoConfiguration
 
 # MyBatis Plus配置
 mybatis-plus:
@@ -102,10 +104,6 @@ shiro:
     unauthorizedUrl: /unauth
     # 首页地址
     indexUrl: /index
-    # 验证码开关
-    captchaEnabled: false
-    # 验证码类型 math 数字计算 char 字符验证
-    captchaType: math
   cookie:
     # 设置Cookie的域名 默认空，即当前访问的域名
     domain:
@@ -147,11 +145,6 @@ csrf:
   enabled: false
   # 白名单（多个用逗号分隔）
   whites: /druid
-
-# Swagger配置
-swagger:
-  # 是否开启swagger
-  enabled: false
 
 # JWT配置
 jwt:

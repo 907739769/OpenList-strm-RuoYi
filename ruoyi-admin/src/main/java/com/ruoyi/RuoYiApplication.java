@@ -2,7 +2,6 @@ package com.ruoyi;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.ComponentScan;
@@ -15,7 +14,15 @@ import java.net.InetAddress;
  *
  * @author ruoyi
  */
-@SpringBootApplication(exclude = {DataSourceAutoConfiguration.class})
+@SpringBootApplication(excludeName = {
+    "org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration",
+    "org.springframework.boot.autoconfigure.jdbc.DataSourceTransactionManagerAutoConfiguration",
+    "org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration",
+    "org.springframework.boot.security.autoconfigure.SecurityAutoConfiguration",
+    "org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration",
+    "org.springframework.boot.security.autoconfigure.web.servlet.SecurityFilterAutoConfiguration",
+    "org.springframework.boot.security.autoconfigure.web.servlet.ServletWebSecurityAutoConfiguration"
+})
 @EnableCaching
 @ComponentScan(basePackages = {"com.ruoyi", "com.ruoyi.web", "com.ruoyi.framework"})
 public class RuoYiApplication {
