@@ -23,8 +23,6 @@ export interface LoginRequest {
   username: string
   password: string
   rememberMe?: boolean
-  code?: string
-  uuid?: string
 }
 
 export interface LoginResponse {

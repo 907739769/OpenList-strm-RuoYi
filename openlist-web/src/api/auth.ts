@@ -9,10 +9,6 @@ export function logoutApi() {
   return request.post('/auth/logout')
 }
 
-export function getCaptchaApi(type?: string) {
-  return request.get('/auth/captchaImage', { params: { type } })
-}
-
 export function getUserInfoApi() {
   return request.get<any, { user: Record<string, unknown>; roles: string[]; permissions: string[] }>('/auth/info')
 }
