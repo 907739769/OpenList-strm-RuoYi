@@ -28,7 +28,8 @@ public class MysqlDdl extends SimpleDdl {
                 "sql/20260203.sql",
                 "sql/20260207.sql",
                 "sql/20260428-menu-icons.sql",
-                "sql/20260510-cleanup-unused-tables.sql"
+                "sql/20260510-cleanup-unused-tables.sql",
+                "sql/20260511-cleanup-unused-dicts.sql"
         );
     }
 }
