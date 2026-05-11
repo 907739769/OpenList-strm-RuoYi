@@ -39,7 +39,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import * as echarts from 'echarts'
-import { getCopyStatsApi, getStrmStatsApi, getRenameStatsApi } from '@/api/openlist/dashboard'
+import { getDashboardStatsApi, getCopyStatsApi, getStrmStatsApi, getRenameStatsApi } from '@/api/openlist/dashboard'
 import { Files, VideoCamera, EditPen, CircleCheck, CircleClose, Loading } from '@element-plus/icons-vue'
 import type { Component, Ref } from 'vue'
 
@@ -186,15 +186,35 @@ const loadRenameChart = async () => {
 onMounted(async () => {
   console.log('[Dashboard] onMounted started')
 
-  // Set stat cards
-  statCards.value = [
-    { label: 'COPY 任务', value: '0', icon: Files, type: 'primary' },
-    { label: 'STRM 任务', value: '0', icon: VideoCamera, type: 'success' },
-    { label: 'Rename 任务', value: '0', icon: EditPen, type: 'warning' },
-    { label: '成功率', value: '--', icon: CircleCheck, type: 'info' },
-    { label: '失败数', value: '0', icon: CircleClose, type: 'warning' },
-    { label: '处理中', value: '0', icon: Loading, type: 'primary' }
-  ]
+  // Load dashboard stats from API
+  try {
+    const statsData: any = await getDashboardStatsApi()
+    const copyCount = statsData?.copyRecordCount ?? 0
+    const strmCount = statsData?.strmRecordCount ?? 0
+    const renameCount = statsData?.renameDetailCount ?? 0
+    const successRate = statsData?.successRate ?? 0
+    const failedCount = statsData?.failedCount ?? 0
+    const processingCount = statsData?.processingCount ?? 0
+    statCards.value = [
+      { label: 'COPY 任务', value: copyCount, icon: Files, type: 'primary' },
+      { label: 'STRM 任务', value: strmCount, icon: VideoCamera, type: 'success' },
+      { label: 'Rename 任务', value: renameCount, icon: EditPen, type: 'warning' },
+      { label: '成功率', value: successRate > 0 ? successRate + '%' : '--', icon: CircleCheck, type: 'info' },
+      { label: '失败数', value: failedCount, icon: CircleClose, type: 'warning' },
+      { label: '处理中', value: processingCount, icon: Loading, type: 'primary' }
+    ]
+    console.log('[Dashboard] statCards loaded from API:', statCards.value)
+  } catch (e) {
+    console.error('[Dashboard] Failed to load stat cards:', e)
+    statCards.value = [
+      { label: 'COPY 任务', value: '0', icon: Files, type: 'primary' },
+      { label: 'STRM 任务', value: '0', icon: VideoCamera, type: 'success' },
+      { label: 'Rename 任务', value: '0', icon: EditPen, type: 'warning' },
+      { label: '成功率', value: '--', icon: CircleCheck, type: 'info' },
+      { label: '失败数', value: '0', icon: CircleClose, type: 'warning' },
+      { label: '处理中', value: '0', icon: Loading, type: 'primary' }
+    ]
+  }
   console.log('[Dashboard] statCards set:', statCards.value.length)
 
   // Set chartData

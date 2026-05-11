@@ -55,9 +55,32 @@ public class OpenlistDashboardRestController {
     public Result<Map<String, Object>> getStats() {
         Map<String, Object> stats = new HashMap<>();
         try {
-            stats.put("strmRecordCount", openlistStrmPlusService.count());
-            stats.put("copyRecordCount", openlistCopyPlusService.count());
-            stats.put("renameDetailCount", renameDetailPlusService.count());
+            long strmTotal = openlistStrmPlusService.count();
+            long copyTotal = openlistCopyPlusService.count();
+            long renameTotal = renameDetailPlusService.count();
+
+            long copySuccess = openlistCopyPlusService.count(
+                    Wrappers.<OpenlistCopyPlus>lambdaQuery().eq(OpenlistCopyPlus::getCopyStatus, CopyStatusEnum.SUCCESS.getCode()));
+            long copyFailed = openlistCopyPlusService.count(
+                    Wrappers.<OpenlistCopyPlus>lambdaQuery().eq(OpenlistCopyPlus::getCopyStatus, CopyStatusEnum.FAILED.getCode()));
+            long copyProcessing = openlistCopyPlusService.count(
+                    Wrappers.<OpenlistCopyPlus>lambdaQuery().eq(OpenlistCopyPlus::getCopyStatus, CopyStatusEnum.PROCESSING.getCode()));
+
+            long strmSuccess = openlistStrmPlusService.count(
+                    Wrappers.<OpenlistStrmPlus>lambdaQuery().eq(OpenlistStrmPlus::getStrmStatus, StrmStatusEnum.SUCCESS.getCode()));
+            long strmFailed = openlistStrmPlusService.count(
+                    Wrappers.<OpenlistStrmPlus>lambdaQuery().eq(OpenlistStrmPlus::getStrmStatus, StrmStatusEnum.FAILED.getCode()));
+
+            long totalDone = copyTotal + strmTotal;
+            long totalSuccess = copySuccess + strmSuccess;
+            double successRate = totalDone > 0 ? Math.round(totalSuccess * 1000.0 / totalDone) / 10.0 : 0.0;
+
+            stats.put("strmRecordCount", strmTotal);
+            stats.put("copyRecordCount", copyTotal);
+            stats.put("renameDetailCount", renameTotal);
+            stats.put("successRate", successRate);
+            stats.put("failedCount", copyFailed + strmFailed);
+            stats.put("processingCount", copyProcessing);
         } catch (Exception e) {
             log.error("获取仪表盘统计失败", e);
         }
