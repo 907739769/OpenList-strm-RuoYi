@@ -1,38 +1,5 @@
 <template>
   <div class="page-container">
-    <!-- Search Panel -->
-    <el-card class="search-card" v-if="showSearch">
-      <el-form :model="queryParams" ref="queryRef" :inline="true" label-width="80px">
-        <el-form-item label="字典类型" prop="dictType">
-          <el-select v-model="queryParams.dictType" placeholder="请选择字典类型" clearable @change="handleQuery">
-            <el-option
-              v-for="item in typeOptions"
-              :key="item.dictId"
-              :label="item.dictName + ' (' + item.dictType + ')'"
-              :value="item.dictType"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="标签名称" prop="dictLabel">
-          <el-input v-model="queryParams.dictLabel" placeholder="请输入标签名称" clearable @keyup.enter="handleQuery" />
-        </el-form-item>
-        <el-form-item label="状态" prop="status">
-          <el-select v-model="queryParams.status" placeholder="数据状态" clearable @change="handleQuery">
-            <el-option label="正常" value="0" />
-            <el-option label="停用" value="1" />
-          </el-select>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="handleQuery">
-            <el-icon><Search /></el-icon> 搜索
-          </el-button>
-          <el-button @click="resetQuery">
-            <el-icon><Refresh /></el-icon> 重置
-          </el-button>
-        </el-form-item>
-      </el-form>
-    </el-card>
-
     <!-- Table Card -->
     <el-card class="table-card">
       <div class="action-bar">
@@ -43,23 +10,13 @@
           <el-button type="primary" @click="handleAdd">
             <el-icon><Plus /></el-icon> 新增
           </el-button>
-          <el-button type="danger" :disabled="multiple" @click="handleDelete">
-            <el-icon><Delete /></el-icon> 删除
-          </el-button>
         </div>
-        <el-button text @click="showSearch = !showSearch">
-          <el-icon><Filter /></el-icon>
-          {{ showSearch ? '隐藏搜索' : '显示搜索' }}
-        </el-button>
       </div>
 
       <!-- Desktop Table -->
-      <el-table v-if="appStore.device === 'desktop'" v-loading="loading" :data="dataList" @selection-change="handleSelectionChange" class="modern-table">
-        <el-table-column type="selection" width="50" align="center" />
-        <el-table-column label="字典编码" prop="dictCode" width="100" align="center" />
+      <el-table v-if="appStore.device === 'desktop'" v-loading="loading" :data="dataList" class="modern-table">
         <el-table-column label="字典标签" prop="dictLabel" min-width="120" />
         <el-table-column label="字典键值" prop="dictValue" width="120" align="center" />
-        <el-table-column label="字典排序" prop="dictSort" width="90" align="center" />
         <el-table-column label="状态" align="center" width="90">
           <template #default="scope">
             <el-tag :type="scope.row.status === '0' ? 'success' : 'danger'" effect="light">
@@ -92,16 +49,8 @@
           </div>
           <div class="mobile-card-body">
             <div class="mobile-card-row">
-              <span class="mobile-card-label">字典编码</span>
-              <span class="mobile-card-value">{{ item.dictCode }}</span>
-            </div>
-            <div class="mobile-card-row">
               <span class="mobile-card-label">字典键值</span>
               <span class="mobile-card-value">{{ item.dictValue }}</span>
-            </div>
-            <div class="mobile-card-row">
-              <span class="mobile-card-label">字典排序</span>
-              <span class="mobile-card-value">{{ item.dictSort }}</span>
             </div>
             <div class="mobile-card-row">
               <span class="mobile-card-label">创建时间</span>
@@ -145,19 +94,6 @@
         <el-form-item label="字典键值" prop="dictValue">
           <el-input v-model="form.dictValue" placeholder="请输入字典键值" />
         </el-form-item>
-        <el-form-item label="字典排序" prop="dictSort">
-          <el-input-number v-model="form.dictSort" controls-position="right" :min="0" style="width: 100%" />
-        </el-form-item>
-        <el-form-item label="回显样式" prop="listClass">
-          <el-select v-model="form.listClass" placeholder="回显样式" style="width: 100%">
-            <el-option label="默认" value="default" />
-            <el-option label="主要" value="primary" />
-            <el-option label="成功" value="success" />
-            <el-option label="信息" value="info" />
-            <el-option label="警告" value="warning" />
-            <el-option label="危险" value="danger" />
-          </el-select>
-        </el-form-item>
         <el-form-item label="状态" prop="status">
           <el-radio-group v-model="form.status">
             <el-radio value="0">正常</el-radio>
@@ -174,17 +110,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, toRefs, watch, nextTick } from 'vue'
+import { ref, reactive } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Refresh, Plus, Delete, Filter, EditPen, ArrowLeft } from '@element-plus/icons-vue'
-import { getDictDataListApi, addDictDataApi, updateDictDataApi, deleteDictDataApi, getDictTypeListApi } from '@/api/system/dict'
+import { ArrowLeft, Plus, EditPen, Delete } from '@element-plus/icons-vue'
+import { getDictDataListApi, addDictDataApi, deleteDictDataApi, updateDictDataApi } from '@/api/system/dict'
 import { useAppStore } from '@/stores/app'
 import type { FormInstance } from 'element-plus'
 import type { SearchParams } from '@/types'
+import type { SysDictData } from '@/types/system'
 
 const appStore = useAppStore()
-const showSearch = ref(window.innerWidth >= 768)
 
 const router = useRouter()
 const route = useRoute()
@@ -198,32 +134,21 @@ const loading = ref(true)
 const total = ref(0)
 const title = ref('')
 const open = ref(false)
-const single = ref(true)
-const multiple = ref(true)
-const selectedIds = ref<number[]>([])
 
 const queryParams = reactive<SearchParams>({
   pageNum: 1,
   pageSize: 10,
-  dictType: undefined,
-  dictLabel: undefined,
-  status: undefined
+  dictType: undefined
 })
-
-const typeOptions = ref<any[]>([])
 
 const dataRef = ref<FormInstance>()
 
 const rules = {
   dictLabel: [{ required: true, message: '字典标签不能为空', trigger: 'blur' }],
-  dictValue: [{ required: true, message: '字典键值不能为空', trigger: 'blur' }],
-  dictSort: [{ required: true, message: '字典排序不能为空', trigger: 'blur' }]
+  dictValue: [{ required: true, message: '字典键值不能为空', trigger: 'blur' }]
 }
 
-const data = reactive({ form: {} as any })
-const { form } = toRefs(data)
-
-const queryRef = ref<FormInstance>()
+const form = reactive<Partial<SysDictData>>({ dictCode: undefined, dictLabel: undefined, dictValue: undefined, dictType: undefined, dictSort: undefined, listClass: 'default', cssClass: '', isDefault: 'N', status: '0' })
 
 const getList = async () => {
   loading.value = true
@@ -251,68 +176,36 @@ const getList = async () => {
   }
 }
 
-const loadDictTypeList = async () => {
-  try {
-    const res = await getDictTypeListApi({ pageNum: 1, pageSize: 1000 }) as any
-    typeOptions.value = (res && res.records) ? res.records : (Array.isArray(res) ? res : [])
-  } catch (e: any) {
-    console.error('[dict/data] load dict types error:', e)
-    typeOptions.value = []
-  }
-}
-
-const handleQuery = () => {
-  queryParams.pageNum = 1
-  getList()
-}
-
-const resetQuery = async () => {
-  await nextTick()
-  queryRef.value?.resetFields()
-  queryParams.pageNum = 1
-  getList()
-}
-
-const handleSelectionChange = (selection: any[]) => {
-  single.value = selection.length !== 1
-  multiple.value = !selection.length
-  selectedIds.value = selection.map((item: any) => item.dictCode)
-}
-
 const handleAdd = () => {
   reset()
   open.value = true
   title.value = '新增字典数据'
   const dictType = route.query.dictType as string
   if (dictType) {
-    form.value.dictType = dictType
+    form.dictType = dictType
   }
 }
 
 const handleUpdate = (row?: any) => {
-  reset()
   open.value = true
   title.value = row ? '修改字典数据' : '新增字典数据'
   if (row) {
-    form.value.dictCode = row.dictCode
-    form.value.dictLabel = row.dictLabel
-    form.value.dictValue = row.dictValue
-    form.value.dictSort = row.dictSort
-    form.value.listClass = row.listClass
-    form.value.status = row.status
-    form.value.dictType = row.dictType
+    form.dictCode = row.dictCode
+    form.dictLabel = row.dictLabel
+    form.dictValue = row.dictValue
+    form.dictType = row.dictType
+    form.dictSort = row.dictSort
+    form.listClass = row.listClass || 'default'
+    form.cssClass = row.cssClass || ''
+    form.isDefault = row.isDefault || 'N'
+    form.status = row.status
   }
 }
 
-const handleDelete = async (row?: any) => {
-  const dictCodes = row?.dictCode ? [row.dictCode] : selectedIds.value
-  if (!dictCodes.length) {
-    ElMessage.warning('请选择要删除的数据')
-    return
-  }
+const handleDelete = async (row: any) => {
   try {
-    await ElMessageBox.confirm(`是否确认删除字典编码为"${dictCodes.join(', ')}"的数据项？`, '警告', { type: 'warning' })
-    await deleteDictDataApi(dictCodes[0])
+    await ElMessageBox.confirm(`是否确认删除字典编码为"${row.dictCode}"的数据项？`, '警告', { type: 'warning' })
+    await deleteDictDataApi(row.dictCode)
     ElMessage.success('删除成功')
     getList()
   } catch (e) {
@@ -321,7 +214,15 @@ const handleDelete = async (row?: any) => {
 }
 
 const reset = () => {
-  form.value = { dictCode: undefined, dictLabel: undefined, dictValue: undefined, dictSort: 0, listClass: 'default', status: '0', dictType: undefined }
+  form.dictCode = undefined
+  form.dictLabel = undefined
+  form.dictValue = undefined
+  form.dictType = undefined
+  form.dictSort = undefined
+  form.listClass = 'default'
+  form.cssClass = ''
+  form.isDefault = 'N'
+  form.status = '0'
   dataRef.value?.resetFields()
 }
 
@@ -336,10 +237,10 @@ const submitForm = async () => {
   await formEl.validate(async (valid: boolean) => {
     if (valid) {
       try {
-        if (form.value.dictCode) {
-          await updateDictDataApi(form.value)
+        if (form.dictCode) {
+          await updateDictDataApi(form as SysDictData)
         } else {
-          await addDictDataApi(form.value)
+          await addDictDataApi(form as SysDictData)
         }
         ElMessage.success('操作成功')
         open.value = false
@@ -351,18 +252,6 @@ const submitForm = async () => {
   })
 }
 
-watch(() => route.query.dictType, async (val) => {
-  queryParams.pageNum = 1
-  if (val) {
-    queryParams.dictType = val as string
-  } else {
-    queryParams.dictType = undefined
-  }
-  await loadDictTypeList()
-  await getList()
-}, { immediate: true })
-
-loadDictTypeList()
 getList()
 </script>
 
@@ -371,19 +260,6 @@ getList()
   display: flex;
   flex-direction: column;
   gap: 12px;
-}
-
-/* ============================================
-   Search Card
-   ============================================ */
-.search-card {
-  border: none;
-  border-radius: var(--osr-radius-lg);
-  box-shadow: var(--osr-shadow-base);
-
-  :deep(.el-card__body) {
-    padding: 14px 16px;
-  }
 }
 
 /* ============================================
@@ -398,19 +274,6 @@ getList()
     padding: 16px;
     display: flex;
     flex-direction: column;
-  }
-}
-
-.action-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-
-  .action-left {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
   }
 }
 
@@ -432,32 +295,11 @@ getList()
     gap: 10px;
   }
 
-  .search-card :deep(.el-form) {
-    .el-form-item {
-      margin-right: 0;
-    }
-
-    .el-input,
-    .el-select {
-      width: 100% !important;
-    }
-  }
-
   :deep(.el-table) {
     font-size: 13px;
 
     .el-table__cell {
       padding: 8px 0;
-    }
-  }
-
-  .action-bar {
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-bottom: 10px;
-
-    .action-left {
-      gap: 4px;
     }
   }
 
@@ -552,45 +394,6 @@ getList()
       gap: 2px;
       padding: 8px 12px 10px;
       border-top: 1px solid var(--osr-border-light);
-    }
-  }
-
-  /* ============================================
-     Mobile Dialog Form
-     ============================================ */
-  :deep(.modern-dialog) {
-    .el-dialog__header {
-      .el-dialog__title {
-        font-size: 16px;
-      }
-    }
-
-    .el-dialog__body {
-      padding: 16px;
-
-      .el-form-item {
-        margin-bottom: 14px;
-      }
-
-      .el-form-item__label {
-        font-size: 13px;
-      }
-
-      .el-input,
-      .el-textarea,
-      .el-select,
-      .el-input-number {
-        width: 100% !important;
-      }
-    }
-
-    .el-dialog__footer {
-      padding: 10px 16px 16px;
-      gap: 8px;
-
-      .el-button {
-        flex: 1;
-      }
     }
   }
 }

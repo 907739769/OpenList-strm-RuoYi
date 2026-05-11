@@ -80,6 +80,7 @@ export interface SysDictData {
   dictLabel: string
   dictValue: string
   dictType: string
+  dictSort: number
   cssClass: string
   listClass: string
   isDefault: string
