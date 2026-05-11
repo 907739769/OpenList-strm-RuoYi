@@ -525,7 +525,7 @@ getList()
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
-          flex-shrink: 0;
+          flex: 1;
           min-width: 0;
         }
       }

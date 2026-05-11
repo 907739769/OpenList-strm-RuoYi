@@ -172,8 +172,8 @@ const activeMenu = computed(() => route.path)
 // Main tabs for bottom tabbar (most frequently used pages)
 const mainTabs = [
   { path: '/dashboard', label: '首页', icon: Odometer },
-  { path: '/openliststrm/strm', label: 'STRM记录', icon: VideoCamera },
   { path: '/openliststrm/copy', label: '同步记录', icon: Files },
+  { path: '/openliststrm/strm', label: 'STRM记录', icon: VideoCamera },
   { path: '/openliststrm/renameDetail', label: '重命名记录', icon: EditPen }
 ]
 

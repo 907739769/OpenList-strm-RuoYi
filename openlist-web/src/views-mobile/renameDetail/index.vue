@@ -635,7 +635,8 @@ getList()
         &.rename-filename-new {
           color: #16a34a;
           font-weight: 600;
-          flex-shrink: 0;
+          flex: 1;
+          min-width: 0;
         }
       }
     }
