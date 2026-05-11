@@ -1,6 +1,6 @@
 {
-  "name": "OpenList-strm-RuoYi",
-  "short_name": "OpenList",
+  "name": "OSR",
+  "short_name": "OSR",
   "description": "OpenList STRM Management System",
   "start_url": "/",
   "display": "standalone",
