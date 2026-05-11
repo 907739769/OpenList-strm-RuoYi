@@ -27,17 +27,6 @@
     <el-card class="table-card">
       <!-- Action Bar -->
       <div class="action-bar">
-        <div class="action-left">
-          <el-button type="primary" @click="handleAdd">
-            <el-icon><Plus /></el-icon> 新增
-          </el-button>
-          <el-button type="success" :disabled="single" @click="handleUpdate()">
-            <el-icon><Edit /></el-icon> 修改
-          </el-button>
-          <el-button type="danger" :disabled="multiple" @click="handleDelete()">
-            <el-icon><Delete /></el-icon> 删除
-          </el-button>
-        </div>
         <el-button text @click="showSearch = !showSearch">
           <el-icon><Filter /></el-icon>
           {{ showSearch ? '隐藏搜索' : '显示搜索' }}
@@ -45,8 +34,7 @@
       </div>
 
       <!-- Desktop Table -->
-      <el-table v-if="appStore.device === 'desktop'" v-loading="loading" :data="jobList" @selection-change="handleSelectionChange" class="modern-table">
-        <el-table-column type="selection" width="50" align="center" />
+      <el-table v-if="appStore.device === 'desktop'" v-loading="loading" :data="jobList" class="modern-table">
         <el-table-column label="任务名称" prop="jobName" min-width="140" show-overflow-tooltip />
         <el-table-column label="cron执行表达式" prop="cronExpression" width="140" align="center" />
         <el-table-column label="状态" align="center" width="90">
@@ -63,9 +51,6 @@
           <template #default="scope">
             <el-button link type="primary" @click="handleUpdate(scope.row)">
               <el-icon><Edit /></el-icon> 修改
-            </el-button>
-            <el-button link type="danger" @click="handleDelete(scope.row)">
-              <el-icon><Delete /></el-icon> 删除
             </el-button>
             <el-button link type="primary" @click="handleRun(scope.row)">
               <el-icon><VideoPlay /></el-icon> 执行
@@ -96,9 +81,6 @@
           <div class="mobile-card-actions">
             <el-button link type="primary" size="small" @click="handleUpdate(item)">
               <el-icon><Edit /></el-icon> 修改
-            </el-button>
-            <el-button link type="danger" size="small" @click="handleDelete(item)">
-              <el-icon><Delete /></el-icon> 删除
             </el-button>
             <el-button link type="primary" size="small" @click="handleRun(item)">
               <el-icon><VideoPlay /></el-icon> 执行
@@ -170,8 +152,8 @@
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Refresh, Plus, Edit, Delete, VideoPlay, Filter } from '@element-plus/icons-vue'
-import { getJobListApi, addJobApi, updateJobApi, deleteJobApi, changeJobStatusApi, runJobApi } from '@/api/monitor/job'
+import { Search, Refresh, Edit, VideoPlay, Filter } from '@element-plus/icons-vue'
+import { getJobListApi, updateJobApi, changeJobStatusApi, runJobApi } from '@/api/monitor/job'
 import { useAppStore } from '@/stores/app'
 import type { SearchParams, PageResult } from '@/types'
 
@@ -181,9 +163,6 @@ const showSearch = ref(window.innerWidth >= 768)
 const jobList = ref<any[]>([])
 const loading = ref(true)
 const total = ref(0)
-const single = ref(true)
-const multiple = ref(true)
-const selectedIds = ref<number[]>([])
 
 const queryParams = reactive<SearchParams>({
   pageNum: 1,
@@ -206,7 +185,6 @@ const getList = async () => {
 
 const handleQuery = () => { queryParams.pageNum = 1; getList() }
 const resetQuery = () => { (queryRef.value as any).resetFields(); handleQuery() }
-const handleSelectionChange = (selection: any[]) => { single.value = selection.length !== 1; multiple.value = !selection.length; selectedIds.value = selection.map((item: any) => item.jobId) }
 
 // Dialog state
 const open = ref(false)
@@ -236,21 +214,14 @@ const rules = reactive({
   cronExpression: [{ required: true, message: 'Cron表达式不能为空', trigger: 'blur' }]
 })
 
-const handleAdd = () => {
-  dialogTitle.value = '新增定时任务'
-  form.value = initForm()
-  open.value = true
-}
-
-const handleUpdate = (row?: any) => {
-  const jobId = row?.jobId || selectedIds.value[0]
-  if (!jobId) {
+const handleUpdate = (row: any) => {
+  if (!row?.jobId) {
     ElMessage.warning('请选择数据项')
     return
   }
   dialogTitle.value = '修改定时任务'
   getJobListApi({ ...queryParams, pageNum: 1, pageSize: 100 }).then((res: PageResult) => {
-    const job = res.records.find((t: any) => t.jobId === jobId)
+    const job = res.records.find((t: any) => t.jobId === row.jobId)
     if (job) {
       form.value = { ...job }
       open.value = true
@@ -268,25 +239,12 @@ const submitForm = async () => {
     if (form.value.jobId) {
       await updateJobApi(form.value)
       ElMessage.success('修改成功')
-    } else {
-      await addJobApi(form.value)
-      ElMessage.success('新增成功')
     }
     open.value = false
     getList()
   } finally {
     submitLoading.value = false
   }
-}
-
-const handleDelete = async (row?: any) => {
-  const ids = row?.jobId ? [row.jobId] : selectedIds.value
-  try {
-    await ElMessageBox.confirm(`是否确认删除定时任务编号为"${ids}"的数据项？`, '警告', { type: 'warning' })
-    await deleteJobApi(ids[0])
-    ElMessage.success('删除成功')
-    getList()
-  } catch (e) { if (e !== 'cancel') console.error(e) }
 }
 
 const handleSwitchChange = async (row: any) => {
