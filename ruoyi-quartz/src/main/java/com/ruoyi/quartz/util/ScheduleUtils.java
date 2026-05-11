@@ -83,12 +83,8 @@ public class ScheduleUtils
             scheduler.deleteJob(getJobKey(jobId, jobGroup));
         }
 
-        // 判断任务是否过期
-        if (StringUtils.isNotNull(CronUtils.getNextExecution(job.getCronExpression())))
-        {
-            // 执行调度任务
-            scheduler.scheduleJob(jobDetail, trigger);
-        }
+        // 执行调度任务（始终注册job，cron过期时不设置trigger但job仍可被triggerJob执行）
+        scheduler.scheduleJob(jobDetail, trigger);
 
         // 暂停任务
         if (job.getStatus().equals(ScheduleConstants.Status.PAUSE.getValue()))
