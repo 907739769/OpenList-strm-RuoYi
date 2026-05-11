@@ -6,12 +6,6 @@
         <el-form-item label="任务名称" prop="jobName">
           <el-input v-model="queryParams.jobName" placeholder="请输入任务名称" clearable @keyup.enter="handleQuery" />
         </el-form-item>
-        <el-form-item label="任务组名" prop="jobGroup">
-          <el-select v-model="queryParams.jobGroup" placeholder="任务组名" clearable>
-            <el-option label="默认" value="DEFAULT" />
-            <el-option label="系统" value="SYSTEM" />
-          </el-select>
-        </el-form-item>
         <el-form-item label="任务状态" prop="status">
           <el-select v-model="queryParams.status" placeholder="任务状态" clearable>
             <el-option label="正常" value="0" />
@@ -53,10 +47,7 @@
       <!-- Desktop Table -->
       <el-table v-if="appStore.device === 'desktop'" v-loading="loading" :data="jobList" @selection-change="handleSelectionChange" class="modern-table">
         <el-table-column type="selection" width="50" align="center" />
-        <el-table-column label="任务编号" prop="jobId" width="80" align="center" />
         <el-table-column label="任务名称" prop="jobName" min-width="140" show-overflow-tooltip />
-        <el-table-column label="任务组名" prop="jobGroup" width="100" align="center" />
-        <el-table-column label="调用目标字符串" prop="invokeTarget" min-width="200" show-overflow-tooltip />
         <el-table-column label="cron执行表达式" prop="cronExpression" width="140" align="center" />
         <el-table-column label="状态" align="center" width="90">
           <template #default="scope">
@@ -98,20 +89,8 @@
           </div>
           <div class="mobile-card-body">
             <div class="mobile-card-row">
-              <span class="mobile-card-label">编号</span>
-              <span class="mobile-card-value">{{ item.jobId }}</span>
-            </div>
-            <div class="mobile-card-row">
-              <span class="mobile-card-label">组名</span>
-              <span class="mobile-card-value">{{ item.jobGroup }}</span>
-            </div>
-            <div class="mobile-card-row">
               <span class="mobile-card-label">Cron</span>
               <span class="mobile-card-value mobile-card-value-clip">{{ item.cronExpression }}</span>
-            </div>
-            <div class="mobile-card-row">
-              <span class="mobile-card-label">调用目标</span>
-              <span class="mobile-card-value mobile-card-value-clip">{{ item.invokeTarget }}</span>
             </div>
           </div>
           <div class="mobile-card-actions">
@@ -149,30 +128,12 @@
         <el-form-item label="任务名称" prop="jobName">
           <el-input v-model="form.jobName" placeholder="请输入任务名称" />
         </el-form-item>
-        <el-form-item label="任务组名" prop="jobGroup">
-          <el-select v-model="form.jobGroup" placeholder="请选择">
-            <el-option label="默认" value="DEFAULT" />
-            <el-option label="系统" value="SYSTEM" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="调用目标字符串" prop="invokeTarget">
-          <el-input v-model="form.invokeTarget" placeholder="如: com.ruoyi.task.RyTask.ryParams('ry')" />
-        </el-form-item>
         <el-form-item label="cron执行表达式" prop="cronExpression">
           <el-input v-model="form.cronExpression" placeholder="请输入cron表达式">
             <template #append>
               <el-button @click="showCronDialog = true">表达式说明</el-button>
             </template>
           </el-input>
-        </el-form-item>
-        <el-form-item label="任务负责人" prop="subPost">
-          <el-input v-model="form.subPost" placeholder="请输入任务负责人" />
-        </el-form-item>
-        <el-form-item label="同步执行" prop="concurrent">
-          <el-radio-group v-model="form.concurrent">
-            <el-radio value="0">允许</el-radio>
-            <el-radio value="1">禁止</el-radio>
-          </el-radio-group>
         </el-form-item>
         <el-form-item label="状态">
           <el-radio-group v-model="form.status">
