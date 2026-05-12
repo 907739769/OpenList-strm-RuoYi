@@ -70,11 +70,6 @@ spring:
     restart:
       # 热部署开关
       enabled: false
-  sql:
-    init:
-      mode: never
-      schema-locations: classpath*:sql/schema.sql
-      data-locations: classpath*:sql/data.sql
   cache:
     type: simple
   main:

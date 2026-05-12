@@ -1,34 +1,34 @@
 package com.ruoyi.quartz.service.impl;
 
-import java.util.Date;
-import java.util.List;
-import jakarta.annotation.PostConstruct;
-import org.quartz.JobDataMap;
-import org.quartz.JobKey;
-import org.quartz.Scheduler;
-import org.quartz.SchedulerException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ruoyi.common.constant.Constants;
 import com.ruoyi.common.constant.ScheduleConstants;
 import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.exception.job.TaskException;
 import com.ruoyi.common.utils.ExceptionUtil;
 import com.ruoyi.common.utils.StringUtils;
-import com.ruoyi.common.utils.bean.BeanUtils;
 import com.ruoyi.common.utils.spring.SpringUtils;
 import com.ruoyi.quartz.domain.SysJob;
 import com.ruoyi.quartz.domain.SysJobLog;
 import com.ruoyi.quartz.mapper.SysJobMapper;
 import com.ruoyi.quartz.service.ISysJobLogService;
 import com.ruoyi.quartz.service.ISysJobService;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ruoyi.quartz.util.CronUtils;
 import com.ruoyi.quartz.util.JobInvokeUtil;
 import com.ruoyi.quartz.util.ScheduleUtils;
+import org.quartz.JobKey;
+import org.quartz.Scheduler;
+import org.quartz.SchedulerException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Date;
+import java.util.List;
 
 /**
  * 定时任务调度信息 服务层
@@ -50,8 +50,8 @@ public class SysJobServiceImpl implements ISysJobService
      * 项目启动时，初始化定时器 
      * 主要是防止手动修改数据库导致未同步到定时任务处理（注：不能手动修改数据库ID和任务组名，否则会导致脏数据）
      */
-    @PostConstruct
-    public void init() throws SchedulerException, TaskException
+    @EventListener(ApplicationReadyEvent.class)
+    public void load() throws SchedulerException, TaskException
     {
         scheduler.clear();
         List<SysJob> jobList = jobMapper.selectJobAll();
