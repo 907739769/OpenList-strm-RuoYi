@@ -132,13 +132,13 @@
           </div>
         </div>
         <div class="card-actions" @click.stop>
-          <el-button link type="primary" size="small" icon="Refresh" @click="handleRetryOne(record)">
+          <el-button link type="primary" size="small" :icon="Refresh" @click="handleRetryOne(record)">
             重试
           </el-button>
-          <el-button link type="warning" size="small" icon="CloudDownload" @click="handleRemoveNetDiskOne(record)">
+          <el-button link type="warning" size="small" :icon="Download" @click="handleRemoveNetDiskOne(record)">
             删网盘
           </el-button>
-          <el-button link type="danger" size="small" icon="Delete" @click="handleDeleteOne(record)">
+          <el-button link type="danger" size="small" :icon="Delete" @click="handleDeleteOne(record)">
             删记录
           </el-button>
         </div>
@@ -215,7 +215,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Search, ArrowDown, ArrowLeft, ArrowRight,
   Files, Location, Clock,
-  RefreshLeft, Delete, Document, CopyDocument
+  RefreshLeft, Refresh, Delete, Document, CopyDocument, Download
 } from '@element-plus/icons-vue'
 import {
   getCopyRecordListApi,
