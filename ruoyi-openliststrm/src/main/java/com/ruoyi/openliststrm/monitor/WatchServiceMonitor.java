@@ -26,7 +26,7 @@ public class WatchServiceMonitor implements FileMonitor {
     private final Path root;
     private WatchService watchService;
     private Consumer<FileEvent> listener;
-    private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
     public WatchServiceMonitor(Path root) {
         this.root = root;

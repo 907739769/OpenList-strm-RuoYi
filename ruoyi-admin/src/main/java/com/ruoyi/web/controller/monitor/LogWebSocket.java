@@ -64,7 +64,7 @@ public class LogWebSocket {
             sendHistoryLogs(session, file, 200);
 
             // 监听新日志
-            executorService = Executors.newSingleThreadExecutor();
+            executorService = Executors.newVirtualThreadPerTaskExecutor();
             executorService.submit(() -> {
                 tailer = new Tailer(file, new TailerListenerAdapter() {
                     @Override
