@@ -52,16 +52,25 @@ public class Threads
             {
                 if (!pool.awaitTermination(120, TimeUnit.SECONDS))
                 {
-                    pool.shutdownNow();
-                    if (!pool.awaitTermination(120, TimeUnit.SECONDS))
-                    {
-                        logger.info("Pool did not terminate");
+                    try {
+                        pool.shutdownNow();
+                        if (!pool.awaitTermination(120, TimeUnit.SECONDS))
+                        {
+                            logger.info("Pool did not terminate");
+                        }
+                    } catch (UnsupportedOperationException e) {
+                        // Virtual thread executor doesn't support shutdownNow, just shutdown is enough
+                        logger.debug("shutdownNow not supported (virtual thread executor), shutdown sufficient");
                     }
                 }
             }
             catch (InterruptedException ie)
             {
-                pool.shutdownNow();
+                try {
+                    pool.shutdownNow();
+                } catch (UnsupportedOperationException e) {
+                    logger.debug("shutdownNow not supported (virtual thread executor)");
+                }
                 Thread.currentThread().interrupt();
             }
         }

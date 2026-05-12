@@ -16,7 +16,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.util.*;
-import java.util.TimerTask;
 import java.util.stream.Collectors;
 
 /**
@@ -148,14 +147,7 @@ public class RenameDetailRestController extends BaseController
             return Result.error("id 为空");
         }
         logger.info("开始执行重命名明细，ID：{}", id);
-        AsyncManager.me().execute(new TimerTask()
-        {
-            @Override
-            public void run()
-            {
-                renameTaskManager.executeRenameDetails(id, title, year);
-            }
-        });
+        AsyncManager.me().execute(() -> renameTaskManager.executeRenameDetails(id, title, year));
         return Result.success();
     }
 
@@ -173,14 +165,7 @@ public class RenameDetailRestController extends BaseController
         {
             logger.info("开始执行重命名明细，ID：{}", id);
             final int detailId = id;
-            AsyncManager.me().execute(new TimerTask()
-            {
-                @Override
-                public void run()
-                {
-                    renameTaskManager.executeRenameDetails(detailId, null, null);
-                }
-            });
+            AsyncManager.me().execute(() -> renameTaskManager.executeRenameDetails(detailId, null, null));
         }
         return Result.success();
     }

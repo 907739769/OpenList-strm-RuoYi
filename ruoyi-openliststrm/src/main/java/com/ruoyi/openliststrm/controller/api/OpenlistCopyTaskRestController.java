@@ -14,7 +14,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.TimerTask;
 import java.util.stream.Collectors;
 
 /**
@@ -145,14 +144,7 @@ public class OpenlistCopyTaskRestController extends BaseController
             return Result.error("任务不存在");
         }
         logger.info("开始执行复制任务，任务ID：{}", id);
-        AsyncManager.me().execute(new TimerTask()
-        {
-            @Override
-            public void run()
-            {
-                copyService.syncFiles(task.getCopyTaskSrc(), task.getCopyTaskDst());
-            }
-        });
+        AsyncManager.me().execute(() -> copyService.syncFiles(task.getCopyTaskSrc(), task.getCopyTaskDst()));
         return Result.success();
     }
 
@@ -173,14 +165,7 @@ public class OpenlistCopyTaskRestController extends BaseController
             {
                 logger.info("开始执行复制任务，任务ID：{}", id);
                 final OpenlistCopyTaskPlus taskCopy = task;
-                AsyncManager.me().execute(new TimerTask()
-                {
-                    @Override
-                    public void run()
-                    {
-                        copyService.syncFiles(taskCopy.getCopyTaskSrc(), taskCopy.getCopyTaskDst());
-                    }
-                });
+                AsyncManager.me().execute(() -> copyService.syncFiles(taskCopy.getCopyTaskSrc(), taskCopy.getCopyTaskDst()));
             }
         }
         return Result.success();

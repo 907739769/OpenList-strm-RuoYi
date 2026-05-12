@@ -6,9 +6,6 @@ import com.ruoyi.openliststrm.mybatisplus.domain.OpenlistStrmPlus;
 import com.ruoyi.openliststrm.mybatisplus.service.IOpenlistStrmPlusService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-
-import java.util.TimerTask;
-
 /**
  * @Author Jack
  * @Date 2025/7/16 20:50
@@ -30,9 +27,7 @@ public class StrmHelper {
      * @param status
      */
     public void addStrm(String strmPath, String strmFileName, String status) {
-        AsyncManager.me().execute(new TimerTask() {
-            @Override
-            public void run() {
+        AsyncManager.me().execute(() -> {
                 //加锁 简单解决并发情况插入重复数据
                 synchronized (LOCK) {
                     //保存或者更新
@@ -45,8 +40,7 @@ public class StrmHelper {
                                     .eq(OpenlistStrmPlus::getStrmPath, strmPath)
                                     .eq(OpenlistStrmPlus::getStrmFileName, strmFileName));
                 }
-            }
-        });
+            });
     }
 
     /**

@@ -23,7 +23,6 @@ import java.util.ArrayDeque;
 import java.util.Collections;
 import java.util.List;
 import java.util.Queue;
-import java.util.TimerTask;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -163,9 +162,7 @@ public class CopyServiceImpl implements ICopyService {
         final String copyDstPath =
                 dstDir + (StringUtils.isBlank(relativePath) ? "" : "/" + relativePath);
 
-        AsyncManager.me().execute(new TimerTask() {
-            @Override
-            public void run() {
+        AsyncManager.me().execute(() -> {
                 OpenlistCopyPlus copy = new OpenlistCopyPlus();
                 copy.setCopySrcPath(copySrcPath);
                 copy.setCopyDstPath(copyDstPath);
@@ -198,8 +195,7 @@ public class CopyServiceImpl implements ICopyService {
                     copy.setCopyStatus("3");
                     copyHelper.addCopy(copy);
                 }
-            }
-        });
+            });
     }
 
     /**
@@ -299,13 +295,10 @@ public class CopyServiceImpl implements ICopyService {
                     .eq(OpenlistStrmPlus::getStrmPath, copy.getCopyDstPath()));
         });
         if (idList.size() > 20) {
-            AsyncManager.me().execute(new TimerTask() {
-                @Override
-                public void run() {
+            AsyncManager.me().execute(() -> {
                     action.run();
                     openlistCopyPlusService.removeBatchByIds(idList);
-                }
-            });
+                });
         } else {
             action.run();
             openlistCopyPlusService.removeBatchByIds(idList);
@@ -324,10 +317,9 @@ public class CopyServiceImpl implements ICopyService {
         Runnable action = () -> copyList.forEach(copy ->
                 syncOneFile(copy.getCopySrcPath(), copy.getCopyDstPath(), copy.getCopySrcFileName()));
         if (idList.size() > 20) {
-            AsyncManager.me().execute(new TimerTask() {
-                @Override
-                public void run() { action.run(); }
-            });
+            AsyncManager.me().execute(() -> {
+                    action.run();
+                });
         } else {
             action.run();
         }

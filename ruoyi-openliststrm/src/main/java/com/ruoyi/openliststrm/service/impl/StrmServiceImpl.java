@@ -28,7 +28,6 @@ import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
-import java.util.TimerTask;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -142,13 +141,10 @@ public class StrmServiceImpl implements IStrmService {
                     .eq(OpenlistCopyPlus::getCopyDstPath, strm.getStrmPath()));
         });
         if (idList.size() > 20) {
-            AsyncManager.me().execute(new TimerTask() {
-                @Override
-                public void run() {
+            AsyncManager.me().execute(() -> {
                     action.run();
                     openlistStrmPlusService.removeBatchByIds(idList);
-                }
-            });
+                });
         } else {
             action.run();
             openlistStrmPlusService.removeBatchByIds(idList);
@@ -164,10 +160,9 @@ public class StrmServiceImpl implements IStrmService {
         Runnable action = () -> strmList.forEach(strm ->
                 strmOneFile(strm.getStrmPath() + "/" + strm.getStrmFileName()));
         if (idList.size() > 20) {
-            AsyncManager.me().execute(new TimerTask() {
-                @Override
-                public void run() { action.run(); }
-            });
+            AsyncManager.me().execute(() -> {
+                    action.run();
+                });
         } else {
             action.run();
         }
@@ -206,9 +201,7 @@ public class StrmServiceImpl implements IStrmService {
                     dirsQueue.add(currentPath + "/" + rawName);
                 } else {
                     String finalCurrentPath = currentPath;
-                    AsyncManager.me().execute(new TimerTask() {
-                        @Override
-                        public void run() {
+                    AsyncManager.me().execute(() -> {
                             if (strmHelper.exitStrm(finalCurrentPath, rawName)) {
                                 if (log.isDebugEnabled()) {
                                     log.debug("文件已处理过，跳过处理 {} / {}", finalCurrentPath, rawName);
@@ -265,8 +258,7 @@ public class StrmServiceImpl implements IStrmService {
                                     strmHelper.addStrm(finalCurrentPath, rawName, "0");
                                 }
                             }
-                        }
-                    });
+                        });
                 }
             }
         }

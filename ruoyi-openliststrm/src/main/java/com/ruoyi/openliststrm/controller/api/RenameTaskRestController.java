@@ -17,7 +17,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
-import java.util.TimerTask;
 import java.util.stream.Collectors;
 
 /**
@@ -156,14 +155,7 @@ public class RenameTaskRestController extends BaseController
             return Result.error("任务不存在");
         }
         logger.info("开始执行重命名任务，任务ID：{}", id);
-        AsyncManager.me().execute(new TimerTask()
-        {
-            @Override
-            public void run()
-            {
-                renameTaskManager.executeTaskNow(id);
-            }
-        });
+        AsyncManager.me().execute(() -> renameTaskManager.executeTaskNow(id));
         return Result.success();
     }
 
@@ -184,14 +176,7 @@ public class RenameTaskRestController extends BaseController
             {
                 logger.info("开始执行重命名任务，任务ID：{}", id);
                 final int taskId = id;
-                AsyncManager.me().execute(new TimerTask()
-                {
-                    @Override
-                    public void run()
-                    {
-                        renameTaskManager.executeTaskNow(taskId);
-                    }
-                });
+                AsyncManager.me().execute(() -> renameTaskManager.executeTaskNow(taskId));
             }
         }
         return Result.success();

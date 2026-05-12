@@ -6,8 +6,6 @@ import com.ruoyi.openliststrm.monitor.processor.FileProcessor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.nio.file.Path;
-import java.util.TimerTask;
-
 /**
  * 文件监控协调者
  * 文件监控的运行与事件编排器
@@ -29,12 +27,7 @@ public class FileMonitorCoordinator {
     public void start() {
         monitor.setListener(event -> {
             Path p = event.getPath();
-            AsyncManager.me().execute(new TimerTask() {
-                @Override
-                public void run() {
-                    processor.process(p);
-                }
-            });
+            AsyncManager.me().execute(() -> processor.process(p));
         });
         monitor.start();
     }

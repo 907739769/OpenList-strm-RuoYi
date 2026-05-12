@@ -7,9 +7,6 @@ import com.ruoyi.openliststrm.mybatisplus.service.IOpenlistCopyPlusService;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-
-import java.util.TimerTask;
-
 /**
  * @Author Jack
  * @Date 2025/7/17 11:07
@@ -24,9 +21,7 @@ public class CopyHelper {
     private IOpenlistCopyPlusService openlistCopyPlusService;
 
     public void addCopy(OpenlistCopyPlus openlistCopyPlus) {
-        AsyncManager.me().execute(new TimerTask() {
-            @Override
-            public void run() {
+        AsyncManager.me().execute(() -> {
                 //加锁 简单解决并发情况插入重复数据
                 synchronized (LOCK) {
                     //保存或者更新
@@ -37,8 +32,7 @@ public class CopyHelper {
                             .eq(StringUtils.isNotBlank(openlistCopyPlus.getCopyDstFileName()), OpenlistCopyPlus::getCopyDstFileName, openlistCopyPlus.getCopyDstFileName())
                     );
                 }
-            }
-        });
+            });
     }
 
     public boolean exitCopy(OpenlistCopyPlus openlistCopyPlus) {

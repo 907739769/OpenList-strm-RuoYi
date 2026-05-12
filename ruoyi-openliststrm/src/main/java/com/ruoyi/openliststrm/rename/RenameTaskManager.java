@@ -3,28 +3,27 @@ package com.ruoyi.openliststrm.rename;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.common.utils.ThreadTraceIdUtil;
-import com.ruoyi.common.utils.Threads;
+import com.ruoyi.common.utils.spring.SpringUtils;
 import com.ruoyi.openliststrm.config.OpenlistConfig;
 import com.ruoyi.openliststrm.helper.OpenListHelper;
+import com.ruoyi.openliststrm.monitor.processor.MediaRenameProcessor;
 import com.ruoyi.openliststrm.mybatisplus.domain.RenameDetailPlus;
 import com.ruoyi.openliststrm.mybatisplus.domain.RenameTaskPlus;
 import com.ruoyi.openliststrm.mybatisplus.service.IRenameDetailPlusService;
 import com.ruoyi.openliststrm.mybatisplus.service.IRenameTaskPlusService;
-import com.ruoyi.openliststrm.monitor.processor.MediaRenameProcessor;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Component;
 
-import jakarta.annotation.PostConstruct;
-import jakarta.annotation.PreDestroy;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -50,21 +49,17 @@ public class RenameTaskManager {
     private IRenameDetailPlusService renameDetailService;
 
     private final RenameMonitorRegistry registry = new RenameMonitorRegistry();
-    private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(
-            r -> new Thread(r, "rename-task-manager")
-    );
+    private final TaskScheduler scheduler = SpringUtils.getBean("virtualScheduledExecutor");
 
     @PostConstruct
     public void start() {
-        //轮询调用
         ThreadTraceIdUtil.initTraceId();
-        scheduler.scheduleWithFixedDelay(Threads.wrap(this::poll), 0, 10, TimeUnit.SECONDS);
+        scheduler.scheduleWithFixedDelay(this::poll, Duration.ofSeconds(10));
         log.info("RenameTaskManager started");
     }
 
     @PreDestroy
     public void stop() {
-        Threads.shutdownAndAwaitTermination(scheduler);
         registry.stopAll();
         log.info("RenameTaskManager stopped");
         MDC.clear();
