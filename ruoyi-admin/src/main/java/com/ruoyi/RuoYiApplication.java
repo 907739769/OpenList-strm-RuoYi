@@ -24,7 +24,7 @@ import java.net.InetAddress;
     "org.springframework.boot.security.autoconfigure.web.servlet.ServletWebSecurityAutoConfiguration"
 })
 @EnableCaching
-@ComponentScan(basePackages = {"com.ruoyi", "com.ruoyi.web", "com.ruoyi.framework"})
+@ComponentScan(basePackages = {"com.ruoyi"})
 public class RuoYiApplication {
     public static void main(String[] args) throws Exception {
         long startTime = System.currentTimeMillis();
@@ -43,7 +43,6 @@ public class RuoYiApplication {
         String localUrl = protocol + "://localhost:" + port;
         String remoteUrl = protocol + "://" + hostAddress + ":" + port;
 
-        // 启动完成后展示面板
         System.out.println("\n" +
                 "╔════════════════════════════════════════════════════╗\n" +
                 "║   🚀 OSR 系统启动成功！                             ║\n" +
@@ -58,8 +57,7 @@ public class RuoYiApplication {
                 "(  ___  )(  ____ \\(  ____ )\n" +
                 "| (   ) || (    \\/| (    )|\n" +
                 "| |   | || (_____ | (____)|\n" +
-                "| |   | |(_____  )|     __)\n" +
-                "| |   | |      ) || (\\ (   \n" +
+                "| |   | |(_____  )| (\\ (   \n" +
                 "| (___) |/\\____) || ) \\ \\__\n" +
                 "(_______)\\_______)|/   \\__/\n");
     }
