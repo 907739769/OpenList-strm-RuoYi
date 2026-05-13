@@ -10,7 +10,6 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import com.ruoyi.common.config.RuoYiConfig;
 import com.ruoyi.common.constant.Constants;
 import com.ruoyi.framework.interceptor.ApiInterceptor;
-import com.ruoyi.framework.interceptor.RepeatSubmitInterceptor;
 import com.ruoyi.framework.interceptor.RateLimiterInterceptor;
 
 /**
@@ -26,9 +25,6 @@ public class ResourcesConfig implements WebMvcConfigurer
      */
     @Value("${shiro.user.indexUrl}")
     private String indexUrl;
-
-    @Autowired
-    private RepeatSubmitInterceptor repeatSubmitInterceptor;
 
     @Autowired
     private ApiInterceptor apiInterceptor;
@@ -58,7 +54,6 @@ public class ResourcesConfig implements WebMvcConfigurer
     @Override
     public void addInterceptors(InterceptorRegistry registry)
     {
-        registry.addInterceptor(repeatSubmitInterceptor).addPathPatterns("/**");
         registry.addInterceptor(apiInterceptor)
             .addPathPatterns("/**")
             .excludePathPatterns("/css/**", "/js/**", "/img/**", "/fonts/**", "/favicon.ico", "/service-worker.js", "/manifest.json");
