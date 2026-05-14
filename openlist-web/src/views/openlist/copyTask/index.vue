@@ -372,6 +372,56 @@ getList()
 }
 
 /* ============================================
+   Sync Config Column (Desktop Table)
+   ============================================ */
+.path-box {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.path-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.path-label {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 3px;
+  line-height: 1.4;
+}
+
+.label-src {
+  color: #409eff;
+  background: rgba(64, 158, 255, 0.1);
+}
+
+.label-dst {
+  color: #67c23a;
+  background: rgba(103, 194, 58, 0.1);
+}
+
+.label-mon {
+  color: #e6a23c;
+  background: rgba(230, 162, 60, 0.1);
+}
+
+.path-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--osr-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ============================================
    Mobile Responsive
    ============================================ */
 @media (max-width: 768px) {

@@ -342,6 +342,59 @@ getList()
 }
 
 /* ============================================
+   Copy Detail Column (Desktop Table)
+   ============================================ */
+.file-change-box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.file-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.file-label {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 3px;
+  line-height: 1.4;
+}
+
+.label-src {
+  color: #409eff;
+  background: rgba(64, 158, 255, 0.1);
+}
+
+.label-dst {
+  color: #67c23a;
+  background: rgba(103, 194, 58, 0.1);
+}
+
+.file-name {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--osr-text-primary);
+  white-space: nowrap;
+}
+
+.file-path {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--osr-text-placeholder);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ============================================
    Mobile Responsive
    ============================================ */
 @media (max-width: 768px) {
