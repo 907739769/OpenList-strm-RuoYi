@@ -6,11 +6,12 @@ import com.ruoyi.common.utils.spring.SpringUtils;
 import com.ruoyi.openliststrm.mybatisplus.domain.OpenlistCopyTaskPlus;
 import com.ruoyi.openliststrm.mybatisplus.service.IOpenlistCopyTaskPlusService;
 import com.ruoyi.openliststrm.service.ICopyService;
-import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Component;
 
@@ -35,7 +36,7 @@ public class UploadTaskManager {
     private final UploadMonitorRegistry registry = new UploadMonitorRegistry();
     private final TaskScheduler scheduler = SpringUtils.getBean("virtualScheduledExecutor");
 
-    @PostConstruct
+    @EventListener(ApplicationReadyEvent.class)
     public void start() {
         ThreadTraceIdUtil.initTraceId();
         scheduler.schedule(this::poll, Instant.now().plusSeconds(10));
