@@ -1,8 +1,12 @@
 package com.ruoyi.common.core.domain.entity;
 
-import javax.validation.constraints.*;
+import jakarta.validation.constraints.*;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
 import com.ruoyi.common.annotation.Excel;
 import com.ruoyi.common.annotation.Excel.ColumnType;
 import com.ruoyi.common.constant.UserConstants;
@@ -13,12 +17,14 @@ import com.ruoyi.common.core.domain.BaseEntity;
  * 
  * @author ruoyi
  */
+@TableName("sys_dict_data")
 public class SysDictData extends BaseEntity
 {
     private static final long serialVersionUID = 1L;
 
     /** 字典编码 */
     @Excel(name = "字典编码", cellType = ColumnType.NUMERIC)
+    @TableId(value = "dict_code", type = IdType.AUTO)
     private Long dictCode;
 
     /** 字典排序 */
@@ -39,13 +45,16 @@ public class SysDictData extends BaseEntity
 
     /** 样式属性（其他样式扩展） */
     @Excel(name = "字典样式")
+    @TableField("css_class")
     private String cssClass;
 
     /** 表格字典样式 */
+    @TableField("list_class")
     private String listClass;
 
     /** 是否默认（Y是 N否） */
     @Excel(name = "是否默认", readConverterExp = "Y=是,N=否")
+    @TableField("is_default")
     private String isDefault;
 
     /** 状态（0正常 1停用） */

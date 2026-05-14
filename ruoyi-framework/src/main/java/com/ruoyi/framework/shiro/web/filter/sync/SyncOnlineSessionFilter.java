@@ -1,39 +1,34 @@
 package com.ruoyi.framework.shiro.web.filter.sync;
 
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
-import org.apache.shiro.web.filter.PathMatchingFilter;
 import com.ruoyi.common.constant.ShiroConstants;
 import com.ruoyi.framework.shiro.session.OnlineSession;
 import com.ruoyi.framework.shiro.session.OnlineSessionDAO;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
 
-/**
- * 同步Session数据到Db
- * 
- * @author ruoyi
- */
-public class SyncOnlineSessionFilter extends PathMatchingFilter
-{
+import java.io.IOException;
+
+public class SyncOnlineSessionFilter implements jakarta.servlet.Filter {
+
     private OnlineSessionDAO onlineSessionDAO;
 
-    /**
-     * 同步会话数据到DB 一次请求最多同步一次 防止过多处理 需要放到Shiro过滤器之前
-     */
     @Override
-    protected boolean onPreHandle(ServletRequest request, ServletResponse response, Object mappedValue) throws Exception
-    {
-        OnlineSession session = (OnlineSession) request.getAttribute(ShiroConstants.ONLINE_SESSION);
-        // 如果session stop了 也不同步
-        // session停止时间，如果stopTimestamp不为null，则代表已停止
-        if (session != null && session.getUserId() != null && session.getStopTimestamp() == null)
-        {
-            onlineSessionDAO.syncToDb(session);
-        }
-        return true;
+    public void init(jakarta.servlet.FilterConfig filterConfig) throws ServletException {
     }
 
-    public void setOnlineSessionDAO(OnlineSessionDAO onlineSessionDAO)
-    {
-        this.onlineSessionDAO = onlineSessionDAO;
+    @Override
+    public void doFilter(jakarta.servlet.ServletRequest request, jakarta.servlet.ServletResponse response, FilterChain chain)
+            throws IOException, ServletException {
+        OnlineSession session = (OnlineSession) request.getAttribute(ShiroConstants.ONLINE_SESSION);
+        if (session != null && session.getUserId() != null && session.getStopTimestamp() == null) {
+            onlineSessionDAO.syncToDb(session);
+        }
+        chain.doFilter(request, response);
     }
+
+    @Override
+    public void destroy() {
+    }
+
+    public void setOnlineSessionDAO(OnlineSessionDAO onlineSessionDAO) { this.onlineSessionDAO = onlineSessionDAO; }
 }

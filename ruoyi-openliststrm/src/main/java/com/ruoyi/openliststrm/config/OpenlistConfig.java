@@ -71,4 +71,24 @@ public class OpenlistConfig {
         return sysConfigService.selectConfigByKey("openlist.openai.model");
     }
 
+    // STRM输出目录 (默认: /data/strm)
+    public String getOpenListStrmOutputDir() {
+        return sysConfigService.selectConfigByKey("openlist.strm.outputdir");
+    }
+
+    // STRM路径编码开关 (默认: 0-不编码)
+    public String getOpenListStrmEncode() {
+        return sysConfigService.selectConfigByKey("openlist.strm.encode");
+    }
+
+    // STRM下载字幕开关 (默认: 0-不下载)
+    public String getOpenListStrmDownloadSub() {
+        return sysConfigService.selectConfigByKey("openlist.strm.downloadsub");
+    }
+
+    // API refresh开关 (默认: 1-开启)
+    public String getOpenListApiRefresh() {
+        return sysConfigService.selectConfigByKey("openlist.api.refresh");
+    }
+
 }

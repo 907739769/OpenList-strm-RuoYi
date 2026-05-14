@@ -1,9 +1,14 @@
 package com.ruoyi.common.core.domain.entity;
 
 import java.util.Set;
-import javax.validation.constraints.*;
+import jakarta.validation.constraints.*;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableLogic;
+import com.baomidou.mybatisplus.annotation.TableName;
 import com.ruoyi.common.annotation.Excel;
 import com.ruoyi.common.annotation.Excel.ColumnType;
 import com.ruoyi.common.core.domain.BaseEntity;
@@ -13,12 +18,14 @@ import com.ruoyi.common.core.domain.BaseEntity;
  * 
  * @author ruoyi
  */
+@TableName("sys_role")
 public class SysRole extends BaseEntity
 {
     private static final long serialVersionUID = 1L;
 
     /** 角色ID */
     @Excel(name = "角色序号", cellType = ColumnType.NUMERIC)
+    @TableId(value = "role_id", type = IdType.AUTO)
     private Long roleId;
 
     /** 角色名称 */
@@ -42,18 +49,23 @@ public class SysRole extends BaseEntity
     private String status;
 
     /** 删除标志（0代表存在 2代表删除） */
+    @TableLogic(value = "0", delval = "2")
     private String delFlag;
 
     /** 用户是否存在此角色标识 默认不存在 */
+    @TableField(exist = false)
     private boolean flag = false;
 
     /** 菜单组 */
+    @TableField(exist = false)
     private Long[] menuIds;
 
     /** 部门组（数据权限） */
+    @TableField(exist = false)
     private Long[] deptIds;
 
     /** 角色菜单权限 */
+    @TableField(exist = false)
     private Set<String> permissions;
 
     public SysRole()

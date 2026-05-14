@@ -1,9 +1,6 @@
 package com.ruoyi.system.service.impl;
 
-import java.util.List;
-import javax.annotation.PostConstruct;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ruoyi.common.constant.Constants;
 import com.ruoyi.common.constant.UserConstants;
 import com.ruoyi.common.core.text.Convert;
@@ -13,6 +10,12 @@ import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.system.domain.SysConfig;
 import com.ruoyi.system.mapper.SysConfigMapper;
 import com.ruoyi.system.service.ISysConfigService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
 
 /**
  * 参数配置 服务层实现
@@ -28,8 +31,8 @@ public class SysConfigServiceImpl implements ISysConfigService
     /**
      * 项目启动时，初始化参数到缓存
      */
-    @PostConstruct
-    public void init()
+    @EventListener(ApplicationReadyEvent.class)
+    public void loadDataOnStartup()
     {
         loadingConfigCache();
     }
@@ -71,6 +74,19 @@ public class SysConfigServiceImpl implements ISysConfigService
             return retConfig.getConfigValue();
         }
         return StringUtils.EMPTY;
+    }
+
+    /**
+     * 查询参数配置列表（分页）
+     * 
+     * @param page 分页对象
+     * @param config 参数配置信息
+     * @return 参数配置集合
+     */
+    @Override
+    public List<SysConfig> selectConfigListPage(Page<SysConfig> page, SysConfig config)
+    {
+        return configMapper.selectConfigListPage(page, config);
     }
 
     /**

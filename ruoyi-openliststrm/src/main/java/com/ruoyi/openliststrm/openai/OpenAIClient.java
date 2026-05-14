@@ -3,14 +3,15 @@ package com.ruoyi.openliststrm.openai;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.ruoyi.common.utils.spring.SpringUtils;
 import com.ruoyi.openliststrm.rename.model.MediaInfo;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * OpenAI Client 包装类
  * 负责构建 Prompt 和回填数据，底层请求委托给 OpenAIApiService 以支持缓存。
  */
-@Slf4j
 public class OpenAIClient {
+    private static final Logger log = LoggerFactory.getLogger(OpenAIClient.class);
     private static final String DEFAULT_MODEL = "gpt-5-mini";
     private static final String DEFAULT_ENDPOINT = "https://api.openai.com";
 

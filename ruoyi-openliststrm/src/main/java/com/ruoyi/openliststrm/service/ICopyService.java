@@ -1,10 +1,7 @@
 package com.ruoyi.openliststrm.service;
 
-/**
- * @Author Jack
- * @Date 2025/7/17 18:50
- * @Version 1.0.0
- */
+import java.util.List;
+
 public interface ICopyService {
 
     //同步目录所有文件
@@ -15,5 +12,15 @@ public interface ICopyService {
 
     //同步指定子目录
     void syncFiles(String srcDir, String dstDir, String relativePath);
+
+    /**
+     * 批量删除网盘文件并更新记录
+     */
+    void batchRemoveNetDisk(List<String> idList);
+
+    /**
+     * 重试复制任务
+     */
+    void retryCopy(List<String> idList);
 
 }

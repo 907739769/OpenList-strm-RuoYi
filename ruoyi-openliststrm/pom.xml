@@ -46,13 +46,11 @@
         <dependency>
             <groupId>org.telegram</groupId>
             <artifactId>telegrambots</artifactId>
-            <version>6.1.0</version>
         </dependency>
 
         <dependency>
             <groupId>org.telegram</groupId>
             <artifactId>telegrambots-abilities</artifactId>
-            <version>6.1.0</version>
             <exclusions>
                 <exclusion>
                     <artifactId>eclipse-collections</artifactId>
@@ -63,13 +61,11 @@
         <dependency>
             <groupId>org.eclipse.collections</groupId>
             <artifactId>eclipse-collections</artifactId>
-            <version>11.0.0.M1</version>
         </dependency>
 
         <dependency>
             <groupId>io.pebbletemplates</groupId>
             <artifactId>pebble</artifactId>
-            <version>3.2.4</version>
         </dependency>
 
     </dependencies>

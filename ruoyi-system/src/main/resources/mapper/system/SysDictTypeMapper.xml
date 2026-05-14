@@ -40,6 +40,27 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 			</if>
 	    </where>
 	</select>
+
+	<select id="selectDictTypeListPage" resultMap="SysDictTypeResult">
+	    <include refid="selectDictTypeVo"/>
+		<where>
+		    <if test="arg1.dictName != null and arg1.dictName != ''">
+				AND dict_name like concat('%', #{arg1.dictName}, '%')
+			</if>
+			<if test="arg1.status != null and arg1.status != ''">
+				AND status = #{arg1.status}
+			</if>
+			<if test="arg1.dictType != null and arg1.dictType != ''">
+				AND dict_type like concat('%', #{arg1.dictType}, '%')
+			</if>
+			<if test="arg1.params.beginTime != null and arg1.params.beginTime != ''">
+				and date_format(create_time,'%Y%m%d') &gt;= date_format(#{arg1.params.beginTime},'%Y%m%d')
+			</if>
+			<if test="arg1.params.endTime != null and arg1.params.endTime != ''">
+				and date_format(create_time,'%Y%m%d') &lt;= date_format(#{arg1.params.endTime},'%Y%m%d')
+			</if>
+	    </where>
+	</select>
 	
 	<select id="selectDictTypeAll" resultMap="SysDictTypeResult">
 		<include refid="selectDictTypeVo"/>

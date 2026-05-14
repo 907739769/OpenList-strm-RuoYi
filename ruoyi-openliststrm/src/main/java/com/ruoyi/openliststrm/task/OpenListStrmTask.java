@@ -1,11 +1,15 @@
 package com.ruoyi.openliststrm.task;
 
-import com.ruoyi.openliststrm.domain.OpenlistCopyTask;
-import com.ruoyi.openliststrm.domain.OpenlistStrmTask;
-import com.ruoyi.openliststrm.domain.RenameTask;
-import com.ruoyi.openliststrm.mapper.RenameTaskMapper;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.ruoyi.openliststrm.mybatisplus.domain.OpenlistCopyTaskPlus;
+import com.ruoyi.openliststrm.mybatisplus.domain.OpenlistStrmTaskPlus;
+import com.ruoyi.openliststrm.mybatisplus.domain.RenameTaskPlus;
+import com.ruoyi.openliststrm.mybatisplus.service.IOpenlistCopyTaskPlusService;
+import com.ruoyi.openliststrm.mybatisplus.service.IOpenlistStrmTaskPlusService;
+import com.ruoyi.openliststrm.mybatisplus.service.IRenameTaskPlusService;
 import com.ruoyi.openliststrm.rename.RenameTaskManager;
-import com.ruoyi.openliststrm.service.*;
+import com.ruoyi.openliststrm.service.ICopyService;
+import com.ruoyi.openliststrm.service.IStrmService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -20,10 +24,10 @@ import java.util.List;
 public class OpenListStrmTask {
 
     @Autowired
-    private IOpenlistCopyTaskService copyTaskService;
+    private IOpenlistCopyTaskPlusService copyTaskPlusService;
 
     @Autowired
-    private IOpenlistStrmTaskService strmTaskService;
+    private IOpenlistStrmTaskPlusService strmTaskPlusService;
 
     @Autowired
     private ICopyService copyService;
@@ -35,30 +39,30 @@ public class OpenListStrmTask {
     private RenameTaskManager renameTaskManager;
 
     @Autowired
-    private IRenameTaskService renameTaskService;
+    private IRenameTaskPlusService renameTaskPlusService;
 
     public void copy() {
-        OpenlistCopyTask query = new OpenlistCopyTask();
-        query.setCopyTaskStatus("1");
-        List<OpenlistCopyTask> taskList = copyTaskService.selectOpenlistCopyTaskList(query);
+        LambdaQueryWrapper<OpenlistCopyTaskPlus> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(OpenlistCopyTaskPlus::getCopyTaskStatus, "1");
+        List<OpenlistCopyTaskPlus> taskList = copyTaskPlusService.list(wrapper);
         taskList.forEach(task -> {
             copyService.syncFiles(task.getCopyTaskSrc(), task.getCopyTaskDst());
         });
     }
 
     public void strm() {
-        OpenlistStrmTask query = new OpenlistStrmTask();
-        query.setStrmTaskStatus("1");
-        List<OpenlistStrmTask> taskList = strmTaskService.selectOpenlistStrmTaskList(query);
+        LambdaQueryWrapper<OpenlistStrmTaskPlus> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(OpenlistStrmTaskPlus::getStrmTaskStatus, "1");
+        List<OpenlistStrmTaskPlus> taskList = strmTaskPlusService.list(wrapper);
         taskList.forEach(task -> {
             strmService.strmDir(task.getStrmTaskPath());
         });
     }
 
     public void rename() {
-        RenameTask query = new RenameTask();
-        query.setStatus("1");
-        List<RenameTask> taskList = renameTaskService.selectRenameTaskList(query);
+        LambdaQueryWrapper<RenameTaskPlus> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(RenameTaskPlus::getStatus, "1");
+        List<RenameTaskPlus> taskList = renameTaskPlusService.list(wrapper);
         taskList.forEach(task -> {
             renameTaskManager.executeTaskNow(task.getId());
         });

@@ -32,14 +32,22 @@ public abstract class AbstractQuartzJob implements Job
     @Override
     public void execute(JobExecutionContext context)
     {
+        Object jobInstance = context.getMergedJobDataMap().get(ScheduleConstants.TASK_PROPERTIES);
         SysJob sysJob = new SysJob();
-        BeanUtils.copyBeanProp(sysJob, context.getMergedJobDataMap().get(ScheduleConstants.TASK_PROPERTIES));
+        if (jobInstance != null)
+        {
+            BeanUtils.copyBeanProp(sysJob, jobInstance);
+        }
         try
         {
             before(context, sysJob);
-            if (sysJob != null)
+            if (isValidSysJob(sysJob))
             {
                 doExecute(context, sysJob);
+            }
+            else
+            {
+                log.warn("定时任务执行失败：任务配置无效，jobId={}", sysJob.getJobId());
             }
             after(context, sysJob, null);
         }
@@ -48,6 +56,14 @@ public abstract class AbstractQuartzJob implements Job
             log.error("任务执行异常  - ：", e);
             after(context, sysJob, e);
         }
+    }
+
+    /**
+     * 校验sysJob是否有效（invokeTarget不为空）
+     */
+    private boolean isValidSysJob(SysJob sysJob)
+    {
+        return sysJob != null && StringUtils.isNotEmpty(sysJob.getInvokeTarget());
     }
 
     /**

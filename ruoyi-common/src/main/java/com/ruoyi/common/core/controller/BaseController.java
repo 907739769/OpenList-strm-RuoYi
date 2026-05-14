@@ -3,27 +3,30 @@ package com.ruoyi.common.core.controller;
 import java.beans.PropertyEditorSupport;
 import java.util.Date;
 import java.util.List;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.InitBinder;
-import com.github.pagehelper.PageHelper;
-import com.github.pagehelper.PageInfo;
+import com.baomidou.mybatisplus.core.conditions.Wrapper;
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.domain.AjaxResult.Type;
+import com.ruoyi.common.core.domain.PageResult;
 import com.ruoyi.common.core.domain.entity.SysUser;
 import com.ruoyi.common.core.page.PageDomain;
-import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.core.page.TableSupport;
+import com.ruoyi.common.core.page.TableDataInfo;
+import com.ruoyi.common.utils.CurrentUserService;
 import com.ruoyi.common.utils.DateUtils;
-import com.ruoyi.common.utils.PageUtils;
 import com.ruoyi.common.utils.ServletUtils;
 import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.common.utils.sql.SqlUtil;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * web层通用数据处理
@@ -33,6 +36,9 @@ import com.ruoyi.common.utils.sql.SqlUtil;
 public class BaseController
 {
     protected final Logger logger = LoggerFactory.getLogger(this.getClass());
+
+    @Autowired
+    private CurrentUserService currentUserService;
 
     /**
      * 将前台传递过来的日期格式的字符串，自动转化为Date类型
@@ -52,32 +58,59 @@ public class BaseController
     }
 
     /**
-     * 设置请求分页数据
+     * 设置请求分页数据（已废弃 - 请使用 MyBatis-Plus Page 对象）
      */
+    @Deprecated
     protected void startPage()
     {
-        PageUtils.startPage();
     }
 
     /**
-     * 设置请求排序数据
+     * 设置请求排序数据（已废弃）
      */
+    @Deprecated
     protected void startOrderBy()
     {
-        PageDomain pageDomain = TableSupport.buildPageRequest();
-        if (StringUtils.isNotEmpty(pageDomain.getOrderBy()))
-        {
-            String orderBy = SqlUtil.escapeOrderBySql(pageDomain.getOrderBy());
-            PageHelper.orderBy(orderBy);
-        }
     }
 
     /**
-     * 清理分页的线程变量
+     * 清理分页的线程变量（已废弃）
      */
+    @Deprecated
     protected void clearPage()
     {
-        PageUtils.clearPage();
+    }
+
+    /**
+     * MyBatis-Plus 分页查询辅助方法
+     * 使用 MyBatis-Plus 原生 Page 对象进行分页，解决 PageHelper 与 MyBatis-Plus 不兼容问题
+     *
+     * @param baseMapper BaseMapper 实例
+     * @param wrapper    查询条件包装器
+     * @return 分页结果
+     */
+    @SuppressWarnings("unchecked")
+    protected <T, M extends BaseMapper<T>> PageResult<T> selectPage(M baseMapper, Wrapper<T> wrapper)
+    {
+        PageDomain pageDomain = TableSupport.buildPageRequest();
+        Integer pageNum = pageDomain.getPageNum();
+        Integer pageSize = pageDomain.getPageSize();
+        if (pageNum == null || pageNum < 1) pageNum = 1;
+        if (pageSize == null || pageSize < 1) pageSize = 10;
+
+        // 先查总数
+        long total = baseMapper.selectCount(wrapper);
+
+        // 再查分页数据
+        Page<T> mpPage = new Page<>(pageNum, pageSize);
+        String orderByColumn = SqlUtil.escapeOrderBySql(pageDomain.getOrderBy());
+        if (StringUtils.isNotEmpty(orderByColumn))
+        {
+            mpPage.addOrder(com.baomidou.mybatisplus.core.metadata.OrderItem.desc(orderByColumn));
+        }
+        baseMapper.selectPage(mpPage, wrapper);
+
+        return PageResult.of(mpPage.getRecords(), total, (int) mpPage.getCurrent(), (int) mpPage.getSize());
     }
 
     /**
@@ -105,15 +138,16 @@ public class BaseController
     }
 
     /**
-     * 响应请求分页数据
+     * 响应请求分页数据（已废弃 - 请使用 MyBatis-Plus Page 对象）
      */
     @SuppressWarnings({ "rawtypes", "unchecked" })
+    @Deprecated
     protected TableDataInfo getDataTable(List<?> list)
     {
         TableDataInfo rspData = new TableDataInfo();
         rspData.setCode(0);
         rspData.setRows(list);
-        rspData.setTotal(new PageInfo(list).getTotal());
+        rspData.setTotal(0);
         return rspData;
     }
 
@@ -200,7 +234,7 @@ public class BaseController
      */
     public SysUser getSysUser()
     {
-        return ShiroUtils.getSysUser();
+        return currentUserService.getUser();
     }
 
     /**
@@ -216,7 +250,7 @@ public class BaseController
      */
     public Long getUserId()
     {
-        return getSysUser().getUserId();
+        return currentUserService.getUserId();
     }
 
     /**
@@ -224,6 +258,6 @@ public class BaseController
      */
     public String getLoginName()
     {
-        return getSysUser().getLoginName();
+        return currentUserService.getLoginName();
     }
 }

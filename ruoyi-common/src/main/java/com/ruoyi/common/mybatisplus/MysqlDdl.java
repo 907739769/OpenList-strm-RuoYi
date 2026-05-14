@@ -20,13 +20,18 @@ public class MysqlDdl extends SimpleDdl {
     @Override
     public List<String> getSqlFiles() {
         return Arrays.asList(
+                "sql/schema.sql",
+                "sql/data.sql",
                 "sql/init.sql",
                 "sql/20250724.sql",
                 "sql/20251010.sql",
                 "sql/20260107.sql",
                 "sql/20260114.sql",
                 "sql/20260203.sql",
-                "sql/20260207.sql"
+                "sql/20260207.sql",
+                "sql/20260428-menu-icons.sql",
+                "sql/20260510-cleanup-unused-tables.sql",
+                "sql/20260511-cleanup-unused-dicts.sql"
         );
     }
 }

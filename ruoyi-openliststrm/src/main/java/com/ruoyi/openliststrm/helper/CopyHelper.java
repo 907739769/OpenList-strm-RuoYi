@@ -1,14 +1,15 @@
 package com.ruoyi.openliststrm.helper;
 
-import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.ruoyi.common.utils.bean.BeanUtils;
 import com.ruoyi.framework.manager.AsyncManager;
 import com.ruoyi.openliststrm.mybatisplus.domain.OpenlistCopyPlus;
 import com.ruoyi.openliststrm.mybatisplus.service.IOpenlistCopyPlusService;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.util.CollectionUtils;
 
-import java.util.TimerTask;
+import java.util.List;
 
 /**
  * @Author Jack
@@ -24,21 +25,25 @@ public class CopyHelper {
     private IOpenlistCopyPlusService openlistCopyPlusService;
 
     public void addCopy(OpenlistCopyPlus openlistCopyPlus) {
-        AsyncManager.me().execute(new TimerTask() {
-            @Override
-            public void run() {
+        AsyncManager.me().execute(() -> {
                 //加锁 简单解决并发情况插入重复数据
                 synchronized (LOCK) {
                     //保存或者更新
-                    openlistCopyPlusService.saveOrUpdate(openlistCopyPlus, Wrappers.<OpenlistCopyPlus>lambdaUpdate()
-                            .eq(StringUtils.isNotBlank(openlistCopyPlus.getCopySrcPath()), OpenlistCopyPlus::getCopySrcPath, openlistCopyPlus.getCopySrcPath())
-                            .eq(StringUtils.isNotBlank(openlistCopyPlus.getCopyDstPath()), OpenlistCopyPlus::getCopyDstPath, openlistCopyPlus.getCopyDstPath())
-                            .eq(StringUtils.isNotBlank(openlistCopyPlus.getCopySrcFileName()), OpenlistCopyPlus::getCopySrcFileName, openlistCopyPlus.getCopySrcFileName())
-                            .eq(StringUtils.isNotBlank(openlistCopyPlus.getCopyDstFileName()), OpenlistCopyPlus::getCopyDstFileName, openlistCopyPlus.getCopyDstFileName())
-                    );
+                    List<OpenlistCopyPlus> copyList = openlistCopyPlusService.lambdaQuery()
+                            .eq(OpenlistCopyPlus::getCopySrcPath,openlistCopyPlus.getCopySrcPath())
+                            .eq(OpenlistCopyPlus::getCopySrcFileName,openlistCopyPlus.getCopySrcFileName())
+                            .list();
+                    if (!CollectionUtils.isEmpty(copyList)) {
+                        OpenlistCopyPlus newCopy = copyList.get(0);
+                        int id = newCopy.getCopyId();
+                        BeanUtils.copyProperties(openlistCopyPlus, newCopy);
+                        newCopy.setCopyId(id);
+                        openlistCopyPlusService.updateById(newCopy);
+                    } else {
+                        openlistCopyPlusService.save(openlistCopyPlus);
+                    }
                 }
-            }
-        });
+            });
     }
 
     public boolean exitCopy(OpenlistCopyPlus openlistCopyPlus) {

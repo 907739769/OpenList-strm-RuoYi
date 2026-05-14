@@ -84,7 +84,6 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		<if test="deptId != null and deptId != 0">
 			AND (u.dept_id = #{deptId} OR u.dept_id IN ( SELECT t.dept_id FROM sys_dept t WHERE FIND_IN_SET (#{deptId},ancestors) ))
 		</if>
-		<!-- 数据范围过滤 -->
 		${params.dataScope}
 	</select>
 	
@@ -101,7 +100,6 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		<if test="phonenumber != null and phonenumber != ''">
 			AND u.phonenumber like concat('%', #{phonenumber}, '%')
 		</if>
-		<!-- 数据范围过滤 -->
 		${params.dataScope}
 	</select>
 	
@@ -119,7 +117,6 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		<if test="phonenumber != null and phonenumber != ''">
 			AND u.phonenumber like concat('%', #{phonenumber}, '%')
 		</if>
-		<!-- 数据范围过滤 -->
 		${params.dataScope}
 	</select>
 	
@@ -135,10 +132,92 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 	
 	<select id="selectUserByEmail" parameterType="String" resultMap="SysUserResult">
 	    <include refid="selectUserVo"/>
-		where u.email = #{email} and u.del_flag = '0'
+		where email = #{email} and u.del_flag = '0'
 	</select>
 	
-	<select id="checkLoginNameUnique" parameterType="String" resultMap="SysUserResult">
+	<select id="selectUserById" parameterType="Long" resultMap="SysUserResult">
+		<include refid="selectUserVo"/>
+		where u.user_id = #{userId}
+	</select>
+	
+	<update id="updateUserAvatar" parameterType="SysUser">
+  		update sys_user set avatar = #{avatar} where user_id = #{userId}
+	</update>
+	
+	<update id="resetUserPwd" parameterType="SysUser">
+  		update sys_user SET pwd_update_date = sysdate(), password = #{password}, salt = #{salt}, update_time = sysdate() where user_id = #{userId}
+	</update>
+	
+	<update id="updateUserStatus" parameterType="SysUser">
+  		update sys_user SET status = #{status}, update_time = sysdate() where user_id = #{userId}
+	</update>
+	
+  	<update id="updateLoginInfo" parameterType="SysUser">
+  		update sys_user set login_ip = #{loginIp}, login_date = #{loginDate} where user_id = #{userId}
+  	</update>
+  	
+  	<update id="updateUser" parameterType="SysUser">
+  		update sys_user
+  		<set>
+  			<if test="deptId != 0">dept_id = #{deptId},</if>
+  			<if test="userName != null and userName != ''">user_name = #{userName},</if>
+  			<if test="userType != null and userType != ''">user_type = #{userType},</if>
+  			<if test="email != null and email != ''">email = #{email},</if>
+  			<if test="phonenumber != null and phonenumber != ''">phonenumber = #{phonenumber},</if>
+  			<if test="sex != null and sex != ''">sex = #{sex},</if>
+  			<if test="avatar != null and avatar != ''">avatar = #{avatar},</if>
+  			<if test="password != null and password != ''">password = #{password},</if>
+  			<if test="salt != null and salt != ''">salt = #{salt},</if>
+  			<if test="status != null and status != ''">status = #{status},</if>
+  			<if test="loginIp != null and loginIp != ''">login_ip = #{loginIp},</if>
+  			<if test="loginDate != null">login_date = #{loginDate},</if>
+  			<if test="pwdUpdateDate != null">pwd_update_date = #{pwdUpdateDate},</if>
+  			<if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+  			<if test="remark != null">remark = #{remark},</if>
+  			update_time = sysdate()
+  		</set>
+  		where user_id = #{userId}
+  	</update>
+  	
+  	<insert id="insertUser" parameterType="SysUser" useGeneratedKeys="true" keyProperty="userId">
+  		insert into sys_user(
+  			<if test="userId != null and userId != 0">user_id,</if>
+  			<if test="deptId != null and deptId != 0">dept_id,</if>
+  			<if test="loginName != null and loginName != ''">login_name,</if>
+  			<if test="userName != null and userName != ''">user_name,</if>
+  			<if test="userType != null and userType != ''">user_type,</if>
+  			<if test="email != null and email != ''">email,</if>
+  			<if test="avatar != null and avatar != ''">avatar,</if>
+  			<if test="phonenumber != null and phonenumber != ''">phonenumber,</if>
+  			<if test="sex != null and sex != ''">sex,</if>
+  			<if test="password != null and password != ''">password,</if>
+  			<if test="salt != null and salt != ''">salt,</if>
+  			<if test="status != null and status != ''">status,</if>
+  			<if test="pwdUpdateDate != null">pwd_update_date,</if>
+  			<if test="createBy != null and createBy != ''">create_by,</if>
+  			<if test="remark != null and remark != ''">remark,</if>
+  			create_time
+  		)values(
+  			<if test="userId != null and userId != ''">#{userId},</if>
+  			<if test="deptId != null and deptId != ''">#{deptId},</if>
+  			<if test="loginName != null and loginName != ''">#{loginName},</if>
+  			<if test="userName != null and userName != ''">#{userName},</if>
+  			<if test="userType != null and userType != ''">#{userType},</if>
+  			<if test="email != null and email != ''">#{email},</if>
+  			<if test="avatar != null and avatar != ''">#{avatar},</if>
+  			<if test="phonenumber != null and phonenumber != ''">#{phonenumber},</if>
+  			<if test="sex != null and sex != ''">#{sex},</if>
+  			<if test="password != null and password != ''">#{password},</if>
+  			<if test="salt != null and salt != ''">#{salt},</if>
+  			<if test="status != null and status != ''">#{status},</if>
+  			<if test="pwdUpdateDate != null">#{pwdUpdateDate},</if>
+  			<if test="createBy != null and createBy != ''">#{createBy},</if>
+  			<if test="remark != null and remark != ''">#{remark},</if>
+  			sysdate()
+  		)
+  	</insert>
+  	
+  	<select id="checkLoginNameUnique" parameterType="String" resultMap="SysUserResult">
 		select user_id, login_name from sys_user where login_name=#{loginName} and del_flag = '0' limit 1
 	</select>
 	
@@ -150,97 +229,15 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		select user_id, email from sys_user where email=#{email} and del_flag = '0' limit 1
 	</select>
 	
-	<select id="selectUserById" parameterType="Long" resultMap="SysUserResult">
-		<include refid="selectUserVo"/>
-		where u.user_id = #{userId}
-	</select>
-	
 	<delete id="deleteUserById" parameterType="Long">
- 		update sys_user set del_flag = '2' where user_id = #{userId}
- 	</delete>
- 	
- 	<delete id="deleteUserByIds" parameterType="Long">
- 		update sys_user set del_flag = '2' where user_id in
- 		<foreach collection="array" item="userId" open="(" separator="," close=")">
- 			#{userId}
+  		update sys_user set del_flag = '2' where user_id = #{userId}
+  	</delete>
+  	
+  	<delete id="deleteUserByIds" parameterType="Long">
+  		update sys_user set del_flag = '2' where user_id in
+  		<foreach collection="array" item="userId" open="(" separator="," close=")">
+  			#{userId}
         </foreach> 
- 	</delete>
- 	
-  	<update id="updateUserAvatar" parameterType="SysUser">
- 		update sys_user set avatar = #{avatar} where user_id = #{userId}
-	</update>
+  	</delete>
 	
-	<update id="resetUserPwd" parameterType="SysUser">
- 		update sys_user SET pwd_update_date = sysdate(), password = #{password}, salt = #{salt}, update_time = sysdate() where user_id = #{userId}
-	</update>
-	
-	<update id="updateUserStatus" parameterType="SysUser">
- 		update sys_user SET status = #{status}, update_time = sysdate() where user_id = #{userId}
-	</update>
-	
-  	<update id="updateLoginInfo" parameterType="SysUser">
- 		update sys_user set login_ip = #{loginIp}, login_date = #{loginDate} where user_id = #{userId}
-	</update>
- 	
- 	<update id="updateUser" parameterType="SysUser">
- 		update sys_user
- 		<set>
- 			<if test="deptId != 0">dept_id = #{deptId},</if>
- 			<if test="userName != null and userName != ''">user_name = #{userName},</if>
- 			<if test="userType != null and userType != ''">user_type = #{userType},</if>
- 			<if test="email != null and email != ''">email = #{email},</if>
- 			<if test="phonenumber != null and phonenumber != ''">phonenumber = #{phonenumber},</if>
- 			<if test="sex != null and sex != ''">sex = #{sex},</if>
- 			<if test="avatar != null and avatar != ''">avatar = #{avatar},</if>
- 			<if test="password != null and password != ''">password = #{password},</if>
- 			<if test="salt != null and salt != ''">salt = #{salt},</if>
- 			<if test="status != null and status != ''">status = #{status},</if>
- 			<if test="loginIp != null and loginIp != ''">login_ip = #{loginIp},</if>
- 			<if test="loginDate != null">login_date = #{loginDate},</if>
- 			<if test="pwdUpdateDate != null">pwd_update_date = #{pwdUpdateDate},</if>
- 			<if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
- 			<if test="remark != null">remark = #{remark},</if>
- 			update_time = sysdate()
- 		</set>
- 		where user_id = #{userId}
-	</update>
- 	
- 	<insert id="insertUser" parameterType="SysUser" useGeneratedKeys="true" keyProperty="userId">
- 		insert into sys_user(
- 			<if test="userId != null and userId != 0">user_id,</if>
- 			<if test="deptId != null and deptId != 0">dept_id,</if>
- 			<if test="loginName != null and loginName != ''">login_name,</if>
- 			<if test="userName != null and userName != ''">user_name,</if>
- 			<if test="userType != null and userType != ''">user_type,</if>
- 			<if test="email != null and email != ''">email,</if>
- 			<if test="avatar != null and avatar != ''">avatar,</if>
- 			<if test="phonenumber != null and phonenumber != ''">phonenumber,</if>
- 			<if test="sex != null and sex != ''">sex,</if>
- 			<if test="password != null and password != ''">password,</if>
- 			<if test="salt != null and salt != ''">salt,</if>
- 			<if test="status != null and status != ''">status,</if>
- 			<if test="pwdUpdateDate != null">pwd_update_date,</if>
- 			<if test="createBy != null and createBy != ''">create_by,</if>
- 			<if test="remark != null and remark != ''">remark,</if>
- 			create_time
- 		)values(
- 			<if test="userId != null and userId != ''">#{userId},</if>
- 			<if test="deptId != null and deptId != ''">#{deptId},</if>
- 			<if test="loginName != null and loginName != ''">#{loginName},</if>
- 			<if test="userName != null and userName != ''">#{userName},</if>
- 			<if test="userType != null and userType != ''">#{userType},</if>
- 			<if test="email != null and email != ''">#{email},</if>
- 			<if test="avatar != null and avatar != ''">#{avatar},</if>
- 			<if test="phonenumber != null and phonenumber != ''">#{phonenumber},</if>
- 			<if test="sex != null and sex != ''">#{sex},</if>
- 			<if test="password != null and password != ''">#{password},</if>
- 			<if test="salt != null and salt != ''">#{salt},</if>
- 			<if test="status != null and status != ''">#{status},</if>
- 			<if test="pwdUpdateDate != null">#{pwdUpdateDate},</if>
- 			<if test="createBy != null and createBy != ''">#{createBy},</if>
- 			<if test="remark != null and remark != ''">#{remark},</if>
- 			sysdate()
- 		)
-	</insert>
-	
-</mapper> 
+</mapper>

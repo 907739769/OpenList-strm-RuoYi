@@ -1,14 +1,21 @@
 package com.ruoyi.openliststrm.service;
 
-/**
- * @Author Jack
- * @Date 2025/7/17 9:39
- * @Version 1.0.0
- */
+import java.util.List;
+
 public interface IStrmService {
 
     void strmDir(String path);
 
     void strmOneFile(String path);
+
+    /**
+     * 批量删除网盘文件并更新记录
+     */
+    void batchRemoveNetDisk(List<String> idList);
+
+    /**
+     * 重试STRM任务
+     */
+    void retryStrm(List<String> idList);
 
 }

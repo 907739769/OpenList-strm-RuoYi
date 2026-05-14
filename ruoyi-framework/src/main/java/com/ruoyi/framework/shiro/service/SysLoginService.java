@@ -11,7 +11,6 @@ import com.ruoyi.common.core.domain.entity.SysRole;
 import com.ruoyi.common.core.domain.entity.SysUser;
 import com.ruoyi.common.enums.UserStatus;
 import com.ruoyi.common.exception.user.BlackListException;
-import com.ruoyi.common.exception.user.CaptchaException;
 import com.ruoyi.common.exception.user.UserBlockedException;
 import com.ruoyi.common.exception.user.UserDeleteException;
 import com.ruoyi.common.exception.user.UserNotExistsException;
@@ -53,12 +52,6 @@ public class SysLoginService
      */
     public SysUser login(String username, String password)
     {
-        // 验证码校验
-        if (ShiroConstants.CAPTCHA_ERROR.equals(ServletUtils.getRequest().getAttribute(ShiroConstants.CURRENT_CAPTCHA)))
-        {
-            AsyncManager.me().execute(AsyncFactory.recordLogininfor(username, Constants.LOGIN_FAIL, MessageUtils.message("user.jcaptcha.error")));
-            throw new CaptchaException();
-        }
         // 用户名或密码为空 错误
         if (StringUtils.isEmpty(username) || StringUtils.isEmpty(password))
         {

@@ -1,7 +1,5 @@
 package com.ruoyi.framework.shiro.web.session;
 
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import org.apache.shiro.session.mgt.DefaultSessionManager;
 import org.apache.shiro.session.mgt.SessionValidationScheduler;
 import org.apache.shiro.session.mgt.ValidatingSessionManager;
@@ -11,8 +9,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Component;
-import com.ruoyi.common.utils.Threads;
+
+import java.time.Duration;
 
 /**
  * 自定义任务调度器完成
@@ -30,8 +30,8 @@ public class SpringSessionValidationScheduler implements SessionValidationSchedu
      * 定时器，用于处理超时的挂起请求，也用于连接断开时的重连。
      */
     @Autowired
-    @Qualifier("scheduledExecutorService")
-    private ScheduledExecutorService executorService;
+    @Qualifier("virtualScheduledExecutor")
+    private TaskScheduler executorService;
 
     private volatile boolean enabled = false;
 
@@ -95,7 +95,7 @@ public class SpringSessionValidationScheduler implements SessionValidationSchedu
                         sessionManager.validateSessions();
                     }
                 }
-            }, 1000, sessionValidationInterval * 60 * 1000, TimeUnit.MILLISECONDS);
+            }, Duration.ofMinutes(sessionValidationInterval));
 
             this.enabled = true;
 
@@ -124,7 +124,6 @@ public class SpringSessionValidationScheduler implements SessionValidationSchedu
 
         if (this.enabled)
         {
-            Threads.shutdownAndAwaitTermination(executorService);
         }
         this.enabled = false;
     }

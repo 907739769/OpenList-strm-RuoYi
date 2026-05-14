@@ -1,15 +1,10 @@
 package com.ruoyi.common.config.thread;
 
-import com.ruoyi.common.utils.ThreadTraceIdUtil;
 import com.ruoyi.common.utils.Threads;
-import org.apache.commons.lang3.concurrent.BasicThreadFactory;
-import org.slf4j.MDC;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
-
-import java.util.Map;
-import java.util.concurrent.*;
+import org.springframework.scheduling.TaskScheduler;
+import org.springframework.scheduling.concurrent.SimpleAsyncTaskScheduler;
 
 /**
  * 线程池配置
@@ -18,88 +13,26 @@ import java.util.concurrent.*;
  **/
 @Configuration
 public class ThreadPoolConfig {
-    // 核心线程池大小
-    private int corePoolSize = 50;
-
-    // 最大可创建的线程数
-    private int maxPoolSize = 200;
-
-    // 队列最大长度
-    private int queueCapacity = 1000;
-
-    // 线程池维护线程所允许的空闲时间
-    private int keepAliveSeconds = 300;
-
-    @Bean(name = "threadPoolTaskExecutor")
-    public ThreadPoolTaskExecutor threadPoolTaskExecutor() {
-        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor() {
-            @Override
-            public void execute(Runnable task) {
-                super.execute(wrap(task));
-            }
-
-            @Override
-            public Future<?> submit(Runnable task) {
-                return super.submit(wrap(task));
-            }
-
-        };
-        executor.setMaxPoolSize(maxPoolSize);
-        executor.setCorePoolSize(corePoolSize);
-        executor.setQueueCapacity(queueCapacity);
-        executor.setKeepAliveSeconds(keepAliveSeconds);
-        // 线程池对拒绝任务(无线程可用)的处理策略
-        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
-        return executor;
-    }
 
     /**
-     * 执行周期性或定时任务
+     * 虚拟线程定时执行器 - 支持延迟和周期性调度
+     * 基于虚拟线程 + ScheduledThreadPoolExecutor 实现
+     * 调度器本身用少量平台线程，任务体在虚拟线程上执行
      */
-    @Bean(name = "scheduledExecutorService")
-    protected ScheduledExecutorService scheduledExecutorService() {
-        return new ScheduledThreadPoolExecutor(corePoolSize,
-                new BasicThreadFactory.Builder().namingPattern("schedule-pool-%d").daemon(true).build(),
-                new ThreadPoolExecutor.CallerRunsPolicy()) {
+    @Bean(name = "virtualScheduledExecutor")
+    public TaskScheduler virtualScheduledExecutor() {
+        // SimpleAsyncTaskScheduler 是 Spring 为虚拟线程专门设计的调度器
+        SimpleAsyncTaskScheduler scheduler = new SimpleAsyncTaskScheduler();
+        // 开启虚拟线程支持
+        scheduler.setVirtualThreads(true);
+        // 设置线程名称前缀，方便日志排查
+        scheduler.setThreadNamePrefix("vt-schedule-");
+        scheduler.setTaskDecorator(Threads::wrap);
+        // 遇到异常时的处理（替代你之前的 afterExecute 打印）
+        scheduler.setErrorHandler(t -> System.err.println("定时任务执行异常: " + t.getMessage()));
 
-
-            @Override
-            public void execute(Runnable command) {
-                super.execute(wrap(command));
-            }
-
-            @Override
-            public ScheduledFuture<?> schedule(Runnable command, long delay, TimeUnit unit) {
-                return super.schedule(wrap(command), delay, unit);
-            }
-
-            @Override
-            public ScheduledFuture<?> scheduleAtFixedRate(Runnable command,
-                                                          long initialDelay,
-                                                          long period,
-                                                          TimeUnit unit) {
-                return super.scheduleAtFixedRate(wrap(command), initialDelay, period, unit);
-            }
-
-            @Override
-            public ScheduledFuture<?> scheduleWithFixedDelay(Runnable command,
-                                                             long initialDelay,
-                                                             long delay,
-                                                             TimeUnit unit) {
-                return super.scheduleWithFixedDelay(wrap(command), initialDelay, delay, unit);
-            }
-
-            @Override
-            protected void afterExecute(Runnable r, Throwable t) {
-                super.afterExecute(r, t);
-                Threads.printException(r, t);
-            }
-        };
+        return scheduler;
     }
 
-    // 统一包装Runnable任务
-    private Runnable wrap(Runnable task) {
-        return Threads.wrap(task);
-    }
 
 }

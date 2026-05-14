@@ -9,96 +9,60 @@ import com.ruoyi.common.utils.spring.SpringUtils;
 import com.ruoyi.framework.manager.AsyncManager;
 import com.ruoyi.framework.manager.factory.AsyncFactory;
 import com.ruoyi.system.service.ISysUserOnlineService;
+import jakarta.servlet.Filter;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletResponse;
 import org.apache.shiro.session.SessionException;
 import org.apache.shiro.subject.Subject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
-import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
 
-/**
- * 退出过滤器
- *
- * @author ruoyi
- */
-public class LogoutFilter extends org.apache.shiro.web.filter.authc.LogoutFilter
-{
+public class LogoutFilter implements Filter {
+
     private static final Logger log = LoggerFactory.getLogger(LogoutFilter.class);
-
-    /**
-     * 退出后重定向的地址
-     */
     private String loginUrl;
 
-    public String getLoginUrl()
-    {
-        return loginUrl;
-    }
-
-    public void setLoginUrl(String loginUrl)
-    {
-        this.loginUrl = loginUrl;
+    @Override
+    public void init(jakarta.servlet.FilterConfig filterConfig) throws ServletException {
     }
 
     @Override
-    protected boolean preHandle(ServletRequest request, ServletResponse response) throws Exception
-    {
-        try
-        {
-            Subject subject = getSubject(request, response);
-            String redirectUrl = getRedirectUrl(request, response, subject);
-            try
-            {
-                SysUser user = ShiroUtils.getSysUser();
-                if (StringUtils.isNotNull(user))
-                {
-                    String loginName = user.getLoginName();
-                    // 记录用户退出日志
-                    AsyncManager.me().execute(AsyncFactory.recordLogininfor(loginName, Constants.LOGOUT, MessageUtils.message("user.logout.success")));
-                    // 清理缓存
-                    SpringUtils.getBean(ISysUserOnlineService.class).removeUserCache(loginName, ShiroUtils.getSessionId());
-                }
-                // 退出登录
-                subject.logout();
-            }
-            catch (SessionException ise)
-            {
-                log.error("logout fail.", ise);
-            }
-            issueRedirect(request, response, redirectUrl);
-        }
-        catch (Exception e)
-        {
-            log.error("Encountered session exception during logout.  This can generally safely be ignored.", e);
-        }
-        return false;
-    }
-
-    /**
-     * 退出跳转URL
-     */
-    @Override
-    protected String getRedirectUrl(ServletRequest request, ServletResponse response, Subject subject)
-    {
-        String url = getLoginUrl();
-        if (StringUtils.isNotEmpty(url))
-        {
-            return url;
-        }
-        return super.getRedirectUrl(request, response, subject);
-    }
-
-    @Override
-    protected void issueRedirect(ServletRequest request, ServletResponse response, String redirectUrl) throws Exception {
-        // 强制设置无缓存头
+    public void doFilter(jakarta.servlet.ServletRequest request, jakarta.servlet.ServletResponse response, FilterChain chain)
+            throws IOException, ServletException {
         HttpServletResponse httpResponse = (HttpServletResponse) response;
         httpResponse.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
         httpResponse.setHeader("Pragma", "no-cache");
         httpResponse.setHeader("Expires", "0");
 
-        // 调用父类方法进行跳转
-        super.issueRedirect(request, response, redirectUrl);
+        try {
+            Subject subject = org.apache.shiro.SecurityUtils.getSubject();
+            String redirectUrl = loginUrl != null ? loginUrl : "/login";
+
+            try {
+                SysUser user = ShiroUtils.getSysUser();
+                if (StringUtils.isNotNull(user)) {
+                    String loginName = user.getLoginName();
+                    AsyncManager.me().execute(AsyncFactory.recordLogininfor(loginName, Constants.LOGOUT, MessageUtils.message("user.logout.success")));
+                    SpringUtils.getBean(ISysUserOnlineService.class).removeUserCache(loginName, ShiroUtils.getSessionId());
+                }
+                subject.logout();
+            } catch (SessionException ise) {
+                log.error("logout fail.", ise);
+            }
+
+            httpResponse.sendRedirect(redirectUrl);
+        } catch (Exception e) {
+            log.error("Encountered session exception during logout.", e);
+            httpResponse.sendRedirect(loginUrl != null ? loginUrl : "/login");
+        }
     }
+
+    @Override
+    public void destroy() {
+    }
+
+    public void setLoginUrl(String loginUrl) { this.loginUrl = loginUrl; }
 }

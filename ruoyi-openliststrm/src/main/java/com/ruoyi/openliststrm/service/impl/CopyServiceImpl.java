@@ -1,7 +1,8 @@
 package com.ruoyi.openliststrm.service.impl;
 
-import com.alibaba.fastjson.JSONArray;
-import com.alibaba.fastjson.JSONObject;
+import com.alibaba.fastjson2.JSONArray;
+import com.alibaba.fastjson2.JSONObject;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.ruoyi.framework.manager.AsyncManager;
 import com.ruoyi.openliststrm.api.OpenlistApi;
 import com.ruoyi.openliststrm.config.OpenlistConfig;
@@ -9,6 +10,9 @@ import com.ruoyi.openliststrm.helper.AsynHelper;
 import com.ruoyi.openliststrm.helper.CopyHelper;
 import com.ruoyi.openliststrm.helper.OpenListHelper;
 import com.ruoyi.openliststrm.mybatisplus.domain.OpenlistCopyPlus;
+import com.ruoyi.openliststrm.mybatisplus.domain.OpenlistStrmPlus;
+import com.ruoyi.openliststrm.mybatisplus.service.IOpenlistCopyPlusService;
+import com.ruoyi.openliststrm.mybatisplus.service.IOpenlistStrmPlusService;
 import com.ruoyi.openliststrm.service.ICopyService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -17,8 +21,8 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayDeque;
 import java.util.Collections;
+import java.util.List;
 import java.util.Queue;
-import java.util.TimerTask;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -42,6 +46,20 @@ public class CopyServiceImpl implements ICopyService {
 
     @Autowired
     private OpenlistConfig config;
+
+    @Autowired
+    private IOpenlistCopyPlusService openlistCopyPlusService;
+
+    @Autowired
+    private IOpenlistStrmPlusService openlistStrmPlusService;
+
+    private long getMinFileSizeBytes() {
+        try {
+            return Long.parseLong(config.getOpenListMinFileSize()) * 1024 * 1024;
+        } catch (Exception e) {
+            return 1 * 1024 * 1024;
+        }
+    }
 
     /**
      * 目录遍历任务（极轻量）
@@ -144,9 +162,7 @@ public class CopyServiceImpl implements ICopyService {
         final String copyDstPath =
                 dstDir + (StringUtils.isBlank(relativePath) ? "" : "/" + relativePath);
 
-        AsyncManager.me().execute(new TimerTask() {
-            @Override
-            public void run() {
+        AsyncManager.me().execute(() -> {
                 OpenlistCopyPlus copy = new OpenlistCopyPlus();
                 copy.setCopySrcPath(copySrcPath);
                 copy.setCopyDstPath(copyDstPath);
@@ -161,7 +177,7 @@ public class CopyServiceImpl implements ICopyService {
                 // 目标不存在 & 视频文件 & 体积满足
                 if ((dstExistResp == null || dstExistResp.getInteger("code") != 200)
                         && openListHelper.isVideo(fileName)
-                        && fileSize >= Long.parseLong(config.getOpenListMinFileSize()) * 1024 * 1024) {
+                        && fileSize >= getMinFileSizeBytes()) {
 
                     JSONObject resp = openlistApi.copyOpenlist(
                             copySrcPath,
@@ -179,8 +195,7 @@ public class CopyServiceImpl implements ICopyService {
                     copy.setCopyStatus("3");
                     copyHelper.addCopy(copy);
                 }
-            }
-        });
+            });
     }
 
     /**
@@ -230,8 +245,7 @@ public class CopyServiceImpl implements ICopyService {
                 log.warn("本地文件不存在{}/{}", srcDir, relativePath);
                 return;
             }
-            if (srcResp.getJSONObject("data").getLong("size")
-                    >= Long.parseLong(config.getOpenListMinFileSize()) * 1024 * 1024) {
+            if (srcResp.getJSONObject("data").getLong("size") >= getMinFileSizeBytes()) {
 
                 openlistApi.mkdir(copyDstPath);
                 JSONObject resp = openlistApi.copyOpenlist(
@@ -268,5 +282,46 @@ public class CopyServiceImpl implements ICopyService {
     @Override
     public void syncFiles(String srcDir, String dstDir) {
         syncFiles(srcDir, dstDir, "");
+    }
+
+    @Override
+    public void batchRemoveNetDisk(List<String> idList) {
+        if (idList == null || idList.isEmpty()) return;
+        List<OpenlistCopyPlus> copyList = openlistCopyPlusService.listByIds(idList);
+        Runnable action = () -> copyList.forEach(copy -> {
+            openlistApi.fsRemove(copy.getCopyDstPath(), Collections.singletonList(copy.getCopyDstFileName()));
+            openlistStrmPlusService.remove(new LambdaQueryWrapper<OpenlistStrmPlus>()
+                    .eq(OpenlistStrmPlus::getStrmFileName, copy.getCopyDstFileName())
+                    .eq(OpenlistStrmPlus::getStrmPath, copy.getCopyDstPath()));
+        });
+        if (idList.size() > 20) {
+            AsyncManager.me().execute(() -> {
+                    action.run();
+                    openlistCopyPlusService.removeBatchByIds(idList);
+                });
+        } else {
+            action.run();
+            openlistCopyPlusService.removeBatchByIds(idList);
+        }
+    }
+
+    @Override
+    public void retryCopy(List<String> idList) {
+        if (idList == null || idList.isEmpty()) return;
+        List<OpenlistCopyPlus> copyList = openlistCopyPlusService.listByIds(idList);
+        copyList.forEach(copy -> {
+            copy.setCopyStatus("2");
+            copy.setCopyTaskId("");
+        });
+        openlistCopyPlusService.updateBatchById(copyList);
+        Runnable action = () -> copyList.forEach(copy ->
+                syncOneFile(copy.getCopySrcPath(), copy.getCopyDstPath(), copy.getCopySrcFileName()));
+        if (idList.size() > 20) {
+            AsyncManager.me().execute(() -> {
+                    action.run();
+                });
+        } else {
+            action.run();
+        }
     }
 }

@@ -21,9 +21,6 @@ public class RuoYiConfig
     /** 版权年份 */
     private static String copyrightYear;
 
-    /** 实例演示开关 */
-    private static boolean demoEnabled;
-
     /** 上传路径 */
     private static String profile;
 
@@ -58,16 +55,6 @@ public class RuoYiConfig
     public void setCopyrightYear(String copyrightYear)
     {
         RuoYiConfig.copyrightYear = copyrightYear;
-    }
-
-    public static boolean isDemoEnabled()
-    {
-        return demoEnabled;
-    }
-
-    public void setDemoEnabled(boolean demoEnabled)
-    {
-        RuoYiConfig.demoEnabled = demoEnabled;
     }
 
     public static String getProfile()

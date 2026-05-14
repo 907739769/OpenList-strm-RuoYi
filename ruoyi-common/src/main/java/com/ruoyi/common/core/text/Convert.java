@@ -32,10 +32,7 @@ public class Convert
         {
             return defaultValue;
         }
-        if (value instanceof String)
-        {
-            return (String) value;
-        }
+        if (value instanceof String s) { return s; }
         return value.toString();
     }
 
@@ -67,10 +64,7 @@ public class Convert
         {
             return defaultValue;
         }
-        if (value instanceof Character)
-        {
-            return (Character) value;
-        }
+        if (value instanceof Character c) { return c; }
 
         final String valueStr = toStr(value, null);
         return StringUtils.isEmpty(valueStr) ? defaultValue : valueStr.charAt(0);
@@ -104,14 +98,8 @@ public class Convert
         {
             return defaultValue;
         }
-        if (value instanceof Byte)
-        {
-            return (Byte) value;
-        }
-        if (value instanceof Number)
-        {
-            return ((Number) value).byteValue();
-        }
+        if (value instanceof Byte b) { return b; }
+        if (value instanceof Number n) { return n.byteValue(); }
         final String valueStr = toStr(value, null);
         if (StringUtils.isEmpty(valueStr))
         {
@@ -155,14 +143,8 @@ public class Convert
         {
             return defaultValue;
         }
-        if (value instanceof Short)
-        {
-            return (Short) value;
-        }
-        if (value instanceof Number)
-        {
-            return ((Number) value).shortValue();
-        }
+        if (value instanceof Short s) { return s; }
+        if (value instanceof Number n) { return n.shortValue(); }
         final String valueStr = toStr(value, null);
         if (StringUtils.isEmpty(valueStr))
         {
@@ -253,14 +235,8 @@ public class Convert
         {
             return defaultValue;
         }
-        if (value instanceof Integer)
-        {
-            return (Integer) value;
-        }
-        if (value instanceof Number)
-        {
-            return ((Number) value).intValue();
-        }
+        if (value instanceof Integer i) { return i; }
+        if (value instanceof Number n) { return n.intValue(); }
         final String valueStr = toStr(value, null);
         if (StringUtils.isEmpty(valueStr))
         {
@@ -399,14 +375,8 @@ public class Convert
         {
             return defaultValue;
         }
-        if (value instanceof Long)
-        {
-            return (Long) value;
-        }
-        if (value instanceof Number)
-        {
-            return ((Number) value).longValue();
-        }
+        if (value instanceof Long l) { return l; }
+        if (value instanceof Number n) { return n.longValue(); }
         final String valueStr = toStr(value, null);
         if (StringUtils.isEmpty(valueStr))
         {
@@ -451,14 +421,8 @@ public class Convert
         {
             return defaultValue;
         }
-        if (value instanceof Double)
-        {
-            return (Double) value;
-        }
-        if (value instanceof Number)
-        {
-            return ((Number) value).doubleValue();
-        }
+        if (value instanceof Double d) { return d; }
+        if (value instanceof Number n) { return n.doubleValue(); }
         final String valueStr = toStr(value, null);
         if (StringUtils.isEmpty(valueStr))
         {
@@ -503,14 +467,8 @@ public class Convert
         {
             return defaultValue;
         }
-        if (value instanceof Float)
-        {
-            return (Float) value;
-        }
-        if (value instanceof Number)
-        {
-            return ((Number) value).floatValue();
-        }
+        if (value instanceof Float f) { return f; }
+        if (value instanceof Number n) { return n.floatValue(); }
         final String valueStr = toStr(value, null);
         if (StringUtils.isEmpty(valueStr))
         {
@@ -554,10 +512,7 @@ public class Convert
         {
             return defaultValue;
         }
-        if (value instanceof Boolean)
-        {
-            return (Boolean) value;
-        }
+        if (value instanceof Boolean b) { return b; }
         String valueStr = toStr(value, null);
         if (StringUtils.isEmpty(valueStr))
         {
@@ -657,14 +612,8 @@ public class Convert
         {
             return defaultValue;
         }
-        if (value instanceof BigInteger)
-        {
-            return (BigInteger) value;
-        }
-        if (value instanceof Long)
-        {
-            return BigInteger.valueOf((Long) value);
-        }
+        if (value instanceof BigInteger bi) { return bi; }
+        if (value instanceof Long l) { return BigInteger.valueOf(l); }
         final String valueStr = toStr(value, null);
         if (StringUtils.isEmpty(valueStr))
         {
@@ -708,22 +657,10 @@ public class Convert
         {
             return defaultValue;
         }
-        if (value instanceof BigDecimal)
-        {
-            return (BigDecimal) value;
-        }
-        if (value instanceof Long)
-        {
-            return new BigDecimal((Long) value);
-        }
-        if (value instanceof Double)
-        {
-            return BigDecimal.valueOf((Double) value);
-        }
-        if (value instanceof Integer)
-        {
-            return new BigDecimal((Integer) value);
-        }
+        if (value instanceof BigDecimal bd) { return bd; }
+        if (value instanceof Long l) { return new BigDecimal(l); }
+        if (value instanceof Double d) { return BigDecimal.valueOf(d); }
+        if (value instanceof Integer i) { return new BigDecimal(i); }
         final String valueStr = toStr(value, null);
         if (StringUtils.isEmpty(valueStr))
         {
@@ -792,22 +729,18 @@ public class Convert
             return null;
         }
 
-        if (obj instanceof String)
+        if (obj instanceof String s) { return s; }
+        else if (obj instanceof byte[] bytes)
         {
-            return (String) obj;
-        }
-        else if (obj instanceof byte[])
-        {
-            return str((byte[]) obj, charset);
-        }
-        else if (obj instanceof Byte[])
-        {
-            byte[] bytes = ArrayUtils.toPrimitive((Byte[]) obj);
             return str(bytes, charset);
         }
-        else if (obj instanceof ByteBuffer)
+        else if (obj instanceof Byte[] bytes)
         {
-            return str((ByteBuffer) obj, charset);
+            return str(ArrayUtils.toPrimitive(bytes), charset);
+        }
+        else if (obj instanceof ByteBuffer bb)
+        {
+            return str(bb, charset);
         }
         return obj.toString();
     }

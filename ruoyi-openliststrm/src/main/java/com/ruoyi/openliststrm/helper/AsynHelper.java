@@ -1,25 +1,22 @@
 package com.ruoyi.openliststrm.helper;
 
-import com.alibaba.fastjson.JSONObject;
+import com.alibaba.fastjson2.JSONObject;
 import com.ruoyi.common.utils.StringUtils;
-import com.ruoyi.common.utils.Threads;
+import com.ruoyi.common.utils.spring.SpringUtils;
 import com.ruoyi.openliststrm.api.OpenlistApi;
 import com.ruoyi.openliststrm.config.OpenlistConfig;
 import com.ruoyi.openliststrm.mybatisplus.domain.OpenlistCopyPlus;
 import com.ruoyi.openliststrm.mybatisplus.service.IOpenlistCopyPlusService;
 import com.ruoyi.openliststrm.service.IStrmService;
+import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Service;
 
-import javax.annotation.PreDestroy;
+import java.time.Instant;
 import java.util.Iterator;
 import java.util.List;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 /**
  * 异步线程服务
@@ -46,7 +43,7 @@ public class AsynHelper {
     @Autowired
     private OpenlistConfig config;
 
-    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(4);
+    private final TaskScheduler scheduler = SpringUtils.getBean("virtualScheduledExecutor");
 
     /**
      * 判断openlist的复制任务是否完成 完成就执行strm任务 (批量)
@@ -54,7 +51,7 @@ public class AsynHelper {
      */
     public void isCopyDone(String dstDir, String strmDir) {
         // 首次延迟30秒后开始检查
-        scheduler.schedule(Threads.wrap(() -> {
+        scheduler.schedule(() -> {
             try {
                 // 获取当前正在进行的任务列表
                 List<OpenlistCopyPlus> copyList = openlistCopyPlusService.lambdaQuery()
@@ -72,7 +69,7 @@ public class AsynHelper {
             } catch (Exception e) {
                 log.error("Error in isCopyDone initialization", e);
             }
-        }), 30, TimeUnit.SECONDS);
+        }, Instant.now().plusSeconds(30));
     }
 
     /**
@@ -138,7 +135,7 @@ public class AsynHelper {
             finishStrmDir(dstDir, strmDir);
         } else {
             // 列表不为空，说明还有任务在运行，延迟30秒后再次调用自己
-            scheduler.schedule(Threads.wrap(() -> processCopyListRecursive(copyList, dstDir, strmDir)), 30, TimeUnit.SECONDS);
+            scheduler.schedule(() -> processCopyListRecursive(copyList, dstDir, strmDir), Instant.now().plusSeconds(30));
         }
     }
 
@@ -154,7 +151,7 @@ public class AsynHelper {
         }
 
         // 延迟30秒后开始第一次检查
-        scheduler.schedule(Threads.wrap(() -> checkOneFileRecursive(path, copy)), 30, TimeUnit.SECONDS);
+        scheduler.schedule(() -> checkOneFileRecursive(path, copy), Instant.now().plusSeconds(30));
     }
 
     /**
@@ -198,7 +195,7 @@ public class AsynHelper {
             }
 
             // 任务仍在运行中，继续调度下一次检查
-            scheduler.schedule(Threads.wrap(() -> checkOneFileRecursive(path, copy)), 30, TimeUnit.SECONDS);
+        scheduler.schedule(() -> checkOneFileRecursive(path, copy), Instant.now().plusSeconds(30));
 
         } catch (Exception e) {
             log.error("Error in checkOneFileRecursive for path: {}", path, e);
@@ -234,6 +231,5 @@ public class AsynHelper {
     // 容器销毁时关闭线程池，防止内存泄漏
     @PreDestroy
     public void destroy() {
-        Threads.shutdownAndAwaitTermination(scheduler);
     }
 }

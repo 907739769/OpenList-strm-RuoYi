@@ -4,26 +4,28 @@ import com.baomidou.mybatisplus.core.handlers.MetaObjectHandler;
 import org.apache.ibatis.reflection.MetaObject;
 import org.springframework.stereotype.Component;
 
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 /**
- * @Author Jack
- * @Date 2025/7/14 11:23
- * @Version 1.0.0
+ * MyBatis-Plus 自动填充处理器
+ * 使用 java.util.Date + String.class 匹配实体类 String 类型字段
  */
 @Component
 public class MyMetaObjectHandler implements MetaObjectHandler {
 
+    private static final SimpleDateFormat SDF = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+
     @Override
     public void insertFill(MetaObject metaObject) {
-        this.strictInsertFill(metaObject, "createTime", String.class, LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
-        this.strictInsertFill(metaObject, "updateTime", String.class, LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+        String now = SDF.format(new Date());
+        this.strictInsertFill(metaObject, "createTime", String.class, now);
+        this.strictInsertFill(metaObject, "updateTime", String.class, now);
     }
 
     @Override
     public void updateFill(MetaObject metaObject) {
-        this.strictUpdateFill(metaObject, "updateTime", String.class, LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+        this.strictUpdateFill(metaObject, "updateTime", String.class, SDF.format(new Date()));
     }
 
 }

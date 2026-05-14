@@ -1,13 +1,13 @@
 package com.ruoyi.openliststrm.helper;
 
-import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.ruoyi.framework.manager.AsyncManager;
 import com.ruoyi.openliststrm.mybatisplus.domain.OpenlistStrmPlus;
 import com.ruoyi.openliststrm.mybatisplus.service.IOpenlistStrmPlusService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.util.CollectionUtils;
 
-import java.util.TimerTask;
+import java.util.List;
 
 /**
  * @Author Jack
@@ -30,9 +30,7 @@ public class StrmHelper {
      * @param status
      */
     public void addStrm(String strmPath, String strmFileName, String status) {
-        AsyncManager.me().execute(new TimerTask() {
-            @Override
-            public void run() {
+        AsyncManager.me().execute(() -> {
                 //加锁 简单解决并发情况插入重复数据
                 synchronized (LOCK) {
                     //保存或者更新
@@ -40,13 +38,21 @@ public class StrmHelper {
                     strm.setStrmPath(strmPath);
                     strm.setStrmFileName(strmFileName);
                     strm.setStrmStatus(status);
-                    openlistStrmPlusService.saveOrUpdate(strm,
-                            Wrappers.<OpenlistStrmPlus>lambdaUpdate()
-                                    .eq(OpenlistStrmPlus::getStrmPath, strmPath)
-                                    .eq(OpenlistStrmPlus::getStrmFileName, strmFileName));
+                    //存在就更新 不存在就新增
+                    List<OpenlistStrmPlus> openlistStrmList = openlistStrmPlusService.lambdaQuery()
+                            .eq(OpenlistStrmPlus::getStrmPath, strmPath)
+                            .eq(OpenlistStrmPlus::getStrmFileName,strmFileName)
+                            .list();
+                    if (!CollectionUtils.isEmpty(openlistStrmList)) {
+                        strm = openlistStrmList.get(0);
+                        strm.setStrmStatus(status);
+                        openlistStrmPlusService.updateById(strm);
+                    } else {
+                        strm.setStrmStatus(status);
+                        openlistStrmPlusService.save(strm);
+                    }
                 }
-            }
-        });
+            });
     }
 
     /**

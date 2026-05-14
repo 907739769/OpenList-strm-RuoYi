@@ -1,22 +1,34 @@
 package com.ruoyi.quartz.service.impl;
 
-import java.util.List;
-import javax.annotation.PostConstruct;
-import org.quartz.JobDataMap;
-import org.quartz.JobKey;
-import org.quartz.Scheduler;
-import org.quartz.SchedulerException;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.ruoyi.common.constant.Constants;
 import com.ruoyi.common.constant.ScheduleConstants;
 import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.exception.job.TaskException;
+import com.ruoyi.common.utils.ExceptionUtil;
+import com.ruoyi.common.utils.StringUtils;
+import com.ruoyi.common.utils.spring.SpringUtils;
 import com.ruoyi.quartz.domain.SysJob;
+import com.ruoyi.quartz.domain.SysJobLog;
 import com.ruoyi.quartz.mapper.SysJobMapper;
+import com.ruoyi.quartz.service.ISysJobLogService;
 import com.ruoyi.quartz.service.ISysJobService;
 import com.ruoyi.quartz.util.CronUtils;
+import com.ruoyi.quartz.util.JobInvokeUtil;
 import com.ruoyi.quartz.util.ScheduleUtils;
+import org.quartz.JobKey;
+import org.quartz.Scheduler;
+import org.quartz.SchedulerException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Date;
+import java.util.List;
 
 /**
  * 定时任务调度信息 服务层
@@ -26,6 +38,8 @@ import com.ruoyi.quartz.util.ScheduleUtils;
 @Service
 public class SysJobServiceImpl implements ISysJobService
 {
+    private static final Logger log = LoggerFactory.getLogger(SysJobServiceImpl.class);
+
     @Autowired
     private Scheduler scheduler;
 
@@ -36,8 +50,8 @@ public class SysJobServiceImpl implements ISysJobService
      * 项目启动时，初始化定时器 
      * 主要是防止手动修改数据库导致未同步到定时任务处理（注：不能手动修改数据库ID和任务组名，否则会导致脏数据）
      */
-    @PostConstruct
-    public void init() throws SchedulerException, TaskException
+    @EventListener(ApplicationReadyEvent.class)
+    public void load() throws SchedulerException, TaskException
     {
         scheduler.clear();
         List<SysJob> jobList = jobMapper.selectJobAll();
@@ -45,13 +59,30 @@ public class SysJobServiceImpl implements ISysJobService
         {
             ScheduleUtils.createScheduleJob(scheduler, job);
         }
+        if (scheduler.isInStandbyMode())
+        {
+            scheduler.start();
+        }
+    }
+
+    /**
+     * 获取quartz调度器的计划任务列表（分页）
+     * 
+     * @param page 分页对象
+     * @param job 调度信息
+     * @return 调度任务集合
+     */
+    @Override
+    public List<SysJob> selectJobListPage(Page<SysJob> page, SysJob job)
+    {
+        return jobMapper.selectJobListPage(page, job);
     }
 
     /**
      * 获取quartz调度器的计划任务列表
      * 
      * @param job 调度信息
-     * @return
+     * @return 调度任务集合
      */
     @Override
     public List<SysJob> selectJobList(SysJob job)
@@ -179,19 +210,88 @@ public class SysJobServiceImpl implements ISysJobService
     @Transactional(rollbackFor = Exception.class)
     public boolean run(SysJob job) throws SchedulerException
     {
-        boolean result = false;
         Long jobId = job.getJobId();
         SysJob tmpObj = selectJobById(job.getJobId());
-        // 参数
-        JobDataMap dataMap = new JobDataMap();
-        dataMap.put(ScheduleConstants.TASK_PROPERTIES, tmpObj);
-        JobKey jobKey = ScheduleUtils.getJobKey(jobId, tmpObj.getJobGroup());
-        if (scheduler.checkExists(jobKey))
+        if (tmpObj == null)
         {
-            result = true;
-            scheduler.triggerJob(jobKey, dataMap);
+            log.warn("任务不存在，jobId: {}", jobId);
+            return false;
         }
-        return result;
+        JobKey jobKey = ScheduleUtils.getJobKey(jobId, tmpObj.getJobGroup());
+
+        // 如果任务不在 Scheduler 中，先重新注册
+        if (!scheduler.checkExists(jobKey))
+        {
+            log.warn("任务不在 Scheduler 中，尝试重新注册: jobId={}, jobName={}, jobGroup={}",
+                    jobId, tmpObj.getJobName(), tmpObj.getJobGroup());
+            try
+            {
+                ScheduleUtils.createScheduleJob(scheduler, tmpObj);
+            }
+            catch (TaskException e)
+            {
+                log.error("重新注册定时任务失败，jobId: {}", jobId, e);
+                return false;
+            }
+        }
+        // 直接执行任务（绕过Quartz trigger数据map合并问题）
+        executeJobDirectly(tmpObj);
+        log.info("定时任务已触发执行: jobId={}, jobName={}", jobId, tmpObj.getJobName());
+        return true;
+    }
+
+    /**
+     * 直接执行任务（绕过Quartz trigger数据map问题）
+     */
+    private void executeJobDirectly(SysJob sysJob)
+    {
+        Date startTime = new Date();
+        try
+        {
+            JobInvokeUtil.invokeMethod(sysJob);
+            long runMs = System.currentTimeMillis() - startTime.getTime();
+            saveJobLog(sysJob, Constants.SUCCESS, runMs, null);
+        }
+        catch (Exception e)
+        {
+            long runMs = System.currentTimeMillis() - startTime.getTime();
+            saveJobLog(sysJob, Constants.FAIL, runMs, ExceptionUtil.getExceptionMessage(e));
+            log.error("定时任务执行失败，jobId: {}", sysJob.getJobId(), e);
+            throw new RuntimeException("定时任务执行失败", e);
+        }
+    }
+
+    /**
+     * 保存任务执行日志
+     */
+    private void saveJobLog(SysJob sysJob, String status, long runMs, String exceptionInfo)
+    {
+        try
+        {
+            ISysJobLogService jobLogService = SpringUtils.getBean(ISysJobLogService.class);
+            SysJobLog jobLog = new SysJobLog();
+            jobLog.setJobName(sysJob.getJobName());
+            jobLog.setJobGroup(sysJob.getJobGroup());
+            jobLog.setInvokeTarget(sysJob.getInvokeTarget());
+            jobLog.setStartTime(startTime());
+            jobLog.setEndTime(new Date());
+            jobLog.setJobMessage(sysJob.getJobName() + " 总共耗时：" + runMs + "毫秒");
+            jobLog.setStatus(status);
+            if (StringUtils.isNotEmpty(exceptionInfo))
+            {
+                jobLog.setExceptionInfo(StringUtils.substring(exceptionInfo, 0, 2000));
+            }
+            jobLogService.addJobLog(jobLog);
+        }
+        catch (Exception e)
+        {
+            log.error("保存任务日志失败", e);
+        }
+    }
+
+    private Date startTime()
+    {
+        return new Date();
     }
 
     /**

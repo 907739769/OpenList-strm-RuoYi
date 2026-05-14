@@ -1,0 +1,73 @@
+/* ============================================
+   OSR Design Tokens
+   Teal/Emerald + Light Gray Sidebar
+   ============================================ */
+
+:root {
+  /* Primary - Teal/Emerald */
+  --osr-primary: #0d9488;
+  --osr-primary-light-9: #f0fdfa;
+  --osr-primary-light-8: #ccfbf1;
+  --osr-primary-light-7: #99f6e8;
+  --osr-primary-light-6: #5eead4;
+  --osr-primary-light-5: #2dd4bf;
+  --osr-primary-light-4: #14b8a6;
+  --osr-primary-light-3: #0d9488;
+  --osr-primary-light-2: #0f766e;
+  --osr-primary-light-1: #115e59;
+
+  /* Colors */
+  --osr-success: #22c55e;
+  --osr-success-light: #f0fdf4;
+  --osr-warning: #f59e0b;
+  --osr-warning-light: #fffbeb;
+  --osr-danger: #ef4444;
+  --osr-danger-light: #fef2f2;
+  --osr-info: #64748b;
+  --osr-info-light: #f8fafc;
+
+  /* Surfaces */
+  --osr-bg: #ffffff;
+  --osr-bg-page: #f1f5f9;
+  --osr-bg-sidebar: #f8fafc;
+  --osr-bg-sidebar-hover: #f1f5f9;
+  --osr-bg-sidebar-active: #ccfbf1;
+  --osr-surface: #ffffff;
+  --osr-surface-hover: #f8fafc;
+
+  /* Text */
+  --osr-text-primary: #0f172a;
+  --osr-text-regular: #334155;
+  --osr-text-secondary: #64748b;
+  --osr-text-placeholder: #94a3b8;
+  --osr-text-disabled: #cbd5e1;
+
+  /* Borders */
+  --osr-border-base: #e2e8f0;
+  --osr-border-light: #f1f5f9;
+  --osr-border-dark: #cbd5e1;
+
+  /* Shadows */
+  --osr-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --osr-shadow-base: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --osr-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.04), 0 2px 4px rgba(0, 0, 0, 0.03);
+  --osr-shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.06), 0 4px 6px rgba(0, 0, 0, 0.04);
+
+  /* Radius */
+  --osr-radius-sm: 6px;
+  --osr-radius-base: 8px;
+  --osr-radius-md: 10px;
+  --osr-radius-lg: 12px;
+  --osr-radius-xl: 16px;
+
+  /* Layout */
+  --osr-sidebar-width: 220px;
+  --osr-sidebar-collapsed-width: 68px;
+  --osr-navbar-height: 56px;
+  --osr-content-padding: 20px;
+
+  /* Transitions */
+  --osr-transition-fast: 150ms ease;
+  --osr-transition-base: 200ms ease;
+  --osr-transition-slow: 300ms ease;
+}
