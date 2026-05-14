@@ -3,7 +3,7 @@ package com.ruoyi.framework.manager;
 import com.ruoyi.common.utils.spring.SpringUtils;
 import org.springframework.scheduling.TaskScheduler;
 
-import java.time.Duration;
+import java.time.Instant;
 
 /**
  * 异步任务管理器
@@ -12,13 +12,13 @@ import java.time.Duration;
  */
 public class AsyncManager
 {
-    private final int OPERATE_DELAY_TIME = 10;
+    private final long OPERATE_DELAY_TIME = 10;
 
-    private TaskScheduler executor = SpringUtils.getBean("virtualScheduledExecutor");
+    private final TaskScheduler executor = SpringUtils.getBean("virtualScheduledExecutor");
 
     private AsyncManager(){}
 
-    private static AsyncManager me = new AsyncManager();
+    private static final AsyncManager me = new AsyncManager();
 
     public static AsyncManager me()
     {
@@ -27,7 +27,7 @@ public class AsyncManager
 
     public void execute(Runnable task)
     {
-        executor.scheduleWithFixedDelay(task, Duration.ofMillis(OPERATE_DELAY_TIME));
+        executor.schedule(task, Instant.now().plusMillis(OPERATE_DELAY_TIME));
     }
 
     public void shutdown()

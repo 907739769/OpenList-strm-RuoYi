@@ -14,7 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Component;
 
-import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -38,7 +38,7 @@ public class UploadTaskManager {
     @PostConstruct
     public void start() {
         ThreadTraceIdUtil.initTraceId();
-        scheduler.scheduleWithFixedDelay(this::poll, Duration.ofSeconds(10));
+        scheduler.schedule(this::poll, Instant.now().plusSeconds(10));
         log.info("UploadTaskManager started");
     }
 

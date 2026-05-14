@@ -14,7 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Service;
 
-import java.time.Duration;
+import java.time.Instant;
 import java.util.Iterator;
 import java.util.List;
 
@@ -51,7 +51,7 @@ public class AsynHelper {
      */
     public void isCopyDone(String dstDir, String strmDir) {
         // 首次延迟30秒后开始检查
-        scheduler.scheduleWithFixedDelay(() -> {
+        scheduler.schedule(() -> {
             try {
                 // 获取当前正在进行的任务列表
                 List<OpenlistCopyPlus> copyList = openlistCopyPlusService.lambdaQuery()
@@ -69,7 +69,7 @@ public class AsynHelper {
             } catch (Exception e) {
                 log.error("Error in isCopyDone initialization", e);
             }
-        }, Duration.ofSeconds(30));
+        }, Instant.now().plusSeconds(30));
     }
 
     /**
@@ -135,7 +135,7 @@ public class AsynHelper {
             finishStrmDir(dstDir, strmDir);
         } else {
             // 列表不为空，说明还有任务在运行，延迟30秒后再次调用自己
-            scheduler.scheduleWithFixedDelay(() -> processCopyListRecursive(copyList, dstDir, strmDir), Duration.ofSeconds(30));
+            scheduler.schedule(() -> processCopyListRecursive(copyList, dstDir, strmDir), Instant.now().plusSeconds(30));
         }
     }
 
@@ -151,7 +151,7 @@ public class AsynHelper {
         }
 
         // 延迟30秒后开始第一次检查
-        scheduler.scheduleWithFixedDelay(() -> checkOneFileRecursive(path, copy), Duration.ofSeconds(30));
+        scheduler.schedule(() -> checkOneFileRecursive(path, copy), Instant.now().plusSeconds(30));
     }
 
     /**
@@ -195,7 +195,7 @@ public class AsynHelper {
             }
 
             // 任务仍在运行中，继续调度下一次检查
-        scheduler.scheduleWithFixedDelay(() -> checkOneFileRecursive(path, copy), Duration.ofSeconds(30));
+        scheduler.schedule(() -> checkOneFileRecursive(path, copy), Instant.now().plusSeconds(30));
 
         } catch (Exception e) {
             log.error("Error in checkOneFileRecursive for path: {}", path, e);

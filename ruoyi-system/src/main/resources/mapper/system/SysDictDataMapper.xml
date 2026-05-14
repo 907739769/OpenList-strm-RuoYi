@@ -20,12 +20,6 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		<result property="updateTime" column="update_time" />
 	</resultMap>
 	
-	<select id="selectDictDataByType" parameterType="String" resultMap="SysDictDataResult">
-		select dict_code, dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, status, create_by, create_time, remark 
-		from sys_dict_data
-		where status = '0' and dict_type = #{dictType} order by dict_sort asc
-	</select>
-	
 	<select id="selectDictLabel" resultType="String">
 		select dict_label from sys_dict_data
 		where dict_type = #{dictType} and dict_value = #{dictValue}

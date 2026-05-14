@@ -21,7 +21,7 @@ import org.springframework.stereotype.Component;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -54,7 +54,7 @@ public class RenameTaskManager {
     @PostConstruct
     public void start() {
         ThreadTraceIdUtil.initTraceId();
-        scheduler.scheduleWithFixedDelay(this::poll, Duration.ofSeconds(10));
+        scheduler.schedule(this::poll, Instant.now().plusSeconds(10));
         log.info("RenameTaskManager started");
     }
 
