@@ -244,8 +244,10 @@ public class AuthApiController extends BaseController {
             return Result.error(400, "旧密码错误");
         }
 
-        user.setPassword(passwordService.encodePassword(request.getNewPassword()));
-        if (userService.updateUser(user) > 0) {
+        SysUser update = new SysUser();
+        update.setUserId(user.getUserId());
+        update.setPassword(passwordService.encodePassword(request.getNewPassword()));
+        if (userService.resetUserPwd(update) > 0) {
             return Result.success();
         }
         return Result.error(500, "修改密码失败");
