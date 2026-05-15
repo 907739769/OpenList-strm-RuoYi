@@ -107,7 +107,7 @@ public class OpenlistApi {
         body.put("password", "");
         body.put("page", 1);
         body.put("per_page", 0);
-        body.put("refresh", "1".equals(config.getOpenListApiRefresh()));
+        body.put("refresh", !"0".equals(config.getOpenListApiRefresh()));
         return executeJsonPost(config.getOpenListUrl() + "/api/fs/list", body, "获取openlist目录" + path, true);
     }
 
@@ -118,7 +118,7 @@ public class OpenlistApi {
         body.put("password", "");
         body.put("page", 1);
         body.put("per_page", 0);
-        body.put("refresh", "1".equals(config.getOpenListApiRefresh()));
+        body.put("refresh", !"0".equals(config.getOpenListApiRefresh()));
         return executeJsonPost(config.getOpenListUrl() + "/api/fs/get", body, "获取openlist文件" + path, false);
     }
 
