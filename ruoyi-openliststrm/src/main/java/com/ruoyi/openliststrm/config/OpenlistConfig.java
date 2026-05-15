@@ -73,12 +73,14 @@ public class OpenlistConfig {
 
     // STRM输出目录 (默认: /data/strm)
     public String getOpenListStrmOutputDir() {
-        return sysConfigService.selectConfigByKey("openlist.strm.outputdir");
+        return "/data/strm";
+//        return sysConfigService.selectConfigByKey("openlist.strm.outputdir");
     }
 
     // STRM路径编码开关 (默认: 0-不编码)
     public String getOpenListStrmEncode() {
-        return sysConfigService.selectConfigByKey("openlist.strm.encode");
+        return "0";
+//        return sysConfigService.selectConfigByKey("openlist.strm.encode");
     }
 
     // STRM下载字幕开关 (默认: 0-不下载)
