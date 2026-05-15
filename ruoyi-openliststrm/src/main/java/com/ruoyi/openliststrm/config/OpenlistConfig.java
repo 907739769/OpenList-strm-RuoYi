@@ -83,12 +83,14 @@ public class OpenlistConfig {
 
     // STRM下载字幕开关 (默认: 0-不下载)
     public String getOpenListStrmDownloadSub() {
-        return sysConfigService.selectConfigByKey("openlist.strm.downloadsub");
+        return "0";
+//        return sysConfigService.selectConfigByKey("openlist.strm.downloadsub");
     }
 
     // API refresh开关 (默认: 1-开启)
     public String getOpenListApiRefresh() {
-        return sysConfigService.selectConfigByKey("openlist.api.refresh");
+        return "1";
+//        return sysConfigService.selectConfigByKey("openlist.api.refresh");
     }
 
 }
