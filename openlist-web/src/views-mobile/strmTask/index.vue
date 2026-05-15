@@ -174,9 +174,6 @@
             <el-radio value="1">启用</el-radio>
           </el-radio-group>
         </el-form-item>
-        <el-form-item label="备注" prop="remark">
-          <el-input v-model="form.remark" type="textarea" :rows="3" placeholder="请输入内容" />
-        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="open = false">取 消</el-button>
@@ -338,8 +335,7 @@ const formRef = ref<any>()
 const initForm = (): any => ({
   strmTaskId: undefined,
   strmTaskPath: undefined,
-  strmTaskStatus: '1',
-  remark: undefined
+  strmTaskStatus: '1'
 })
 
 const form = ref<any>(initForm())

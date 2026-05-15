@@ -204,9 +204,6 @@
             <el-radio value="0">停用</el-radio>
           </el-radio-group>
         </el-form-item>
-        <el-form-item label="备注" prop="remark">
-          <el-input v-model="form.remark" type="textarea" :rows="3" placeholder="请输入内容" />
-        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="open = false">取 消</el-button>
@@ -372,8 +369,7 @@ const initForm = (): any => ({
   copyTaskSrc: undefined,
   copyTaskDst: undefined,
   monitorDir: undefined,
-  copyTaskStatus: '1',
-  remark: undefined
+  copyTaskStatus: '1'
 })
 
 const form = ref<any>(initForm())
