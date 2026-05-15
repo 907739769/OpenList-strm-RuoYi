@@ -356,12 +356,8 @@ const doTest = async () => {
   testLoading.value = true
   try {
     const res = await testParseRenameApi(testForm.filename, testForm.template || undefined) as any
-    if (res.code === 200) {
-      testResult.value = res.data
-      ElMessage.success('分析成功')
-    } else {
-      ElMessage.error(res.message || '分析失败')
-    }
+    testResult.value = res
+    ElMessage.success('分析成功')
   } catch (e) {
     ElMessage.error('请求失败')
   } finally {
