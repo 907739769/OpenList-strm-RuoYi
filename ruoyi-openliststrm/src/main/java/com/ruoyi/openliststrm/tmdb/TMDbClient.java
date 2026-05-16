@@ -169,7 +169,7 @@ public class TMDbClient {
     }
 
     private String getOfficialChineseTitle(JsonNode result, String type) {
-        String name = type.equals("movie") ? result.get("title").asText() : result.get("name").asText();
+        String name = type.equals("movie") ? result.path("title").asText() : result.path("name").asText();
         if (isChinese(name)) {
             return name;
         }
@@ -195,8 +195,8 @@ public class TMDbClient {
     }
 
     private String fallbackTitle(JsonNode result, String type) {
-        return type.equals("movie") ? result.get("title").asText()
-                : result.get("name").asText();
+        return type.equals("movie") ? result.path("title").asText()
+                : result.path("name").asText();
     }
 
     private String getYearSafe(JsonNode result, String type) {
