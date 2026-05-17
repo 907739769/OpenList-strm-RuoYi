@@ -47,13 +47,16 @@
             />
           </template>
         </el-table-column>
-        <el-table-column label="操作" align="center" width="200" fixed="right">
+        <el-table-column label="操作" align="center" width="240" fixed="right">
           <template #default="scope">
             <el-button link type="primary" @click="handleUpdate(scope.row)">
               <el-icon><Edit /></el-icon> 修改
             </el-button>
             <el-button link type="primary" @click="handleRun(scope.row)">
               <el-icon><VideoPlay /></el-icon> 执行
+            </el-button>
+            <el-button link type="info" @click="handleViewLogs(scope.row)">
+              <el-icon><List /></el-icon> 记录
             </el-button>
           </template>
         </el-table-column>
@@ -84,6 +87,9 @@
             </el-button>
             <el-button link type="primary" size="small" @click="handleRun(item)">
               <el-icon><VideoPlay /></el-icon> 执行
+            </el-button>
+            <el-button link type="info" size="small" @click="handleViewLogs(item)">
+              <el-icon><List /></el-icon> 记录
             </el-button>
           </div>
         </div>
@@ -146,14 +152,210 @@
         <el-button @click="showCronDialog = false">关 闭</el-button>
       </template>
     </el-dialog>
+
+    <!-- Job Log Dialog -->
+    <el-dialog
+      v-model="logOpen"
+      :title="`${logTitle} - 执行记录`"
+      :width="appStore.device === 'mobile' ? '100%' : '900px'"
+      :top="appStore.device === 'mobile' ? '0' : '5vh'"
+      :fullscreen="appStore.device === 'mobile'"
+      append-to-body
+      class="modern-dialog log-dialog"
+    >
+      <!-- Mobile: Collapsible Search Panel -->
+      <div v-if="appStore.device === 'mobile'" class="mobile-search-panel" :class="{ collapsed: logSearchCollapsed }">
+        <div class="mobile-search-panel-header" @click="logSearchCollapsed = !logSearchCollapsed">
+          <span class="mobile-search-panel-title">
+            <el-icon><Search /></el-icon>
+            筛选查询
+          </span>
+          <el-icon class="collapse-icon" :class="{ expanded: !logSearchCollapsed }">
+            <ArrowDown />
+          </el-icon>
+        </div>
+        <div class="mobile-search-panel-body">
+          <el-form :model="logQueryParams" label-width="72px">
+            <el-form-item label="执行状态">
+              <el-select v-model="logQueryParams.status" placeholder="全部状态" clearable style="width: 100%">
+                <el-option label="成功" value="0" />
+                <el-option label="失败" value="1" />
+              </el-select>
+            </el-form-item>
+          </el-form>
+          <div class="search-actions">
+            <el-button type="primary" @click="logQueryParams.pageNum = 1; getJobLogList()">
+              <el-icon><Search /></el-icon> 搜索
+            </el-button>
+            <el-button @click="resetLogQuery">
+              <el-icon><Refresh /></el-icon> 重置
+            </el-button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Desktop: Inline Search -->
+      <el-form v-else :model="logQueryParams" :inline="true" label-width="70px" class="log-search-form">
+        <el-form-item label="执行状态" prop="status">
+          <el-select v-model="logQueryParams.status" placeholder="全部状态" clearable>
+            <el-option label="成功" value="0" />
+            <el-option label="失败" value="1" />
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" @click="logQueryParams.pageNum = 1; getJobLogList()">
+            <el-icon><Search /></el-icon> 搜索
+          </el-button>
+          <el-button @click="resetLogQuery">
+            <el-icon><Refresh /></el-icon> 重置
+          </el-button>
+        </el-form-item>
+      </el-form>
+
+      <!-- Desktop Table -->
+      <el-table v-if="appStore.device === 'desktop'" v-loading="logLoading" :data="logList" class="modern-table log-table">
+        <el-table-column label="ID" prop="jobLogId" width="70" align="center" />
+        <el-table-column label="任务名称" prop="jobName" width="140" show-overflow-tooltip />
+        <el-table-column label="调用目标" prop="invokeTarget" min-width="180" show-overflow-tooltip />
+        <el-table-column label="状态" align="center" width="80">
+          <template #default="scope">
+            <el-tag :type="scope.row.status === '0' ? 'success' : 'danger'" size="small">
+              {{ scope.row.status === '0' ? '成功' : '失败' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="日志信息" prop="jobMessage" min-width="200" show-overflow-tooltip />
+        <el-table-column label="耗时" align="center" width="100">
+          <template #default="scope">
+            <span v-if="scope.row.startTime && scope.row.endTime">
+              {{ formatDuration(scope.row.startTime, scope.row.endTime) }}
+            </span>
+            <span v-else>-</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="开始时间" prop="startTime" width="160" align="center">
+          <template #default="scope">
+            {{ formatTime(scope.row.startTime) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" align="center" width="90" fixed="right">
+          <template #default="scope">
+            <el-button link type="primary" @click="handleViewLogDetail(scope.row)">
+              <el-icon><View /></el-icon> 详情
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <!-- Mobile Card List -->
+      <div v-if="appStore.device === 'mobile'" v-loading="logLoading" class="log-card-list">
+        <div
+          v-for="item in logList"
+          :key="item.jobLogId"
+          class="log-card"
+        >
+          <div class="log-card-header">
+            <div class="log-card-title-row">
+              <span class="log-card-title">
+                <el-icon><Clock /></el-icon>
+                {{ item.jobName }}
+              </span>
+              <el-tag :type="item.status === '0' ? 'success' : 'danger'" size="small" effect="light">
+                {{ item.status === '0' ? '成功' : '失败' }}
+              </el-tag>
+            </div>
+          </div>
+          <div class="log-card-body">
+            <div class="log-card-row">
+              <span class="log-card-label">调用目标</span>
+              <span class="log-card-value log-card-value-clip">{{ item.invokeTarget }}</span>
+            </div>
+            <div class="log-card-row">
+              <span class="log-card-label">日志信息</span>
+              <span class="log-card-value log-card-value-clip" @click.stop="handleViewLogDetail(item)">{{ item.jobMessage || '-' }}</span>
+            </div>
+            <div class="log-card-row">
+              <span class="log-card-label">开始时间</span>
+              <span class="log-card-value log-card-value-light">{{ formatTime(item.startTime) }}</span>
+            </div>
+            <div class="log-card-row" v-if="item.startTime && item.endTime">
+              <span class="log-card-label">耗时</span>
+              <span class="log-card-value log-card-value-light">{{ formatDuration(item.startTime, item.endTime) }}</span>
+            </div>
+          </div>
+          <div class="log-card-footer">
+            <el-button link type="primary" size="small" @click="handleViewLogDetail(item)">
+              <el-icon><View /></el-icon> 查看详情
+            </el-button>
+          </div>
+        </div>
+        <el-empty v-if="!logList.length" description="暂无执行记录" />
+      </div>
+
+      <!-- Pagination -->
+      <div class="pagination-wrapper">
+        <el-pagination
+          v-model:current-page="logQueryParams.pageNum"
+          v-model:page-size="logQueryParams.pageSize"
+          :total="logTotal"
+          :page-sizes="[10, 20, 50]"
+          layout="total, sizes, prev, pager, next, jumper"
+          @current-change="getJobLogList"
+          @size-change="getJobLogList"
+        />
+      </div>
+
+      <template #footer>
+        <el-button @click="logOpen = false">关 闭</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- Log Detail Dialog -->
+    <el-dialog
+      v-model="detailOpen"
+      title="执行记录详情"
+      :width="appStore.device === 'mobile' ? '100%' : '700px'"
+      :top="appStore.device === 'mobile' ? '5vh' : '5vh'"
+      append-to-body
+      class="modern-dialog log-detail-dialog"
+    >
+      <el-descriptions
+        :column="appStore.device === 'mobile' ? 1 : 2"
+        border
+        v-if="logDetail"
+      >
+        <el-descriptions-item label="日志ID">{{ logDetail.jobLogId }}</el-descriptions-item>
+        <el-descriptions-item label="执行状态">
+          <el-tag :type="logDetail.status === '0' ? 'success' : 'danger'">
+            {{ logDetail.status === '0' ? '成功' : '失败' }}
+          </el-tag>
+        </el-descriptions-item>
+        <el-descriptions-item label="任务名称" :span="appStore.device === 'mobile' ? 1 : 2">{{ logDetail.jobName }}</el-descriptions-item>
+        <el-descriptions-item label="任务组名" :span="appStore.device === 'mobile' ? 1 : 2">{{ logDetail.jobGroup }}</el-descriptions-item>
+        <el-descriptions-item label="调用目标" :span="2">{{ logDetail.invokeTarget }}</el-descriptions-item>
+        <el-descriptions-item label="日志信息" :span="2">{{ logDetail.jobMessage || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="异常信息" :span="2" v-if="logDetail.exceptionInfo">
+          <pre class="exception-text">{{ logDetail.exceptionInfo }}</pre>
+        </el-descriptions-item>
+        <el-descriptions-item label="开始时间" :span="2">{{ formatTime(logDetail.startTime) }}</el-descriptions-item>
+        <el-descriptions-item label="结束时间" :span="2">{{ formatTime(logDetail.endTime) }}</el-descriptions-item>
+        <el-descriptions-item label="耗时" :span="2" v-if="logDetail.startTime && logDetail.endTime">
+          {{ formatDuration(logDetail.startTime, logDetail.endTime) }}
+        </el-descriptions-item>
+      </el-descriptions>
+      <template #footer>
+        <el-button @click="detailOpen = false">关 闭</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Refresh, Edit, VideoPlay, Filter } from '@element-plus/icons-vue'
+import { Search, Refresh, Edit, VideoPlay, Filter, List, View, ArrowDown, Clock } from '@element-plus/icons-vue'
 import { getJobListApi, updateJobApi, changeJobStatusApi, runJobApi } from '@/api/monitor/job'
+import { getJobLogListApi, getJobLogDetailApi } from '@/api/monitor/jobLog'
 import { useAppStore } from '@/stores/app'
 import type { SearchParams, PageResult } from '@/types'
 
@@ -272,6 +474,84 @@ const handleRun = async (row: any) => {
     await runJobApi(row.jobId)
     ElMessage.success('执行成功')
   } catch (e) { if (e !== 'cancel') console.error(e) }
+}
+
+// ========== Job Log ==========
+const logOpen = ref(false)
+const logLoading = ref(false)
+const logList = ref<any[]>([])
+const logTotal = ref(0)
+const logTitle = ref('')
+const logSearchCollapsed = ref(true)
+const logQueryParams = reactive<SearchParams>({
+  pageNum: 1,
+  pageSize: 10,
+  jobName: undefined,
+  status: undefined
+})
+
+const detailOpen = ref(false)
+const logDetail = ref<any>(null)
+
+const handleViewLogs = (row: any) => {
+  if (!row?.jobId) {
+    ElMessage.warning('请选择数据项')
+    return
+  }
+  logTitle.value = row.jobName
+  logQueryParams.pageNum = 1
+  logQueryParams.jobName = row.jobName
+  logOpen.value = true
+  getJobLogList()
+}
+
+const getJobLogList = async () => {
+  logLoading.value = true
+  try {
+    const res = await getJobLogListApi(logQueryParams) as PageResult
+    logList.value = res.records
+    logTotal.value = res.total
+  } finally {
+    logLoading.value = false
+  }
+}
+
+const resetLogQuery = () => {
+  logQueryParams.pageNum = 1
+  logQueryParams.jobName = undefined
+  logQueryParams.status = undefined
+  getJobLogList()
+}
+
+const handleViewLogDetail = async (row: any) => {
+  try {
+    const res = await getJobLogDetailApi(row.jobLogId) as any
+    logDetail.value = res
+    detailOpen.value = true
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+const formatTime = (time: string | null): string => {
+  if (!time) return '-'
+  const date = new Date(time)
+  if (isNaN(date.getTime())) return time
+  const pad = (n: number) => n.toString().padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+}
+
+const formatDuration = (start: string | null, end: string | null): string => {
+  if (!start || !end) return '-'
+  const s = new Date(start).getTime()
+  const e = new Date(end).getTime()
+  const diff = Math.abs(e - s)
+  const ms = diff % 1000
+  const sec = Math.floor(diff / 1000) % 60
+  const min = Math.floor(diff / 60000)
+  if (min > 0) return `${min}分${sec}秒`
+  if (sec > 0) return `${sec}.${ms.toString().padStart(3, '0').slice(0, 1)}秒`
+  return `${diff}毫秒`
 }
 
 const queryRef = ref<any>()
@@ -466,5 +746,213 @@ getList()
       border-top: 1px solid var(--osr-border-light);
     }
   }
+}
+
+/* ============================================
+   Log Search Form
+   ============================================ */
+.log-search-form {
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--osr-border-light);
+
+  :deep(.el-form-item) {
+    margin-bottom: 0;
+    margin-right: 12px;
+  }
+}
+
+/* ============================================
+   Mobile Search Panel (for log dialog)
+   ============================================ */
+.mobile-search-panel {
+  border: 1px solid var(--osr-border-light);
+  border-radius: 8px;
+  margin-bottom: 12px;
+  overflow: hidden;
+  background: white;
+
+  &.collapsed {
+    .mobile-search-panel-body {
+      display: none;
+    }
+  }
+}
+
+.mobile-search-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--osr-bg-page);
+  cursor: pointer;
+  user-select: none;
+  border-bottom: 1px solid transparent;
+
+  .mobile-search-panel-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--osr-text-primary);
+  }
+
+  .collapse-icon {
+    transition: transform 0.2s;
+
+    &.expanded {
+      transform: rotate(180deg);
+    }
+  }
+}
+
+.mobile-search-panel-body {
+  padding: 12px 14px;
+
+  .search-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+  }
+}
+
+/* ============================================
+   Log Card List (mobile)
+   ============================================ */
+.log-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.log-card {
+  background: white;
+  border-radius: 10px;
+  border: 1px solid var(--osr-border-light);
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+
+  .log-card-header {
+    padding: 12px 14px 10px;
+    border-bottom: 1px solid var(--osr-border-light);
+    background: var(--osr-bg-page);
+  }
+
+  .log-card-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .log-card-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--osr-text-primary);
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    .el-icon {
+      color: var(--osr-primary);
+      flex-shrink: 0;
+    }
+  }
+
+  .log-card-body {
+    padding: 0;
+  }
+
+  .log-card-row {
+    display: flex;
+    align-items: flex-start;
+    padding: 9px 14px;
+    font-size: 13px;
+    border-bottom: 1px solid var(--osr-border-light);
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    .log-card-label {
+      width: 72px;
+      color: var(--osr-text-secondary);
+      flex-shrink: 0;
+      font-size: 12px;
+      line-height: 1.5;
+      padding-top: 1px;
+    }
+
+    .log-card-value {
+      flex: 1;
+      min-width: 0;
+      color: var(--osr-text-primary);
+      font-size: 13px;
+      line-height: 1.5;
+      word-break: break-all;
+      cursor: default;
+
+      &.log-card-value-clip {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      &.log-card-value-light {
+        color: var(--osr-text-secondary);
+        font-size: 12px;
+      }
+    }
+  }
+
+  .log-card-footer {
+    display: flex;
+    justify-content: flex-end;
+    padding: 8px 14px 10px;
+    border-top: 1px solid var(--osr-border-light);
+  }
+}
+
+/* ============================================
+   Log Dialog (mobile fullscreen)
+   ============================================ */
+.log-dialog {
+  :deep(.el-dialog__body) {
+    padding: 14px;
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;
+  }
+}
+
+/* ============================================
+   Log Table
+   ============================================ */
+.log-table {
+  :deep(.el-table__cell) {
+    font-size: 13px;
+  }
+}
+
+/* ============================================
+   Exception Text
+   ============================================ */
+.exception-text {
+  max-height: 300px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 12px;
+  background: var(--osr-bg-content);
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--osr-text-danger);
 }
 </style>

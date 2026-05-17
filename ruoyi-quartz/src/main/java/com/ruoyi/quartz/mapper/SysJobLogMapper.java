@@ -1,6 +1,7 @@
 package com.ruoyi.quartz.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ruoyi.quartz.domain.SysJobLog;
 import java.util.List;
 
@@ -11,6 +12,15 @@ import java.util.List;
  */
 public interface SysJobLogMapper extends BaseMapper<SysJobLog>
 {
+    /**
+     * 查询调度任务日志列表（分页）
+     * 
+     * @param page 分页对象
+     * @param jobLog 调度日志信息
+     * @return 调度任务日志集合
+     */
+    public List<SysJobLog> selectJobLogListPage(Page<SysJobLog> page, SysJobLog jobLog);
+
     /**
      * 获取quartz调度器日志的计划任务
      * 
