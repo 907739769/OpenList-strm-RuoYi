@@ -1,7 +1,6 @@
 package com.ruoyi.openliststrm.monitor.processor;
 
 import com.ruoyi.common.utils.StringUtils;
-import com.ruoyi.common.utils.file.FileUtils;
 import com.ruoyi.common.utils.spring.SpringUtils;
 import com.ruoyi.openliststrm.config.OpenlistConfig;
 import com.ruoyi.openliststrm.helper.OpenListHelper;
@@ -20,6 +19,7 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.TimeUnit;
 
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
@@ -74,7 +74,7 @@ public class MediaRenameProcessor implements FileProcessor {
             return;
         }
         //判断文件是否还在写入中
-        if (!FileUtils.isFileStable(p)) {
+        if (!isFileStable(p)) {
             log.debug("文件仍在写入，稍后再试：{}", p);
             return;
         }
@@ -176,7 +176,7 @@ public class MediaRenameProcessor implements FileProcessor {
             }
         }
         //判断文件是否还在写入中
-        if (!FileUtils.isFileStable(p)) {
+        if (!isFileStable(p)) {
             log.debug("文件仍在写入，稍后再试：{}", p);
             return;
         }
@@ -310,6 +310,19 @@ public class MediaRenameProcessor implements FileProcessor {
         m.put("tv", tv);
 
         return Collections.unmodifiableMap(m);
+    }
+
+    private static boolean isFileStable(Path p) {
+        try {
+            long s1 = Files.size(p);
+            long t1 = Files.getLastModifiedTime(p).toMillis();
+            TimeUnit.SECONDS.sleep(2);
+            long s2 = Files.size(p);
+            long t2 = Files.getLastModifiedTime(p).toMillis();
+            return s1 == s2 && t1 == t2;
+        } catch (Exception ignored) {
+        }
+        return false;
     }
 
 }
