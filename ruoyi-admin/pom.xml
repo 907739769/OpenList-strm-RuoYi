@@ -40,12 +40,6 @@
             <artifactId>ruoyi-openliststrm</artifactId>
         </dependency>
 
-        <!-- Swagger Annotations -->
-        <dependency>
-            <groupId>io.swagger.core.v3</groupId>
-            <artifactId>swagger-annotations</artifactId>
-        </dependency>
-
         <!-- MyBatis-Plus Generator (仅 CodeGenerator.java 使用，不打包进运行时) -->
         <dependency>
             <groupId>com.baomidou</groupId>

@@ -17,8 +17,6 @@ import com.ruoyi.system.service.ISysMenuService;
 import com.ruoyi.system.service.ISysRoleService;
 import com.ruoyi.system.service.ISysUserService;
 import com.ruoyi.common.annotation.Anonymous;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.validation.annotation.Validated;
@@ -28,7 +26,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.*;
 
-@Tag(name = "认证管理API")
 @RestController
 @RequestMapping("/api/auth")
 @Anonymous
@@ -65,7 +62,6 @@ public class AuthApiController extends BaseController {
     @Autowired
     private JwtTokenUtil jwtTokenUtil;
 
-    @Operation(summary = "用户登录")
     @PostMapping("/login")
     public Result<JwtTokenDto> login(@Validated @RequestBody LoginRequest request) {
         SysUser user = null;
@@ -102,7 +98,6 @@ public class AuthApiController extends BaseController {
         return Result.success(dto);
     }
 
-    @Operation(summary = "用户退出登录")
     @PostMapping("/logout")
     public Result<Void> logout(@RequestHeader(value = "Authorization", required = false) String authHeader, HttpServletResponse response) {
         // 清除JWT cookie
@@ -120,7 +115,6 @@ public class AuthApiController extends BaseController {
         return Result.success();
     }
 
-    @Operation(summary = "用户注册")
     @PostMapping("/register")
     public Result<Void> register(@Validated @RequestBody SysUser user) {
         if (!("true".equals(sysConfigService.selectConfigByKey("sys.account.registerUser")))) {
@@ -133,7 +127,6 @@ public class AuthApiController extends BaseController {
         return Result.error(500, msg);
     }
 
-    @Operation(summary = "获取用户信息")
     @GetMapping("/info")
     public Result<Map<String, Object>> getUserInfo(@RequestHeader(value = "Authorization", required = false) String authHeader) {
         String token = stripBearer(authHeader);
@@ -152,7 +145,6 @@ public class AuthApiController extends BaseController {
         return Result.success(data);
     }
 
-    @Operation(summary = "获取路由信息")
     @GetMapping("/routers")
     public Result<List<Map<String, Object>>> getRouters(@RequestHeader(value = "Authorization", required = false) String authHeader) {
         String token = stripBearer(authHeader);
@@ -226,7 +218,6 @@ public class AuthApiController extends BaseController {
         return authHeader;
     }
 
-    @Operation(summary = "修改密码")
     @PostMapping("/changePassword")
     public Result<Void> changePassword(@RequestBody ChangePasswordRequest request,
                                        @RequestHeader(value = "Authorization", required = false) String authHeader) {

@@ -23,15 +23,12 @@ import com.ruoyi.common.core.domain.entity.SysDictData;
 import com.ruoyi.common.core.domain.entity.SysDictType;
 import com.ruoyi.system.service.ISysDictDataService;
 import com.ruoyi.system.service.ISysDictTypeService;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import io.swagger.v3.oas.annotations.Operation;
 
 /**
  * 字典类型REST API控制器
  *
  * @author ruoyi
  */
-@Tag(name = "字典类型管理API")
 @RestController
 @RequestMapping("/api/system/dict/type")
 @Anonymous
@@ -47,7 +44,6 @@ public class SysDictTypeApiController extends BaseController
     /**
      * 查询字典类型分页列表
      */
-    @Operation(summary = "查询字典类型分页列表")
     @GetMapping("/list")
     public Result<PageResult<SysDictType>> list(SysDictType dictType)
     {
@@ -60,7 +56,6 @@ public class SysDictTypeApiController extends BaseController
     /**
      * 根据字典类型ID查询字典类型信息
      */
-    @Operation(summary = "根据字典类型ID查询字典类型信息")
     @GetMapping("/{dictId}")
     public Result<SysDictType> getInfo(@PathVariable("dictId") Long dictId)
     {
@@ -71,7 +66,6 @@ public class SysDictTypeApiController extends BaseController
     /**
      * 新增字典类型
      */
-    @Operation(summary = "新增字典类型")
     @PostMapping
     public Result<Integer> add(@Validated @RequestBody SysDictType dict)
     {
@@ -87,7 +81,6 @@ public class SysDictTypeApiController extends BaseController
     /**
      * 修改字典类型
      */
-    @Operation(summary = "修改字典类型")
     @PutMapping
     public Result<Integer> edit(@Validated @RequestBody SysDictType dict)
     {
@@ -103,7 +96,6 @@ public class SysDictTypeApiController extends BaseController
     /**
      * 删除字典类型（单个）
      */
-    @Operation(summary = "删除字典类型")
     @DeleteMapping("/{dictId}")
     public Result<Integer> remove(@PathVariable("dictId") Long dictId)
     {
@@ -114,7 +106,6 @@ public class SysDictTypeApiController extends BaseController
     /**
      * 删除字典类型（批量）
      */
-    @Operation(summary = "删除字典类型（批量）")
     @DeleteMapping
     public Result<Integer> removeBatch(@RequestBody String dictIds)
     {
@@ -125,7 +116,6 @@ public class SysDictTypeApiController extends BaseController
     /**
      * 查询字典类型选项集合
      */
-    @Operation(summary = "查询字典类型选项集合")
     @GetMapping("/options")
     public Result<List<SysDictType>> options()
     {
@@ -136,7 +126,6 @@ public class SysDictTypeApiController extends BaseController
     /**
      * 根据字典类型查询字典数据
      */
-    @Operation(summary = "根据字典类型查询字典数据")
     @GetMapping("/{dictType}")
     public Result<List<SysDictData>> dictData(@PathVariable("dictType") String dictType)
     {
@@ -149,7 +138,6 @@ public class SysDictTypeApiController extends BaseController
     /**
      * 刷新字典缓存
      */
-    @Operation(summary = "刷新字典缓存")
     @PostMapping("/refreshCache")
     public Result<Void> refreshCache()
     {
@@ -160,7 +148,6 @@ public class SysDictTypeApiController extends BaseController
     /**
      * 校验字典类型是否唯一
      */
-    @Operation(summary = "校验字典类型是否唯一")
     @PostMapping("/checkDictTypeUnique")
     public Result<Boolean> checkDictTypeUnique(SysDictType dictType)
     {

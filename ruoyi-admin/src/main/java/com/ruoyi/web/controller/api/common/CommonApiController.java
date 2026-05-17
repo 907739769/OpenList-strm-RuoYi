@@ -22,15 +22,12 @@ import com.ruoyi.common.core.domain.Result;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.common.utils.file.FileUploadUtils;
 import com.ruoyi.common.utils.file.FileUtils;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import io.swagger.v3.oas.annotations.Operation;
 
 /**
  * 通用REST API控制器
  *
  * @author ruoyi
  */
-@Tag(name = "通用API")
 @RestController
 @RequestMapping("/api/common")
 @Anonymous
@@ -45,7 +42,6 @@ public class CommonApiController
     /**
      * 文件上传（单个）
      */
-    @Operation(summary = "文件上传（单个）")
     @PostMapping("/upload")
     public Result<Map<String, Object>> uploadFile(MultipartFile file) throws Exception
     {
@@ -70,7 +66,6 @@ public class CommonApiController
     /**
      * 文件下载
      */
-    @Operation(summary = "文件下载")
     @GetMapping("/download/{fileName}")
     public void fileDownload(@PathVariable("fileName") String fileName, HttpServletResponse response, HttpServletRequest request)
     {
@@ -96,7 +91,6 @@ public class CommonApiController
     /**
      * 获取用户头像
      */
-    @Operation(summary = "获取用户头像")
     @GetMapping("/profile")
     public Result<String> profile()
     {
