@@ -21,15 +21,12 @@ import com.ruoyi.common.core.page.TableSupport;
 import com.ruoyi.common.annotation.Anonymous;
 import com.ruoyi.system.domain.SysConfig;
 import com.ruoyi.system.service.ISysConfigService;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import io.swagger.v3.oas.annotations.Operation;
 
 /**
  * 参数配置REST API控制器
  *
  * @author ruoyi
  */
-@Tag(name = "参数配置管理API")
 @RestController
 @RequestMapping("/api/system/config")
 @Anonymous
@@ -42,7 +39,6 @@ public class SysConfigApiController extends BaseController
     /**
      * 查询参数配置分页列表
      */
-    @Operation(summary = "查询参数配置分页列表")
     @GetMapping("/list")
     public Result<PageResult<SysConfig>> list(SysConfig config)
     {
@@ -55,7 +51,6 @@ public class SysConfigApiController extends BaseController
     /**
      * 根据参数配置ID查询参数配置信息
      */
-    @Operation(summary = "根据参数配置ID查询参数配置信息")
     @GetMapping("/{configId}")
     public Result<SysConfig> getInfo(@PathVariable("configId") Long configId)
     {
@@ -66,7 +61,6 @@ public class SysConfigApiController extends BaseController
     /**
      * 新增参数配置
      */
-    @Operation(summary = "新增参数配置")
     @PostMapping
     public Result<Integer> add(@Validated @RequestBody SysConfig config)
     {
@@ -82,7 +76,6 @@ public class SysConfigApiController extends BaseController
     /**
      * 修改参数配置
      */
-    @Operation(summary = "修改参数配置")
     @PutMapping
     public Result<Integer> edit(@Validated @RequestBody SysConfig config)
     {
@@ -98,7 +91,6 @@ public class SysConfigApiController extends BaseController
     /**
      * 删除参数配置（单个）
      */
-    @Operation(summary = "删除参数配置")
     @DeleteMapping("/{configId}")
     public Result<Integer> remove(@PathVariable("configId") Long configId)
     {
@@ -109,7 +101,6 @@ public class SysConfigApiController extends BaseController
     /**
      * 删除参数配置（批量）
      */
-    @Operation(summary = "删除参数配置（批量）")
     @DeleteMapping
     public Result<Integer> removeBatch(@RequestBody String configIds)
     {
@@ -120,7 +111,6 @@ public class SysConfigApiController extends BaseController
     /**
      * 刷新参数缓存
      */
-    @Operation(summary = "刷新参数缓存")
     @PostMapping("/refreshCache")
     public Result<Void> refreshCache()
     {
@@ -131,7 +121,6 @@ public class SysConfigApiController extends BaseController
     /**
      * 校验参数键名是否唯一
      */
-    @Operation(summary = "校验参数键名是否唯一")
     @GetMapping("/checkConfigKeyUnique")
     public Result<Boolean> checkConfigKeyUnique(SysConfig config)
     {

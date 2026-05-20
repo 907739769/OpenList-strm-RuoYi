@@ -28,15 +28,12 @@ import com.ruoyi.quartz.domain.SysJob;
 import com.ruoyi.quartz.service.ISysJobService;
 import com.ruoyi.quartz.util.CronUtils;
 import com.ruoyi.quartz.util.ScheduleUtils;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import io.swagger.v3.oas.annotations.Operation;
 
 /**
  * 定时任务监控REST API控制器
  *
  * @author ruoyi
  */
-@Tag(name = "定时任务监控API")
 @RestController
 @RequestMapping("/api/monitor/job")
 @Anonymous
@@ -49,7 +46,6 @@ public class MonitorJobApiController extends BaseController
     /**
      * 查询定时任务分页列表
      */
-    @Operation(summary = "查询定时任务分页列表")
     @GetMapping("/list")
     public Result<PageResult<SysJob>> list(SysJob job)
     {
@@ -62,7 +58,6 @@ public class MonitorJobApiController extends BaseController
     /**
      * 根据任务ID查询定时任务信息
      */
-    @Operation(summary = "根据任务ID查询定时任务信息")
     @GetMapping("/{jobId}")
     public Result<SysJob> getInfo(@PathVariable("jobId") Long jobId)
     {
@@ -73,7 +68,6 @@ public class MonitorJobApiController extends BaseController
     /**
      * 新增定时任务
      */
-    @Operation(summary = "新增定时任务")
     @PostMapping
     public Result<Integer> add(@Validated @RequestBody SysJob job) throws SchedulerException, TaskException
     {
@@ -109,7 +103,6 @@ public class MonitorJobApiController extends BaseController
     /**
      * 修改定时任务
      */
-    @Operation(summary = "修改定时任务")
     @PutMapping
     public Result<Integer> edit(@Validated @RequestBody SysJob job) throws SchedulerException, TaskException
     {
@@ -144,7 +137,6 @@ public class MonitorJobApiController extends BaseController
     /**
      * 删除定时任务（单个）
      */
-    @Operation(summary = "删除定时任务")
     @DeleteMapping("/{jobId}")
     public Result<Integer> remove(@PathVariable("jobId") Long jobId) throws SchedulerException
     {
@@ -155,7 +147,6 @@ public class MonitorJobApiController extends BaseController
     /**
      * 删除定时任务（批量）
      */
-    @Operation(summary = "删除定时任务（批量）")
     @DeleteMapping
     public Result<Integer> removeBatch(@RequestBody String jobIds) throws SchedulerException
     {
@@ -166,7 +157,6 @@ public class MonitorJobApiController extends BaseController
     /**
      * 修改定时任务状态
      */
-    @Operation(summary = "修改定时任务状态")
     @PutMapping("/changeStatus/{jobId}")
     public Result<Integer> changeStatus(@PathVariable("jobId") Long jobId, @RequestBody SysJob job) throws SchedulerException
     {
@@ -179,7 +169,6 @@ public class MonitorJobApiController extends BaseController
     /**
      * 立即执行一次定时任务
      */
-    @Operation(summary = "立即执行一次定时任务")
     @PostMapping("/run/{jobId}")
     public Result<Boolean> run(@PathVariable("jobId") Long jobId) throws SchedulerException
     {

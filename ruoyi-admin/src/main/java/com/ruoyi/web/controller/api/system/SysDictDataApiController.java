@@ -20,15 +20,12 @@ import com.ruoyi.common.core.page.TableSupport;
 import com.ruoyi.common.annotation.Anonymous;
 import com.ruoyi.common.core.domain.entity.SysDictData;
 import com.ruoyi.system.service.ISysDictDataService;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import io.swagger.v3.oas.annotations.Operation;
 
 /**
  * 字典数据REST API控制器
  *
  * @author ruoyi
  */
-@Tag(name = "字典数据管理API")
 @RestController
 @RequestMapping("/api/system/dict/data")
 @Anonymous
@@ -41,7 +38,6 @@ public class SysDictDataApiController extends BaseController
     /**
      * 查询字典数据分页列表
      */
-    @Operation(summary = "查询字典数据分页列表")
     @GetMapping("/list")
     public Result<PageResult<SysDictData>> list(SysDictData dictData)
     {
@@ -54,7 +50,6 @@ public class SysDictDataApiController extends BaseController
     /**
      * 根据字典数据ID查询字典数据信息
      */
-    @Operation(summary = "根据字典数据ID查询字典数据信息")
     @GetMapping("/{dictCode}")
     public Result<SysDictData> getInfo(@PathVariable("dictCode") Long dictCode)
     {
@@ -65,7 +60,6 @@ public class SysDictDataApiController extends BaseController
     /**
      * 新增字典数据
      */
-    @Operation(summary = "新增字典数据")
     @PostMapping
     public Result<Integer> add(@RequestBody SysDictData dict)
     {
@@ -77,7 +71,6 @@ public class SysDictDataApiController extends BaseController
     /**
      * 修改字典数据
      */
-    @Operation(summary = "修改字典数据")
     @PutMapping
     public Result<Integer> edit(@RequestBody SysDictData dict)
     {
@@ -89,7 +82,6 @@ public class SysDictDataApiController extends BaseController
     /**
      * 删除字典数据（单个）
      */
-    @Operation(summary = "删除字典数据")
     @DeleteMapping("/{dictCode}")
     public Result<Integer> remove(@PathVariable("dictCode") Long dictCode)
     {
@@ -100,7 +92,6 @@ public class SysDictDataApiController extends BaseController
     /**
      * 删除字典数据（批量）
      */
-    @Operation(summary = "删除字典数据（批量）")
     @DeleteMapping
     public Result<Integer> removeBatch(@RequestBody String ids)
     {

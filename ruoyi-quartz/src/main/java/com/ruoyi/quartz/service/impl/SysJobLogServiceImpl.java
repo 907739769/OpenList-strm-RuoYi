@@ -3,6 +3,7 @@ package com.ruoyi.quartz.service.impl;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.quartz.domain.SysJobLog;
 import com.ruoyi.quartz.mapper.SysJobLogMapper;
@@ -18,6 +19,19 @@ public class SysJobLogServiceImpl implements ISysJobLogService
 {
     @Autowired
     private SysJobLogMapper jobLogMapper;
+
+    /**
+     * 获取quartz调度器日志的计划任务（分页）
+     * 
+     * @param page 分页对象
+     * @param jobLog 调度日志信息
+     * @return 调度任务日志集合
+     */
+    @Override
+    public List<SysJobLog> selectJobLogListPage(Page<SysJobLog> page, SysJobLog jobLog)
+    {
+        return jobLogMapper.selectJobLogListPage(page, jobLog);
+    }
 
     /**
      * 获取quartz调度器日志的计划任务
