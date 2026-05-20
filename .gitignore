@@ -53,3 +53,4 @@ test-results/
 
 # AI agent session files
 .sisyphus/
+/.omo
