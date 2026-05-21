@@ -169,7 +169,7 @@ public class CopyServiceImpl implements ICopyService {
                 copy.setCopySrcFileName(fileName);
                 copy.setCopyDstFileName(fileName);
 
-                if (copyHelper.exitCopy(copy)) {
+                if (copyHelper.existsCopy(copy)) {
                     log.debug("文件已处理过，跳过处理 {}/{}", copyDstPath, fileName);
                     return;
                 }
@@ -231,7 +231,7 @@ public class CopyServiceImpl implements ICopyService {
         copy.setCopySrcFileName(fileName);
         copy.setCopyDstFileName(fileName);
 
-        if (copyHelper.exitCopy(copy)) {
+        if (copyHelper.existsCopy(copy)) {
             log.debug("文件已处理过，跳过处理 {}/{}", dstDir, relativePath);
             return;
         }

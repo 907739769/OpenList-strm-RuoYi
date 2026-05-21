@@ -9,8 +9,10 @@ import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
 
 @Component
+@Slf4j
 public class CurrentUserService {
 
     public String getLoginName() {
@@ -62,7 +64,9 @@ public class CurrentUserService {
             if (user instanceof SysUser sysUser) {
                 return sysUser;
             }
-        } catch (Exception e) { }
+        } catch (Exception e) {
+            log.warn("Failed to get user from request attributes", e);
+        }
         try { return ShiroUtils.getSysUser(); } catch (Exception e) { return null; }
     }
 }

@@ -98,7 +98,7 @@ public class StrmServiceImpl implements IStrmService {
             name = path.substring(path.lastIndexOf("/") + 1);
         }
 
-        if (strmHelper.exitStrm(filePath, name)) {
+        if (strmHelper.existsStrm(filePath, name)) {
             log.debug("文件已处理过，跳过处理{}", path);
             return;
         }
@@ -202,7 +202,7 @@ public class StrmServiceImpl implements IStrmService {
                 } else {
                     String finalCurrentPath = currentPath;
                     AsyncManager.me().execute(() -> {
-                            if (strmHelper.exitStrm(finalCurrentPath, rawName)) {
+                            if (strmHelper.existsStrm(finalCurrentPath, rawName)) {
                                 if (log.isDebugEnabled()) {
                                     log.debug("文件已处理过，跳过处理 {} / {}", finalCurrentPath, rawName);
                                 }
