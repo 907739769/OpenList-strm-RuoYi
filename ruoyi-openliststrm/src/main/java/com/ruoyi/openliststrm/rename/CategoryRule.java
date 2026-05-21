@@ -2,6 +2,7 @@ package com.ruoyi.openliststrm.rename;
 
 import com.ruoyi.openliststrm.rename.model.MediaInfo;
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.*;
 
@@ -9,6 +10,7 @@ import java.util.*;
  * 简单规则匹配器，基于 MediaInfo 提供的字段（tmdb 扩展字段可能包括 genreIds, originalLanguage, originCountries）
  */
 @Getter
+@Slf4j
 public class CategoryRule {
     private final String name;
     private final Set<String> genreIds = new HashSet<>();
@@ -89,9 +91,10 @@ public class CategoryRule {
                 for (Object o : l) out.add(String.valueOf(o));
                 return out;
             }
-        } catch (NoSuchMethodException ignored) {
+        } catch (NoSuchMethodException e) {
+            log.debug("No getGenreIds method found on MediaInfo, trying fallback for rule: {}", name);
         } catch (Exception e) {
-            // ignore reflection errors
+            log.warn("Failed to extract genreIds from MediaInfo getter for rule: {}", name, e);
         }
         // try map style: maybe MediaInfo has a metadata map
         try {
@@ -105,7 +108,9 @@ public class CategoryRule {
                     return out;
                 }
             }
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            log.warn("Failed to extract genreIds from MediaInfo via reflection for rule: {}", name, e);
+        }
         return Collections.emptyList();
     }
 
@@ -114,7 +119,9 @@ public class CategoryRule {
             java.lang.reflect.Method m = info.getClass().getMethod("getOriginalLanguage");
             Object res = m.invoke(info);
             if (res != null) return String.valueOf(res);
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            log.warn("Failed to extract originalLanguage from MediaInfo getter for rule: {}", name, e);
+        }
         // fallback to metadata
         try {
             java.lang.reflect.Method m2 = info.getClass().getMethod("getMetadata");
@@ -123,7 +130,9 @@ public class CategoryRule {
                 Object ol = ((Map<?, ?>) meta).get("original_language");
                 if (ol != null) return String.valueOf(ol);
             }
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            log.warn("Failed to extract originalLanguage from MediaInfo metadata for rule: {}", name, e);
+        }
         return null;
     }
 
@@ -137,7 +146,9 @@ public class CategoryRule {
                 for (Object o : l) out.add(String.valueOf(o));
                 return out;
             }
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            log.warn("Failed to extract originCountries from MediaInfo getter for rule: {}", name, e);
+        }
         try {
             java.lang.reflect.Method m2 = info.getClass().getMethod("getMetadata");
             Object meta = m2.invoke(info);
@@ -152,7 +163,9 @@ public class CategoryRule {
                     return Arrays.asList(((String) oc).split(","));
                 }
             }
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            log.warn("Failed to extract originCountries from MediaInfo metadata for rule: {}", name, e);
+        }
         return Collections.emptyList();
     }
 }
