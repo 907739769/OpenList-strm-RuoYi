@@ -5,9 +5,10 @@ services:
     image: mysql:8.0
     container_name: osr-mysql
     restart: always
+    env_file:
+      - .env
     environment:
-      MYSQL_ROOT_PASSWORD: root123456
-      MYSQL_DATABASE: osr
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-osr}
       MYSQL_CHARSET: utf8mb4
       MYSQL_COLLATION: utf8mb4_general_ci
       TZ: Asia/Shanghai
@@ -21,7 +22,7 @@ services:
       - --collation-server=utf8mb4_general_ci
       - --max-connections=500
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot123456"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -34,12 +35,14 @@ services:
     restart: always
     ports:
       - "6895:6895"
+    env_file:
+      - .env
     environment:
       SPRING_PROFILES_ACTIVE: druid
       DB_HOST: mysql
       DB_PORT: 3306
-      DB_PASSWORD: root123456
-      CIPHER_KEY: d34db33f42d3d3ad10b3d3ad34db33f0
+      DB_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      CIPHER_KEY: ${CIPHER_KEY}
       TZ: Asia/Shanghai
     depends_on:
       mysql:
