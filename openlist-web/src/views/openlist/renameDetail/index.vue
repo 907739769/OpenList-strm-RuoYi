@@ -107,9 +107,6 @@
             <el-button link type="primary" @click="handleRetryOne(scope.row)">
               <el-icon><Refresh /></el-icon> 重试
             </el-button>
-            <el-button link type="warning" @click="handleRemoveNetDiskOne(scope.row)">
-              <el-icon><Download /></el-icon> 删除网盘文件
-            </el-button>
             <el-button link type="danger" @click="handleDeleteOne(scope.row)">
               <el-icon><Delete /></el-icon> 删除记录
             </el-button>
@@ -147,9 +144,6 @@
           <div class="mobile-card-actions">
             <el-button link type="primary" size="small" @click="handleRetryOne(item)">
               <el-icon><Refresh /></el-icon> 重试
-            </el-button>
-            <el-button link type="warning" size="small" @click="handleRemoveNetDiskOne(item)">
-              <el-icon><Download /></el-icon> 删网盘
             </el-button>
             <el-button link type="danger" size="small" @click="handleDeleteOne(item)">
               <el-icon><Delete /></el-icon> 删记录
@@ -260,11 +254,6 @@ const handleRetryOne = async (row: any) => {
     ElMessage.success('重试成功')
     getList()
   } catch (e) { if (e !== 'cancel') console.error(e) }
-}
-
-const handleRemoveNetDiskOne = async (row: any) => {
-  void row
-  ElMessage.info('删除网盘文件功能待实现')
 }
 
 const queryRef = ref<any>()

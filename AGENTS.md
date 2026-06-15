@@ -69,6 +69,6 @@ docker-compose down                    # 全栈停止
 ## NOTES
 - Java 25 需要 Shiro jakarta 版本（`classifier: jakarta`）
 - Spring Boot 4.0.6 使用 Jakarta EE 9+ 命名空间（`javax` → `jakarta`）
-- 数据库初始化由 `sql: init` 自动执行（schema.sql + data.sql）
+- 数据库初始化由 `com.ruoyi.common.mybatisplus.MysqlDdl` 自动执行（ruoyi-common/src/main/resources/sql/）
 - 文件路径配置 `ruoyi.profile` 在 Windows 用 `D:/`，Linux 用 `/data/`
 - 大文件：`ExcelUtil.java` (1928行) 是最大工具类
