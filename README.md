@@ -29,18 +29,19 @@
 
 ### PC端
 
+
 <table>
     <tr>
-        <td><img src="https://github.com/user-attachments/assets/b373b65f-4bd2-4af4-a5a6-9c77d8266fa0"/></td>
-        <td><img src="https://github.com/user-attachments/assets/4ce3623e-fcd8-47ae-98c7-82fb92cafd90"/></td>
+        <td><img src="https://github.com/user-attachments/assets/947f620b-e953-4d40-bff9-a612278ecec7"/></td>
+        <td><img src="https://github.com/user-attachments/assets/f74ce0a2-0740-4959-90a8-5711ffaa7ff8"/></td>
     </tr>
     <tr>
-        <td><img src="https://github.com/user-attachments/assets/86012a22-ac01-49d0-acba-03873dd047f6"/></td>
-        <td><img src="https://github.com/user-attachments/assets/a3962694-b4fe-4397-a6f7-6c50a83065ce"/></td>
+        <td><img src="https://github.com/user-attachments/assets/b94e1556-e40e-47d3-9b6f-b31da8632d28"/></td>
+        <td><img src="https://github.com/user-attachments/assets/834de439-126e-4851-ac18-209b75b4a59d"/></td>
     </tr>
     <tr>
-        <td><img src="https://github.com/user-attachments/assets/ac16de9d-eab0-4bae-a40c-449078336770"/></td>
-        <td><img src="https://github.com/user-attachments/assets/e210e93a-fc34-4e9d-a935-3526ecc6daa3"/></td>
+        <td><img src="https://github.com/user-attachments/assets/5bc78d26-48b4-45cb-944f-52fada4796dd"/></td>
+        <td><img src="https://github.com/user-attachments/assets/c2810049-e5c8-4403-aee3-bcffd55a63b4"/></td>
     </tr>
 
 </table>
@@ -50,9 +51,10 @@
 
 <table>
     <tr>
-        <td><img src="https://github.com/user-attachments/assets/b99de7cd-d5e3-4c03-b9c4-5316f6b1a239"/></td>
-        <td><img src="https://github.com/user-attachments/assets/26b4b12d-63ea-4d09-8740-1144044e756c"/></td>
-        <td><img src="https://github.com/user-attachments/assets/0cfb0efa-f5fe-4cfd-a6e8-296cd7102de0"/></td>
+        <td><img src="https://github.com/user-attachments/assets/3a9111f5-8a5c-4a79-8464-369db124f127"/></td>
+        <td><img src="https://github.com/user-attachments/assets/04bdb2d2-ee5d-4666-8cd9-f4f41848aa35"/></td>
+        <td><img src="https://github.com/user-attachments/assets/b6b27293-c655-42b8-bdd0-45bf34944c60"/></td>
+        <td><img src="https://github.com/user-attachments/assets/0946b107-235f-4829-94f5-9363abe1f362"/></td>
     </tr>
 </table>
 
