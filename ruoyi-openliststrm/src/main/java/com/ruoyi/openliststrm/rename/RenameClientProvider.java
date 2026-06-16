@@ -8,7 +8,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 /**
- *
  * 客户端维护者
  *
  * @author: Jack
@@ -18,22 +17,18 @@ import org.springframework.stereotype.Component;
 @Component
 public class RenameClientProvider {
 
-
     private volatile TMDbClient tmdbClient;
     private volatile OpenAIClient openAIClient;
-
 
     private volatile String tmdbKey;
     private volatile String openAiKey;
     private volatile String openAiEndpoint;
     private volatile String openAiModel;
 
-
     public synchronized void refresh(OpenlistConfig config) {
         refreshTmdb(config);
         refreshOpenAi(config);
     }
-
 
     private void refreshTmdb(OpenlistConfig config) {
         String newKey = config.getTmdbApiKey();

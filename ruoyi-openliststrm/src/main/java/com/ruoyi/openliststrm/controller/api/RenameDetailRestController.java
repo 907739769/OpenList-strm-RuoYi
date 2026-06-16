@@ -155,17 +155,22 @@ public class RenameDetailRestController extends BaseController
      * 批量执行重命名明细
      */
     @PostMapping("/execute")
-    public Result<Void> batchExecute(@RequestBody List<Integer> ids)
+    public Result<Void> batchExecute(@RequestParam("ids") String ids,
+                                     @RequestParam(value = "title", required = false) String title,
+                                     @RequestParam(value = "year", required = false) String year)
     {
-        if (ids == null || ids.isEmpty())
+        if (ids == null || ids.trim().isEmpty())
         {
             return Result.error("请选择要执行的记录");
         }
-        for (Integer id : ids)
+        List<Integer> idList = Arrays.stream(ids.split(",")).map(String::trim).filter(s -> !s.isEmpty()).map(Integer::parseInt).collect(Collectors.toList());
+        for (Integer id : idList)
         {
             logger.info("开始执行重命名明细，ID：{}", id);
             final int detailId = id;
-            AsyncManager.me().execute(() -> renameTaskManager.executeRenameDetails(detailId, null, null));
+            final String t = title;
+            final String y = year;
+            AsyncManager.me().execute(() -> renameTaskManager.executeRenameDetails(detailId, t, y));
         }
         return Result.success();
     }

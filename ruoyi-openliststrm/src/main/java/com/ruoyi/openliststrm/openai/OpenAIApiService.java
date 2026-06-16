@@ -30,9 +30,7 @@ public class OpenAIApiService {
 
     /**
      * 调用 OpenAI Chat Completions 接口
-     * key 使用 apiKey, model 和 prompt 的哈希值组合，避免 key 过长
      */
-    @Cacheable(value = "openaiSearch", key = "#apiKey.substring(0, 5) + ':' + #model + ':' + #prompt.hashCode()")
     public JsonNode fetchChatCompletion(String apiKey, String endpoint, String model, String prompt) throws IOException {
         Map<String, Object> payload = new HashMap<>();
         payload.put("model", model);
