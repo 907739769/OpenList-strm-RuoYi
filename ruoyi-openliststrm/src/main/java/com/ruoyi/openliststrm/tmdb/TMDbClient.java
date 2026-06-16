@@ -1,6 +1,7 @@
 package com.ruoyi.openliststrm.tmdb;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.openliststrm.rename.model.MediaInfo;
 import com.ruoyi.common.utils.spring.SpringUtils;
@@ -17,9 +18,11 @@ import java.util.stream.Collectors;
 @Slf4j
 public class TMDbClient {
     private final String apiKey;
+    private final ObjectMapper mapper;
 
     public TMDbClient(String apiKey) {
         this.apiKey = apiKey;
+        this.mapper = new ObjectMapper();
     }
 
     public void enrich(MediaInfo info) {
@@ -61,7 +64,7 @@ public class TMDbClient {
                 .distinct()
                 .collect(Collectors.toList())) {
             log.debug("尝试根据标题查询TMDB：{}", q);
-            JsonNode root = api.search(apiKey, type, q, info.getYear());
+            JsonNode root = mapper.readTree(api.search(apiKey, type, q, info.getYear()));
             title = doSearchOnce(type, info, root, api);
             if (title != null) return title;
         }
@@ -71,7 +74,7 @@ public class TMDbClient {
                 .distinct()
                 .collect(Collectors.toList())) {
             log.debug("尝试只根据标题查询TMDB，不限定年份：{}", q);
-            JsonNode root = api.search(apiKey, type, q, null);
+            JsonNode root = mapper.readTree(api.search(apiKey, type, q, null));
             title = doSearchOnce(type, info, root, api);
             if (title != null) return title;
         }
@@ -122,7 +125,7 @@ public class TMDbClient {
     }
 
     private void fetchDetails(String type, int id, MediaInfo info, TMDbApiService api) throws IOException {
-        JsonNode d = api.getDetails(apiKey, type, id);
+        JsonNode d = mapper.readTree(api.getDetails(apiKey, type, id));
         if (d == null) return;
         info.getMetadata().put("details", d);
 
@@ -177,7 +180,7 @@ public class TMDbClient {
     }
 
     private String fetchChineseAlias(String type, int id, TMDbApiService api) throws IOException {
-        JsonNode root = api.getAlternativeTitles(apiKey, type, id);
+        JsonNode root = mapper.readTree(api.getAlternativeTitles(apiKey, type, id));
         if (root == null) return null;
         log.debug("fetchChineseAlias: {}", root);
 

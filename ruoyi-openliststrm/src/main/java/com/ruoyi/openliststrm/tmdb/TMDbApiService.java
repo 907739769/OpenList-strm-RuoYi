@@ -1,9 +1,9 @@
 package com.ruoyi.openliststrm.tmdb;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.*;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -11,7 +11,7 @@ import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 /**
- * TMDb 网络请求封装，每次真实请求 API。
+ * TMDb 网络请求封装，已配置防乱七八糟缓存策略。
  */
 @Slf4j
 @Service
@@ -34,8 +34,10 @@ public class TMDbApiService {
 
     /**
      * 搜索接口
+     * 优化点: 去掉 apiKey 参与 key 生成；返回 String 防止引用污染
      */
-    public JsonNode search(String apiKey, String type, String query, String year) throws IOException {
+    @Cacheable(value = "tmdbSearch", key = "#p2 + ':' + #p3 + ':' + (#p4==null?'':#p4)", unless = "#result == null")
+    public String search(String apiKey, String type, String query, String year) {
         HttpUrl.Builder b = Objects.requireNonNull(HttpUrl.parse(BASE + "/search/" + type)).newBuilder()
                 .addQueryParameter("api_key", apiKey)
                 .addQueryParameter("query", query)
@@ -45,49 +47,39 @@ public class TMDbApiService {
             b.addQueryParameter(yearKey, year);
         }
         Request req = new Request.Builder().url(b.build()).get().build();
-        try (Response resp = http.newCall(req).execute()) {
-            if (!resp.isSuccessful() || resp.body() == null) return null;
-            JsonNode result = mapper.readTree(resp.body().byteStream());
-            return result;
-        } catch (IOException e) {
-            log.warn("TMDb search failed: {}", e.getMessage());
-            return null;
-        }
+        return executeAndReturnString(req, "search");
     }
 
     /**
      * 获取详情
      */
-    public JsonNode getDetails(String apiKey, String type, int id) throws IOException {
+    @Cacheable(value = "tmdbDetails", key = "#p2 + ':' + #p3", unless = "#result == null")
+    public String getDetails(String apiKey, String type, int id) {
         HttpUrl url = Objects.requireNonNull(HttpUrl.parse(BASE + "/" + type + "/" + id))
                 .newBuilder().addQueryParameter("api_key", apiKey).addQueryParameter("language", LANGUAGE).build();
         Request req = new Request.Builder().url(url).get().build();
-        try (Response resp = http.newCall(req).execute()) {
-            if (!resp.isSuccessful() || resp.body() == null) return null;
-            JsonNode result = mapper.readTree(resp.body().byteStream());
-            return result;
-        } catch (IOException e) {
-            log.warn("TMDb getDetails failed: {}", e.getMessage());
-            return null;
-        }
+        return executeAndReturnString(req, "getDetails");
     }
 
     /**
-     * 获取备用标题（alternative titles / TV results）
+     * 获取备用标题
      */
-    public JsonNode getAlternativeTitles(String apiKey, String type, int id) throws IOException {
+    @Cacheable(value = "tmdbAlts", key = "#p2 + ':' + #p3", unless = "#result == null")
+    public String getAlternativeTitles(String apiKey, String type, int id) {
         HttpUrl url = Objects.requireNonNull(HttpUrl.parse(BASE + "/" + type + "/" + id + "/alternative_titles"))
                 .newBuilder().addQueryParameter("api_key", apiKey).build();
         Request req = new Request.Builder().url(url).get().build();
+        return executeAndReturnString(req, "getAlternativeTitles");
+    }
+
+    // --- 抽取公共的 HTTP 执行逻辑 ---
+    private String executeAndReturnString(Request req, String methodName) {
         try (Response resp = http.newCall(req).execute()) {
             if (!resp.isSuccessful() || resp.body() == null) return null;
-            JsonNode result = mapper.readTree(resp.body().byteStream());
-            return result;
+            return resp.body().string(); // 直接返回纯文本JSON，缓存它！
         } catch (IOException e) {
-            log.warn("TMDb getAlternativeTitles failed: {}", e.getMessage());
+            log.warn("TMDb {} failed: {}", methodName, e.getMessage());
             return null;
         }
     }
-
-   }
-
+}
