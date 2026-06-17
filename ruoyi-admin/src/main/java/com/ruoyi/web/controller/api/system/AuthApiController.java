@@ -17,6 +17,10 @@ import com.ruoyi.system.service.ISysMenuService;
 import com.ruoyi.system.service.ISysRoleService;
 import com.ruoyi.system.service.ISysUserService;
 import com.ruoyi.common.annotation.Anonymous;
+import com.ruoyi.common.utils.ServletUtils;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jws;
+import org.apache.shiro.web.servlet.SimpleCookie;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.validation.annotation.Validated;
@@ -33,7 +37,19 @@ import java.util.*;
 public class AuthApiController extends BaseController {
 
     @Value("${shiro.rememberMe.enabled: false}")
-    private boolean rememberMe;
+    private boolean rememberMeEnabled;
+
+    @Value("${shiro.cookie.domain:}")
+    private String domain;
+
+    @Value("${shiro.cookie.path:/}")
+    private String path;
+
+    @Value("${shiro.cookie.httpOnly:true}")
+    private boolean httpOnly;
+
+    @Value("${shiro.rememberMe.cookie.maxAge:2592000}")
+    private int rememberMeMaxAge;
 
     @Autowired
     private SysRegisterService registerService;
@@ -63,7 +79,7 @@ public class AuthApiController extends BaseController {
     private JwtTokenUtil jwtTokenUtil;
 
     @PostMapping("/login")
-    public Result<JwtTokenDto> login(@Validated @RequestBody LoginRequest request) {
+    public Result<JwtTokenDto> login(@Validated @RequestBody LoginRequest request, HttpServletResponse response) {
         SysUser user = null;
         try {
             user = loginService.login(request.getUsername(), request.getPassword());
@@ -83,6 +99,7 @@ public class AuthApiController extends BaseController {
         claims.put("permissions", new ArrayList<>(perms));
 
         String token = jwtTokenUtil.generateToken(user.getLoginName(), user.getUserId(), claims);
+        String refreshToken = jwtTokenUtil.generateRefreshToken(user.getLoginName(), user.getUserId());
 
         JwtTokenDto dto = new JwtTokenDto();
         dto.setToken(token);
@@ -94,13 +111,26 @@ public class AuthApiController extends BaseController {
         permissionMap.put("permissions", perms);
         dto.setPermissions(permissionMap);
         dto.setExpireTime(jwtConfig.getExpiration() + System.currentTimeMillis());
+        dto.setRefreshToken(refreshToken);
+        dto.setRefreshExpireTime(jwtConfig.getRefreshExpiration() + System.currentTimeMillis());
+
+        if (Boolean.TRUE.equals(request.getRememberMe())) {
+            String rememberMeValue = user.getLoginName();
+            SimpleCookie rememberMeCookie = new SimpleCookie("rememberMe");
+            rememberMeCookie.setDomain(domain);
+            rememberMeCookie.setPath(path);
+            rememberMeCookie.setHttpOnly(httpOnly);
+            rememberMeCookie.setMaxAge(rememberMeMaxAge);
+            rememberMeCookie.setValue(rememberMeValue);
+            rememberMeCookie.saveTo(ServletUtils.getRequest(), response);
+        }
 
         return Result.success(dto);
     }
 
-    @PostMapping("/logout")
+@PostMapping("/logout")
     public Result<Void> logout(@RequestHeader(value = "Authorization", required = false) String authHeader, HttpServletResponse response) {
-        // 清除JWT cookie
+        // 清除 JWT cookie
         jakarta.servlet.http.Cookie[] cookies = ServletUtils.getRequest().getCookies();
         if (cookies != null) {
             for (jakarta.servlet.http.Cookie cookie : cookies) {
@@ -113,6 +143,59 @@ public class AuthApiController extends BaseController {
             }
         }
         return Result.success();
+    }
+
+    @PostMapping("/refresh")
+    public Result<JwtTokenDto> refresh(@RequestBody RefreshRequest request) {
+        String refreshToken = request.getRefreshToken();
+        if (StringUtils.isEmpty(refreshToken)) {
+            return Result.error(401, "刷新令牌不能为空");
+        }
+
+        try {
+            Jws<Claims> jws = jwtTokenUtil.parseToken(refreshToken);
+            Claims claims = jws.getPayload();
+
+            Object type = claims.get("type");
+            if (!"refresh".equals(type)) {
+                return Result.error(401, "无效的刷新令牌");
+            }
+
+            String loginName = jwtTokenUtil.getUsernameFromToken(refreshToken);
+            Long userId = jwtTokenUtil.getUserIdFromToken(refreshToken);
+
+            SysUser user = userService.selectUserByLoginName(loginName);
+            if (user == null) {
+                return Result.error(401, "用户不存在");
+            }
+
+            Map<String, Object> claimsMap = new HashMap<>();
+            claimsMap.put("loginName", loginName);
+            Set<String> roles = roleService.selectRoleKeys(userId);
+            Set<String> perms = menuService.selectPermsByUserId(userId);
+            claimsMap.put("roles", new ArrayList<>(roles));
+            claimsMap.put("permissions", new ArrayList<>(perms));
+
+            String newAccessToken = jwtTokenUtil.generateToken(loginName, userId, claimsMap);
+            String newRefreshToken = jwtTokenUtil.generateRefreshToken(loginName, userId);
+
+            JwtTokenDto dto = new JwtTokenDto();
+            dto.setToken(newAccessToken);
+            dto.setUserId(userId);
+            dto.setLoginName(loginName);
+            dto.setUserName(user.getUserName());
+            Map<String, Object> permissionMap = new HashMap<>();
+            permissionMap.put("roles", roles);
+            permissionMap.put("permissions", perms);
+            dto.setPermissions(permissionMap);
+            dto.setExpireTime(jwtConfig.getExpiration() + System.currentTimeMillis());
+            dto.setRefreshToken(newRefreshToken);
+            dto.setRefreshExpireTime(jwtConfig.getRefreshExpiration() + System.currentTimeMillis());
+
+            return Result.success(dto);
+        } catch (Exception e) {
+            return Result.error(401, "刷新令牌无效或已过期");
+        }
     }
 
     @PostMapping("/register")
@@ -269,5 +352,13 @@ public class AuthApiController extends BaseController {
         public void setPassword(String password) { this.password = password; }
         public Boolean getRememberMe() { return rememberMe; }
         public void setRememberMe(Boolean rememberMe) { this.rememberMe = rememberMe; }
+    }
+
+    public static class RefreshRequest {
+        @jakarta.validation.constraints.NotBlank(message = "刷新令牌不能为空")
+        private String refreshToken;
+
+        public String getRefreshToken() { return refreshToken; }
+        public void setRefreshToken(String refreshToken) { this.refreshToken = refreshToken; }
     }
 }

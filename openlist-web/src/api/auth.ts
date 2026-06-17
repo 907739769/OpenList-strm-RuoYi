@@ -20,3 +20,7 @@ export function getRoutersApi() {
 export function changePasswordApi(data: { oldPassword: string; newPassword: string }) {
   return request.post('/auth/changePassword', data)
 }
+
+export function refreshApi(refreshToken: string) {
+  return request.post<any, LoginResponse>('/auth/refresh', { refreshToken })
+}

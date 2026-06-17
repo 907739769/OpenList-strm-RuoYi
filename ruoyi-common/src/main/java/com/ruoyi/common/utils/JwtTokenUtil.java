@@ -13,6 +13,7 @@ import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Map;
 
 import io.jsonwebtoken.Jws;
@@ -28,26 +29,55 @@ public class JwtTokenUtil
     @Autowired
     private JwtConfigProperties jwtConfig;
 
-    /**
+ /**
      * 生成令牌
      *
-     * @param loginName 登录名称（作为subject）
-     * @param userId 用户ID
+     * @param loginName 登录名称（作为 subject）
+     * @param userId 用户 ID
      * @param claims 额外声明
      * @return 令牌
      */
     public String generateToken(String loginName, Long userId, Map<String, Object> claims)
     {
+        return generateToken(loginName, userId, claims, jwtConfig.getExpiration());
+    }
+
+    /**
+     * 生成令牌（指定过期时间）
+     *
+     * @param loginName 登录名称（作为 subject）
+     * @param userId 用户 ID
+     * @param claims 额外声明
+     * @param expirationMillis 过期时间（毫秒）
+     * @return 令牌
+     */
+    public String generateToken(String loginName, Long userId, Map<String, Object> claims, long expirationMillis)
+    {
         Date now = new Date();
-        Date expirationDate = new Date(now.getTime() + jwtConfig.getExpiration());
+        Date expirationDate = new Date(now.getTime() + expirationMillis);
 
         return Jwts.builder()
                 .subject(loginName)
+                .claim("userId", userId)
                 .claims(claims)
                 .issuedAt(now)
                 .expiration(expirationDate)
                 .signWith(generateSecretKey())
                 .compact();
+    }
+
+    /**
+     * 生成刷新令牌
+     *
+     * @param loginName 登录名称
+     * @param userId 用户 ID
+     * @return 刷新令牌
+     */
+    public String generateRefreshToken(String loginName, Long userId)
+    {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("type", "refresh");
+        return generateToken(loginName, userId, claims, jwtConfig.getRefreshExpiration());
     }
 
     /**

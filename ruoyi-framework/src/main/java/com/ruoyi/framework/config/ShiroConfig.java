@@ -17,6 +17,8 @@ import org.apache.commons.io.IOUtils;
 import org.apache.shiro.cache.MemoryConstrainedCacheManager;
 import org.apache.shiro.config.ConfigurationException;
 import org.apache.shiro.mgt.SecurityManager;
+import org.apache.shiro.web.mgt.CookieRememberMeManager;
+import org.apache.shiro.web.servlet.SimpleCookie;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.boot.web.servlet.ServletContextInitializer;
@@ -67,7 +69,10 @@ public class ShiroConfig
     private String unauthorizedUrl;
 
     @Value("${shiro.rememberMe.enabled: false}")
-    private boolean rememberMe;
+    private boolean rememberMeEnabled;
+
+    @Value("${shiro.rememberMe.cookie.maxAge: 2592000}")
+    private int rememberMeMaxAge;
 
     @Value("${csrf.enabled: false}")
     private boolean csrfEnabled;
@@ -138,6 +143,26 @@ public class ShiroConfig
         return manager;
     }
 
+   @Bean
+    public SimpleCookie rememberMeCookie()
+    {
+        SimpleCookie cookie = new SimpleCookie("rememberMe");
+        cookie.setDomain(domain);
+        cookie.setPath(path);
+        cookie.setHttpOnly(httpOnly);
+        cookie.setMaxAge(rememberMeMaxAge);
+        return cookie;
+    }
+
+    @Bean
+    public CookieRememberMeManager rememberMeManager()
+    {
+        CookieRememberMeManager manager = new CookieRememberMeManager();
+        manager.setCookie(rememberMeCookie());
+        manager.setCipherKey(base64Decoded(cipherKey));
+        return manager;
+    }
+
     @Bean
     public SecurityManager securityManager(UserRealm userRealm)
     {
@@ -145,6 +170,7 @@ public class ShiroConfig
         securityManager.setRealm(userRealm);
         securityManager.setCacheManager(getCacheManager());
         securityManager.setSessionManager(sessionManager());
+        securityManager.setRememberMeManager(rememberMeManager());
         return securityManager;
     }
 
@@ -194,5 +220,10 @@ public class ShiroConfig
                 servletContext.setAttribute("shiroSecurityManager", securityManager);
             }
         };
+    }
+
+    private byte[] base64Decoded(String base64String)
+    {
+        return java.util.Base64.getDecoder().decode(base64String);
     }
 }

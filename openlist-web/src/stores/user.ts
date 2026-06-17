@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import Cookies from 'js-cookie'
 import type { UserInfo, LoginRequest, LoginResponse } from '@/types'
-import { loginApi, logoutApi, getUserInfoApi, getRoutersApi } from '@/api/auth'
+import { loginApi, logoutApi, getUserInfoApi, getRoutersApi, refreshApi } from '@/api/auth'
 
 export interface MenuRoute {
   path: string
@@ -20,6 +20,7 @@ export interface MenuRoute {
 
 export const useUserStore = defineStore('user', () => {
   const token = ref<string>(Cookies.get('token') || '')
+  const refreshToken = ref<string>('')
   const userInfo = ref<UserInfo | null>(null)
   const roles = ref<string[]>([])
   const permissions = ref<string[]>([])
@@ -30,18 +31,36 @@ export const useUserStore = defineStore('user', () => {
     Cookies.set('token', newToken, { expires: 7 })
   }
 
+  const setRefreshToken = (newRefreshToken: string) => {
+    refreshToken.value = newRefreshToken
+    sessionStorage.setItem('refreshToken', newRefreshToken)
+  }
+
   const clearToken = () => {
     token.value = ''
+    refreshToken.value = ''
     userInfo.value = null
     roles.value = []
     permissions.value = []
     routes.value = []
     Cookies.remove('token')
+    sessionStorage.removeItem('refreshToken')
+  }
+
+  const refreshTokenFn = async () => {
+    if (!refreshToken.value) {
+      throw new Error('No refresh token')
+    }
+    const data = await refreshApi(refreshToken.value) as LoginResponse
+    setToken(data.token)
+    setRefreshToken(data.refreshToken)
+    return data
   }
 
   const login = async (loginForm: LoginRequest) => {
     const data = await loginApi(loginForm) as LoginResponse
     setToken(data.token)
+    setRefreshToken(data.refreshToken)
     userInfo.value = {
       userId: data.userId,
       loginName: data.loginName,
@@ -80,5 +99,5 @@ export const useUserStore = defineStore('user', () => {
     return routes.value
   }
 
-  return { token, userInfo, roles, permissions, routes, setToken, clearToken, login, logout, getUserInfo, getRouters }
+  return { token, refreshToken, userInfo, roles, permissions, routes, setToken, setRefreshToken, clearToken, login, logout, getUserInfo, getRouters, refreshTokenFn }
 })

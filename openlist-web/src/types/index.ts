@@ -32,6 +32,8 @@ export interface LoginResponse {
   userName: string
   permissions?: Record<string, unknown>
   expireTime: number
+  refreshToken: string
+  refreshExpireTime: number
 }
 
 export interface PaginationParams {

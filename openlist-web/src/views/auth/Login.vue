@@ -11,7 +11,7 @@
         </el-form-item>
         <el-form-item>
           <div class="remember-row">
-            <el-checkbox v-model="loginForm.rememberMe">记住密码</el-checkbox>
+            <el-checkbox v-model="loginForm.rememberMe">记住我</el-checkbox>
           </div>
         </el-form-item>
         <el-form-item>

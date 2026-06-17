@@ -27,6 +27,10 @@ public class JwtTokenDto
     /** 过期时间 */
     private Long expireTime;
 
+    private String refreshToken;
+
+    private Long refreshExpireTime;
+
     public String getToken() { return token; }
     public void setToken(String token) { this.token = token; }
     public Long getUserId() { return userId; }
@@ -39,4 +43,8 @@ public class JwtTokenDto
     public void setPermissions(Map<String, Object> permissions) { this.permissions = permissions; }
     public Long getExpireTime() { return expireTime; }
     public void setExpireTime(Long expireTime) { this.expireTime = expireTime; }
+    public String getRefreshToken() { return refreshToken; }
+    public void setRefreshToken(String refreshToken) { this.refreshToken = refreshToken; }
+    public Long getRefreshExpireTime() { return refreshExpireTime; }
+    public void setRefreshExpireTime(Long refreshExpireTime) { this.refreshExpireTime = refreshExpireTime; }
 }
