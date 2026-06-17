@@ -205,7 +205,7 @@ public class AsynHelper {
     // 辅助方法：更新数据库状态
     private void updateCopyStatus(OpenlistCopyPlus copy, String status) {
         copy.setCopyStatus(status);
-        copyHelper.addCopy(copy);
+        openlistCopyPlusService.updateById(copy);
     }
 
     // 辅助方法：处理目录 strm 生成逻辑 (保持原有逻辑不变)
