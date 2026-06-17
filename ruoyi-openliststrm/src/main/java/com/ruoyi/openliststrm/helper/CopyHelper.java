@@ -19,10 +19,7 @@ public class CopyHelper {
     public void addCopy(OpenlistCopyPlus openlistCopyPlus) {
         AsyncManager.me().execute(() -> {
             try {
-                OpenlistCopyPlus copy = new OpenlistCopyPlus();
-                copy.setCopySrcPath(openlistCopyPlus.getCopySrcPath());
-                copy.setCopySrcFileName(openlistCopyPlus.getCopySrcFileName());
-                openlistCopyPlusService.save(copy);
+                openlistCopyPlusService.save(openlistCopyPlus);
             } catch (MybatisPlusException e) {
                 // 唯一索引冲突 = 记录已存在，静默忽略
                 if (e.getMessage() != null && e.getMessage().contains("Duplicate entry")) {
