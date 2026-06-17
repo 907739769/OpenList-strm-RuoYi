@@ -43,7 +43,7 @@ public class TMDbApiService {
                 .addQueryParameter("query", query)
                 .addQueryParameter("language", LANGUAGE);
         if (year != null && !year.isEmpty()) {
-            String yearKey = "movie".equals(type) ? "year" : "first_air_date_year";
+            String yearKey = "movie".equals(type) ? "primary_release_year" : "first_air_date_year";
             b.addQueryParameter(yearKey, year);
         }
         Request req = new Request.Builder().url(b.build()).get().build();
