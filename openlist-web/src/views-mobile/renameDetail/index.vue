@@ -221,12 +221,29 @@
         </el-button>
       </template>
     </el-dialog>
+
+    <!-- Retry Dialog -->
+    <el-dialog v-model="retryDialogVisible" title="重试重命名" width="85%" @close="handleRetryClose">
+      <el-form ref="retryFormRef" :model="retryForm" :rules="retryRules" label-width="60px">
+        <el-form-item label="标题" prop="title">
+          <el-input v-model="retryForm.title" placeholder="留空则使用原值" maxlength="100" clearable />
+        </el-form-item>
+        <el-form-item label="年份" prop="year">
+          <el-input v-model="retryForm.year" placeholder="留空则使用原值" maxlength="4" clearable />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="retryDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleRetrySubmit" :loading="retryLoading">确定</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import type { FormInstance, FormRules } from 'element-plus'
 import {
   Search, ArrowDown, ArrowLeft, ArrowRight,
   Location, Clock,
@@ -251,6 +268,16 @@ const queryRef = ref<any>()
 const fullTextVisible = ref(false)
 const fullTextTitle = ref('')
 const fullTextContent = ref('')
+
+// Retry dialog
+const retryDialogVisible = ref(false)
+const retryLoading = ref(false)
+const retryFormRef = ref<FormInstance>()
+const retryForm = reactive({ id: 0, title: '', year: '' })
+const retryRules = reactive<FormRules>({
+  title: [{ max: 100, message: '最多 100 个字符', trigger: 'blur' }],
+  year: [{ pattern: /^\d{0,4}$/, message: '年份为 4 位数字', trigger: 'blur' }]
+})
 
 const showFullText = (content: string, title: string) => {
   fullTextTitle.value = title
@@ -360,13 +387,30 @@ const handleSizeChange = () => {
 
 // --- Actions ---
 
-const handleRetryOne = async (row: any) => {
+const handleRetryOne = (row: any) => {
+  retryForm.id = row.id
+  retryForm.title = row.title || ''
+  retryForm.year = row.year || ''
+  retryDialogVisible.value = true
+}
+
+const handleRetryClose = () => {
+  retryFormRef.value?.resetFields()
+}
+
+const handleRetrySubmit = async () => {
+  await retryFormRef.value?.validate()
+  retryLoading.value = true
   try {
-    await ElMessageBox.confirm(`是否确认重试重命名记录"${row.originalName}"？`, '提示', { type: 'warning' })
-    await executeRenameDetailApi([row.id])
+    await executeRenameDetailApi([retryForm.id], retryForm.title || undefined, retryForm.year || undefined)
     ElMessage.success('重试成功')
+    retryDialogVisible.value = false
     getList()
-  } catch (e) { if (e !== 'cancel') console.error(e) }
+  } catch (error: any) {
+    ElMessage.error(error.message || '重试失败')
+  } finally {
+    retryLoading.value = false
+  }
 }
 
 const handleBatchExecute = async () => {
