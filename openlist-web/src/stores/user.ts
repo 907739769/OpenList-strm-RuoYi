@@ -33,7 +33,7 @@ export const useUserStore = defineStore('user', () => {
 
   const setRefreshToken = (newRefreshToken: string) => {
     refreshToken.value = newRefreshToken
-    sessionStorage.setItem('refreshToken', newRefreshToken)
+    Cookies.set('refreshToken', newRefreshToken, { expires: 7 })
   }
 
   const clearToken = () => {
@@ -44,7 +44,7 @@ export const useUserStore = defineStore('user', () => {
     permissions.value = []
     routes.value = []
     Cookies.remove('token')
-    sessionStorage.removeItem('refreshToken')
+    Cookies.remove('refreshToken')
   }
 
   const refreshTokenFn = async () => {

@@ -134,11 +134,10 @@ public class AuthApiController extends BaseController {
         jakarta.servlet.http.Cookie[] cookies = ServletUtils.getRequest().getCookies();
         if (cookies != null) {
             for (jakarta.servlet.http.Cookie cookie : cookies) {
-                if ("token".equals(cookie.getName())) {
+                if ("token".equals(cookie.getName()) || "refreshToken".equals(cookie.getName())) {
                     cookie.setMaxAge(0);
                     cookie.setPath("/");
                     response.addCookie(cookie);
-                    break;
                 }
             }
         }

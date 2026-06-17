@@ -71,7 +71,7 @@ service.interceptors.response.use(
 
       try {
         const userStore = useUserStore()
-        const refreshTokenValue = sessionStorage.getItem('refreshToken')
+        const refreshTokenValue = Cookies.get('refreshToken')
 
         if (!refreshTokenValue) {
           userStore.clearToken()
