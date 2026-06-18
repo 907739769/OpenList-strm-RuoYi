@@ -36,7 +36,7 @@
       <!-- Desktop Table -->
       <el-table v-if="appStore.device === 'desktop'" v-loading="loading" :data="jobList" class="modern-table">
         <el-table-column label="任务名称" prop="jobName" min-width="140" show-overflow-tooltip />
-        <el-table-column label="cron执行表达式" prop="cronExpression" width="140" align="center" />
+        <el-table-column label="cron执行表达式" prop="cronExpression" width="140" align="center" show-overflow-tooltip />
         <el-table-column label="状态" align="center" width="90">
           <template #default="scope">
             <el-switch

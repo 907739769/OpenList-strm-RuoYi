@@ -52,7 +52,7 @@
         <el-table-column type="selection" width="50" align="center" />
         <el-table-column label="STRM 目录路径" min-width="300">
           <template #default="scope">
-            <div class="path-text"><i class="fa fa-folder-open-o"></i> {{ scope.row.strmTaskPath }}</div>
+            <div class="path-text" :title="scope.row.strmTaskPath"><i class="fa fa-folder-open-o"></i> {{ scope.row.strmTaskPath }}</div>
           </template>
         </el-table-column>
         <el-table-column label="状态" prop="strmTaskStatus" width="80" align="center">
@@ -325,8 +325,8 @@ getList()
 }
 
 /* ============================================
-   Pagination
-   ============================================ */
+    Pagination
+    ============================================ */
 .pagination-wrapper {
   display: flex;
   justify-content: flex-end;
@@ -335,8 +335,28 @@ getList()
 }
 
 /* ============================================
-   Mobile Responsive
-   ============================================ */
+    Desktop Table Text Overflow
+    ============================================ */
+.path-text {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--osr-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  i {
+    color: var(--osr-primary);
+    flex-shrink: 0;
+  }
+}
+
+/* ============================================
+    Mobile Responsive
+    ============================================ */
 @media (max-width: 768px) {
   .page-container {
     gap: 10px;

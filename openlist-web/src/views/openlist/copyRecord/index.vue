@@ -72,13 +72,13 @@
             <div class="file-change-box">
               <div class="file-row">
                 <span class="file-label label-src">源</span>
-                <span class="file-name">{{ scope.row.copySrcFileName }}</span>
-                <span class="file-path">{{ scope.row.copySrcPath }}</span>
+                <span class="file-name" :title="scope.row.copySrcFileName">{{ scope.row.copySrcFileName }}</span>
+                <span class="file-path" :title="scope.row.copySrcPath">{{ scope.row.copySrcPath }}</span>
               </div>
               <div class="file-row">
                 <span class="file-label label-dst">目</span>
-                <span class="file-name">{{ scope.row.copyDstFileName }}</span>
-                <span class="file-path">{{ scope.row.copyDstPath }}</span>
+                <span class="file-name" :title="scope.row.copyDstFileName">{{ scope.row.copyDstFileName }}</span>
+                <span class="file-path" :title="scope.row.copyDstPath">{{ scope.row.copyDstPath }}</span>
               </div>
             </div>
           </template>
@@ -378,9 +378,12 @@ getList()
 
 .file-name {
   flex-shrink: 0;
+  max-width: 200px;
   font-size: 13px;
   font-weight: 500;
   color: var(--osr-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 

@@ -15,8 +15,8 @@
 
       <!-- Desktop Table -->
       <el-table v-if="appStore.device === 'desktop'" v-loading="loading" :data="dataList" class="modern-table">
-        <el-table-column label="字典标签" prop="dictLabel" min-width="120" />
-        <el-table-column label="字典键值" prop="dictValue" width="120" align="center" />
+        <el-table-column label="字典标签" prop="dictLabel" min-width="120" show-overflow-tooltip />
+        <el-table-column label="字典键值" prop="dictValue" width="120" align="center" show-overflow-tooltip />
         <el-table-column label="状态" align="center" width="90">
           <template #default="scope">
             <el-tag :type="scope.row.status === '0' ? 'success' : 'danger'" effect="light">

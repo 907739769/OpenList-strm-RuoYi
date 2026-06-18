@@ -63,7 +63,7 @@
         <el-table-column label="文件信息" min-width="300">
           <template #default="scope">
             <div class="file-info-box">
-              <div class="file-name"><i class="fa fa-file-video-o"></i> {{ scope.row.strmFileName }}</div>
+              <div class="file-name" :title="scope.row.strmFileName"><i class="fa fa-file-video-o"></i> {{ scope.row.strmFileName }}</div>
               <div class="file-path" :title="scope.row.strmPath">{{ scope.row.strmPath }}</div>
             </div>
           </template>
@@ -299,8 +299,8 @@ getList()
 }
 
 /* ============================================
-   Pagination
-   ============================================ */
+    Pagination
+    ============================================ */
 .pagination-wrapper {
   display: flex;
   justify-content: flex-end;
@@ -309,8 +309,43 @@ getList()
 }
 
 /* ============================================
-   Mobile Responsive
-   ============================================ */
+    Desktop Table Text Overflow
+    ============================================ */
+.file-info-box {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.file-name {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--osr-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  i {
+    color: var(--osr-text-secondary);
+    flex-shrink: 0;
+  }
+}
+
+.file-path {
+  font-size: 12px;
+  color: var(--osr-text-placeholder);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ============================================
+    Mobile Responsive
+    ============================================ */
 @media (max-width: 768px) {
   .page-container {
     gap: 10px;
