@@ -13,7 +13,7 @@
           <el-input v-model="queryParams.monitorDir" placeholder="请输入监控目录" clearable @keyup.enter="handleQuery" />
         </el-form-item>
         <el-form-item label="状态" prop="copyTaskStatus">
-          <el-select v-model="queryParams.copyTaskStatus" placeholder="状态" clearable>
+          <el-select v-model="queryParams.copyTaskStatus" placeholder="状态" clearable :style="{ width: '120px' }">
             <el-option label="启用" value="1" />
             <el-option label="停用" value="0" />
           </el-select>

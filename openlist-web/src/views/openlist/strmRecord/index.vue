@@ -10,7 +10,7 @@
           <el-input v-model="queryParams.strmPath" placeholder="请输入目录路径" clearable @keyup.enter="handleQuery" />
         </el-form-item>
         <el-form-item label="状态" prop="strmStatus">
-          <el-select v-model="queryParams.strmStatus" placeholder="状态" clearable>
+          <el-select v-model="queryParams.strmStatus" placeholder="状态" clearable :style="{ width: '120px' }">
             <el-option label="成功" value="1" />
             <el-option label="失败" value="0" />
           </el-select>

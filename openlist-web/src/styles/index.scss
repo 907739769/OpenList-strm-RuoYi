@@ -207,6 +207,11 @@ a {
   border-radius: var(--osr-radius-base);
 }
 
+/* Search form select width */
+.el-select {
+  width: 120px !important;
+}
+
 /* Tags */
 .el-tag {
   border-radius: var(--osr-radius-sm);

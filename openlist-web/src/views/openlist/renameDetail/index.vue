@@ -19,7 +19,7 @@
           <el-input v-model="queryParams.title" placeholder="请输入影视名称" clearable @keyup.enter="handleQuery" />
         </el-form-item>
         <el-form-item label="状态" prop="status">
-          <el-select v-model="queryParams.status" placeholder="状态" clearable>
+          <el-select v-model="queryParams.status" placeholder="状态" clearable :style="{ width: '120px' }">
             <el-option label="成功" value="1" />
             <el-option label="失败" value="0" />
           </el-select>

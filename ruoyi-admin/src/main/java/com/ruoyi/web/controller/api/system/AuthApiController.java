@@ -249,8 +249,8 @@ public class AuthApiController extends BaseController {
             if ("#".equals(path) || StringUtils.isEmpty(path)) {
                 path = derivePath(menu);
             }
-            router.put("path", path);
-            router.put("name", menu.getMenuName());
+            router.put("path", path != null ? path : "");
+            router.put("name", menu.getMenuName() != null ? menu.getMenuName() : "");
             router.put("meta", menuMeta(menu));
             router.put("hidden", "1".equals(menu.getVisible()));
 
@@ -262,7 +262,8 @@ public class AuthApiController extends BaseController {
                     router.put("children", buildMenus(children));
                 }
             } else if ("C".equals(menu.getMenuType())) {
-                router.put("component", menu.getComponentPath());
+                String component = menu.getComponentPath();
+                router.put("component", component != null ? component : "");
                 List<SysMenu> children = menu.getChildren();
                 if (children != null && children.size() > 0) {
                     router.put("children", buildMenus(children));
@@ -288,7 +289,7 @@ public class AuthApiController extends BaseController {
     private Map<String, Object> menuMeta(SysMenu menu) {
         Map<String, Object> meta = new LinkedHashMap<>();
         meta.put("title", menu.getMenuName());
-        meta.put("icon", menu.getIcon());
+        meta.put("icon", menu.getIcon() != null ? menu.getIcon() : "");
         meta.put("alwaysShow", "M".equals(menu.getMenuType()) && menu.getChildren() != null && menu.getChildren().size() > 0);
         return meta;
     }
