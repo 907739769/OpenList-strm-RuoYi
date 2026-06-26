@@ -1,74 +1,79 @@
-# OpenListStrm 项目知识库
+# OpenList-strm-RuoYi 项目知识库
 
 ## OVERVIEW
-OpenListStrm 是基于 RuoYi 4.8.1 二次开发的云盘管理系统，集成 OpenList API 与 strm 文件流媒体处理。后端 Spring Boot 4.0.6 + Java 25，前端 Vue 3 + Element Plus，Docker 部署。
+基于 RuoYi 4.8.1 二次开发的影视 STRM 管理系统。Java 25 (Spring Boot 4.0.6) + Vue 3 + Element Plus，Docker 双容器部署。核心功能：STRM 文件生成、文件夹同步、Telegram Bot 控制、第三方回调自动化。
 
 ## STRUCTURE
 ```
-├── pom.xml                          # 父 POM，7 模块管理
-├── ruoyi-admin/                     # 启动入口 + API 控制器
-├── ruoyi-common/                    # 通用工具（Excel、字符串、加密等）
-├── ruoyi-framework/                 # Spring Boot 配置（Shiro、Druid、MyBatis）
-├── ruoyi-system/                    # 系统管理（用户/角色/菜单/字典）
-├── ruoyi-quartz/                    # 定时任务
-├── ruoyi-openliststrm/              # 核心业务（copy/strm/rename/telegram）
-├── openlist-web/                    # Vue 3 前端（Vite + Pinia）
-├── config/                          # 外部化配置（application.yml）
-├── Dockerfile.backend / .frontend   # 双镜像构建
-└── docker-compose.yml               # 三服务编排（MySQL + backend + frontend）
+├── ruoyi-admin/          # 启动模块 (Spring Boot main)
+├── ruoyi-common/         # 通用工具 (annotation, utils, exception, mybatisplus)
+├── ruoyi-framework/      # 框架配置 (security, shiro, config, websocket)
+├── ruoyi-system/         # RuoYi 标准模块 (user/role/menu/dict domain)
+├── ruoyi-quartz/         # 定时任务 (RuoYi job scheduler)
+├── ruoyi-openliststrm/   # ★ 核心业务 (16个子包: strm/sync/tg/rename/monitor...)
+├── openlist-web/         # Vue 3 前端 (Vite + Pinia + Element Plus + PWA)
+├── Dockerfile.backend    # Java 25 JRE + --enable-preview
+├── Dockerfile.frontend   # Node 20 build → Nginx Alpine
+├── docker-compose.yml    # MySQL 8.0 + backend + frontend
+└── nginx.conf            # SPA + API proxy + WebSocket proxy
 ```
 
 ## WHERE TO LOOK
-| 任务 | 位置 |
-|------|------|
-| 启动入口 | `ruoyi-admin/src/main/java/com/ruoyi/RuoYiApplication.java` |
-| Shiro 安全配置 | `ruoyi-framework/src/main/java/com/ruoyi/framework/config/ShiroConfig.java` |
-| Druid 数据源 | `ruoyi-framework/src/main/java/com/ruoyi/framework/config/DruidConfig.java` |
-| MyBatis/MyBatis-Plus | `ruoyi-framework/src/main/java/com/ruoyi/framework/config/MyBatisConfig.java` + `MybatisPlusConfig.java` |
-| 核心业务 API | `ruoyi-openliststrm/src/main/java/com/ruoyi/openliststrm/controller/api/` |
-| Helper 工具层 | `ruoyi-openliststrm/src/main/java/com/ruoyi/openliststrm/helper/` |
-| 文件监控 | `ruoyi-openliststrm/src/main/java/com/ruoyi/openliststrm/monitor/` |
-| 前端 API 调用 | `openlist-web/src/api/openlist/` |
-| 前端视图 | `openlist-web/src/views/` + `openlist-web/src/views-mobile/` |
-| 数据库脚本 | `ruoyi-common/src/main/resources/sql/` |
-| Mapper XML | `ruoyi-system/src/main/resources/mapper/system/` + `ruoyi-openliststrm/src/main/resources/mapper/mybatisplus/` |
+| 任务 | 位置 | 备注 |
+|------|------|------|
+| STRM 生成 | `ruoyi-openliststrm/src/main/java/com/ruoyi/openliststrm/` | task/, helper/, tmdb/, rename/ |
+| 文件夹同步 | `ruoyi-openliststrm/src/main/java/com/ruoyi/openliststrm/` | api/, upload/, service/ |
+| Telegram Bot | `ruoyi-openliststrm/src/main/java/com/ruoyi/openliststrm/tg/` | bot commands & handlers |
+| 定时任务 | `ruoyi-openliststrm/src/main/java/com/ruoyi/openliststrm/task/` + `ruoyi-quartz/` | 自定义 task + RuoYi job |
+| 安全/认证 | `ruoyi-framework/src/main/java/com/ruoyi/framework/security/` + `shiro/` | Shiro + JWT |
+| 第三方回调 | `ruoyi-openliststrm/src/main/java/com/ruoyi/openliststrm/controller/` | 开放 API 端点 |
+| 前端页面 | `openlist-web/src/views/` + `views-mobile/` | PC + 移动端 |
+| 前端 API 层 | `openlist-web/src/api/` | axios 封装 + 模块 API |
+| 前端路由 | `openlist-web/src/router/index.ts` | 动态路由 |
+| 前端状态 | `openlist-web/src/stores/` | Pinia (app, user, permission) |
+| DB 脚本 | `ruoyi-common/src/main/resources/sql/` | 初始化 + 升级脚本 |
+| MyBatis Mapper | `ruoyi-system/src/main/resources/mapper/system/` + `ruoyi-openliststrm/src/main/resources/mapper/mybatisplus/` | XML 映射 |
 
 ## CONVENTIONS
-- **包命名**: `com.ruoyi.{module}.{layer}` — layer 为 controller/service/impl/mapper/domain
-- **双 ORM**: MyBatis XML（ruoyi-system） + MyBatis-Plus（ruoyi-openliststrm），按模块隔离
-- **API 风格**: RESTful 控制器统一放在 `controller/api/` 子包
-- **配置管理**: 开发配置在 `config/application.yml`，Docker 环境变量注入
-- **前端路由**: 桌面端 `views/` + 移动端 `views-mobile/` 双端适配
-- **Telegram Bot**: 使用 telegrambots-abilities 框架，通过 TgHelper 集成
+- **包命名**: `com.ruoyi.{module}.{layer}` — controller/service/mapper/domain 分层
+- **OpenList-strm 模块**: 按功能域分包 (tg/, tmdb/, rename/, helper/, monitor/, mybatisplus/)
+- **MyBatis-Plus**: `ruoyi-openliststrm` 使用 MP 风格 (BaseMapper + IService)，`ruoyi-system` 使用传统 XML Mapper
+- **Shiro + JWT**: 无状态认证，Shiro 管理权限，JWT 传递 token
+- **Java 25 Preview**: 编译/运行带 `--enable-preview` (虚拟线程/结构化并发)
+- **FastJSON2**: 统一使用 FastJSON2 做 JSON 序列化
+- **密码加密**: 使用 Cipher 加密存储敏感配置 (DB_PASSWORD 等)
+- **前端**: unplugin-auto-import + unplugin-vue-components 自动导入，`@` 指向 `src/`
 
 ## ANTI-PATTERNS
-- 不要混用 MyBatis XML 和 MyBatis-Plus 于同一模块
-- Excel 导出统一用 `ExcelUtil`（`ruoyi-common/utils/poi/`），不要手写 CSV
-- 密码加密使用项目自定义加密工具，不要引入新加密库
-- Docker 部署时 DB_HOST 必须为 `mysql`（compose 服务名）
+- 不要在 `ruoyi-system` 中新增业务模块 (那是 RuoYi 标准系统管理)
+- 业务逻辑全部放在 `ruoyi-openliststrm` 中
+- 不要在 Controller 中写业务逻辑，Service 层处理
+- MyBatis-Plus 模块使用 `@TableName` + `BaseMapper`，不要混用 XML Mapper
+- Java 25 preview 特性仅用于业务代码，框架配置不依赖 preview API
 
 ## COMMANDS
 ```bash
-# 后端
-mvn clean package -DskipTests          # 构建
-java -jar ruoyi-admin/target/ruoyi-admin.jar  # 启动（默认端口 16895）
+# 后端构建
+mvn clean package -DskipTests
 
-# 前端
-cd openlist-web && npm run dev         # 开发
-cd openlist-web && npm run build       # 生产构建
-cd openlist-web && npm run test:e2e    # E2E 测试（Playwright）
+# 前端构建
+cd openlist-web && npm run build
 
-# Docker
-docker-compose up -d                   # 全栈启动
-docker-compose down                    # 全栈停止
+# Docker 部署
+docker compose up -d --build
 
-# CI/CD
-# .github/workflows/docker-publish.yml  — Docker Hub 推送
+# 前端开发
+cd openlist-web && npm run dev
+
+# 前端 E2E 测试
+cd openlist-web && npm run test:e2e
 ```
 
 ## NOTES
-- Java 25 需要 Shiro jakarta 版本（`classifier: jakarta`）
-- Spring Boot 4.0.6 使用 Jakarta EE 9+ 命名空间（`javax` → `jakarta`）
+- 打包镜像前需先 `mvn package` 生成 ruoyi-admin.jar
+- 容器内 `/data` 目录挂载宿主机，存放 upload/logs/strm 文件
+- MySQL 默认数据库名 `osr`，连接信息通过 `.env` 注入
 - 数据库初始化由 `com.ruoyi.common.mybatisplus.MysqlDdl` 自动执行（ruoyi-common/src/main/resources/sql/）
-- 文件路径配置 `ruoyi.profile` 在 Windows 用 `D:/`，Linux 用 `/data/`
-- 大文件：`ExcelUtil.java` (1928行) 是最大工具类
+- 后端端口 6895，前端 Nginx 端口 80
+- API 路径统一 `/api/` 前缀，Nginx 代理到后端
+- WebSocket 路径 `/websocket/`，超时 86400s (长连接)
