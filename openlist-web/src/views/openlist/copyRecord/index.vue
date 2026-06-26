@@ -20,6 +20,7 @@
             <el-option label="处理中" value="1" />
             <el-option label="失败" value="2" />
             <el-option label="成功" value="3" />
+            <el-option label="未知" value="4" />
           </el-select>
         </el-form-item>
         <el-form-item label="创建时间">
