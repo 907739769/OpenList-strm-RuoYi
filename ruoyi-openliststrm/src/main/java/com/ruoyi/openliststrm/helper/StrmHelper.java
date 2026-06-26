@@ -18,13 +18,23 @@ public class StrmHelper {
     public void addStrm(String strmPath, String strmFileName, String status) {
         AsyncManager.me().execute(() -> {
             try {
+                OpenlistStrmPlus existing = openlistStrmPlusService.getOne(
+                        new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<OpenlistStrmPlus>()
+                                .eq(OpenlistStrmPlus::getStrmPath, strmPath)
+                                .eq(OpenlistStrmPlus::getStrmFileName, strmFileName)
+                                .in(OpenlistStrmPlus::getStrmStatus, "0", "1")
+                );
                 OpenlistStrmPlus strm = new OpenlistStrmPlus();
                 strm.setStrmPath(strmPath);
                 strm.setStrmFileName(strmFileName);
                 strm.setStrmStatus(status);
-                openlistStrmPlusService.save(strm);
+                if (existing != null) {
+                    strm.setStrmId(existing.getStrmId());
+                    openlistStrmPlusService.updateById(strm);
+                } else {
+                    openlistStrmPlusService.save(strm);
+                }
             } catch (MybatisPlusException e) {
-                // 唯一索引冲突 = 记录已存在，静默忽略
                 if (e.getMessage() != null && e.getMessage().contains("Duplicate entry")) {
                     log.debug("Strm record already exists: path={}, fileName={}", strmPath, strmFileName);
                 } else {

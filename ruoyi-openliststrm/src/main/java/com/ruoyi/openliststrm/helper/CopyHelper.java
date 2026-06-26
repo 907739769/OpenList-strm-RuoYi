@@ -19,9 +19,20 @@ public class CopyHelper {
     public void addCopy(OpenlistCopyPlus openlistCopyPlus) {
         AsyncManager.me().execute(() -> {
             try {
-                openlistCopyPlusService.save(openlistCopyPlus);
+                OpenlistCopyPlus existing = openlistCopyPlusService.getOne(
+                        new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<OpenlistCopyPlus>()
+                                .eq(OpenlistCopyPlus::getCopySrcPath, openlistCopyPlus.getCopySrcPath())
+                                .eq(OpenlistCopyPlus::getCopySrcFileName, openlistCopyPlus.getCopySrcFileName())
+                                .in(OpenlistCopyPlus::getCopyStatus, "1", "2", "3")
+                );
+                if (existing != null) {
+                    openlistCopyPlus.setCopyId(existing.getCopyId());
+                    openlistCopyPlus.setCopyTaskId(existing.getCopyTaskId());
+                    openlistCopyPlusService.updateById(openlistCopyPlus);
+                } else {
+                    openlistCopyPlusService.save(openlistCopyPlus);
+                }
             } catch (MybatisPlusException e) {
-                // 唯一索引冲突 = 记录已存在，静默忽略
                 if (e.getMessage() != null && e.getMessage().contains("Duplicate entry")) {
                     log.debug("Copy record already exists: path={}, fileName={}",
                             openlistCopyPlus.getCopySrcPath(), openlistCopyPlus.getCopySrcFileName());
