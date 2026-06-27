@@ -15,62 +15,35 @@ env:
   DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
   IMAGE_NAME: openlist-strm-ruoyi
 
-# 判断哪些组件需要构建
 jobs:
   detect-changes:
     runs-on: ubuntu-latest
     outputs:
-      backend: ${{ steps.set-output.outputs.backend }}
-      frontend: ${{ steps.set-output.outputs.frontend }}
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    permissions:
+      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Detect changes
-        id: set-output
-        run: |
-          # 获取变更文件列表
-          if [ "${{ github.event_name }}" == "pull_request" ]; then
-            BASE_SHA=${{ github.event.pull_request.base.sha }}
-            HEAD_SHA=${{ github.event.pull_request.head.sha }}
-          else
-            BASE_SHA=${{ github.event.before }}
-            HEAD_SHA=${{ github.sha }}
-          fi
-          
-          # 检测后端变更
-          BACKEND_FILES=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- \
-            "ruoyi-*/**" \
-            ".github/workflows/docker-publish.yml" \
-            "Dockerfile.backend" \
-            "pom.xml" \
-            "mvnw" \
-            ".java-version" \
-            "Jenkinsfile" 2>/dev/null || echo "")
-          
-          if [ -n "$BACKEND_FILES" ]; then
-            echo "Backend files changed:"
-            echo "$BACKEND_FILES"
-            echo "backend=true" >> $GITHUB_OUTPUT
-          else
-            echo "No backend changes detected"
-            echo "backend=false" >> $GITHUB_OUTPUT
-          fi
-          
-          # 检测前端变更
-          FRONTEND_FILES=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- \
-            "openlist-web/**" \
-            ".github/workflows/docker-publish.yml" \
-            "Dockerfile.frontend" 2>/dev/null || echo "")
-          
-          if [ -n "$FRONTEND_FILES" ]; then
-            echo "Frontend files changed:"
-            echo "$FRONTEND_FILES"
-            echo "frontend=true" >> $GITHUB_OUTPUT
-          else
-            echo "No frontend changes detected"
-            echo "frontend=false" >> $GITHUB_OUTPUT
-          fi
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'ruoyi-*/**'
+              - 'pom.xml'
+              - 'mvnw'
+              - 'Dockerfile.backend'
+              - '.github/workflows/docker-publish.yml'
+            frontend:
+              - 'openlist-web/**'
+              - 'Dockerfile.frontend'
+              - '.github/workflows/docker-publish.yml'
 
   build-backend:
     needs: detect-changes

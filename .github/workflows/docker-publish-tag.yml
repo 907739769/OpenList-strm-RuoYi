@@ -14,8 +14,10 @@ jobs:
   detect-changes:
     runs-on: ubuntu-latest
     outputs:
-      backend: ${{ steps.set-output.outputs.backend }}
-      frontend: ${{ steps.set-output.outputs.frontend }}
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    permissions:
+      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -23,52 +25,24 @@ jobs:
           fetch-depth: 0
 
       - name: Detect changes from previous tag
-        id: set-output
-        run: |
-          # 获取当前 tag 和上一个 tag
-          CURRENT_TAG=${GITHUB_REF#refs/tags/}
-          PREV_TAG=$(git tag --sort=-version:refname | head -n 1)
-          
-          # 如果是第一个 tag，使用首次提交
-          if [ "$PREV_TAG" = "$CURRENT_TAG" ]; then
-            PREV_TAG=$(git rev-list --max-parents=0 HEAD)
-          fi
-          
-          echo "Comparing: $PREV_TAG...$CURRENT_TAG"
-          
-          # 检测后端变更
-          BACKEND_FILES=$(git diff --name-only "$PREV_TAG" "$CURRENT_TAG" -- \
-            "ruoyi-*/**" \
-            ".github/workflows/docker-publish-tag.yml" \
-            "Dockerfile.backend" \
-            "pom.xml" \
-            "mvnw" \
-            ".java-version" \
-            "Jenkinsfile" 2>/dev/null || echo "")
-          
-          if [ -n "$BACKEND_FILES" ]; then
-            echo "Backend files changed:"
-            echo "$BACKEND_FILES"
-            echo "backend=true" >> $GITHUB_OUTPUT
-          else
-            echo "No backend changes detected"
-            echo "backend=false" >> $GITHUB_OUTPUT
-          fi
-          
-          # 检测前端变更
-          FRONTEND_FILES=$(git diff --name-only "$PREV_TAG" "$CURRENT_TAG" -- \
-            "openlist-web/**" \
-            ".github/workflows/docker-publish-tag.yml" \
-            "Dockerfile.frontend" 2>/dev/null || echo "")
-          
-          if [ -n "$FRONTEND_FILES" ]; then
-            echo "Frontend files changed:"
-            echo "$FRONTEND_FILES"
-            echo "frontend=true" >> $GITHUB_OUTPUT
-          else
-            echo "No frontend changes detected"
-            echo "frontend=false" >> $GITHUB_OUTPUT
-          fi
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          # tag 场景下对比上一个 tag 到当前 commit
+          predicates:
+            - from: ref
+              to: head
+          filters: |
+            backend:
+              - 'ruoyi-*/**'
+              - 'pom.xml'
+              - 'mvnw'
+              - 'Dockerfile.backend'
+              - '.github/workflows/docker-publish-tag.yml'
+            frontend:
+              - 'openlist-web/**'
+              - 'Dockerfile.frontend'
+              - '.github/workflows/docker-publish-tag.yml'
 
   build-backend:
     needs: detect-changes
