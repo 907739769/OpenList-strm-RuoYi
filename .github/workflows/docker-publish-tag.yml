@@ -28,10 +28,7 @@ jobs:
         uses: dorny/paths-filter@v3
         id: filter
         with:
-          # tag 场景下对比上一个 tag 到当前 commit
-          predicates:
-            - from: ref
-              to: head
+          # tag 推送时默认对比上一个 tag 到当前 commit
           filters: |
             backend:
               - 'ruoyi-*/**'
