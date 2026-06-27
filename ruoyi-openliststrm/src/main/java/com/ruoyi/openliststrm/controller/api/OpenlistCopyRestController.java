@@ -211,6 +211,19 @@ public class OpenlistCopyRestController extends BaseController
             {
                 wrapper.eq(OpenlistCopyPlus::getCopyStatus, openlistCopy.getCopyStatus());
             }
+            if (openlistCopy.getParams() != null)
+            {
+                String beginTime = (String) openlistCopy.getParams().get("beginTime");
+                String endTime = (String) openlistCopy.getParams().get("endTime");
+                if (beginTime != null && !beginTime.isEmpty())
+                {
+                    wrapper.ge(OpenlistCopyPlus::getCreateTime, beginTime);
+                }
+                if (endTime != null && !endTime.isEmpty())
+                {
+                    wrapper.le(OpenlistCopyPlus::getCreateTime, endTime);
+                }
+            }
         }
         wrapper.last("ORDER BY create_time DESC");
         return wrapper;

@@ -153,6 +153,19 @@ public class OpenlistStrmRestController extends BaseController
             {
                 wrapper.eq("strm_status", openlistStrm.getStrmStatus());
             }
+            if (openlistStrm.getParams() != null)
+            {
+                String beginTime = (String) openlistStrm.getParams().get("beginTime");
+                String endTime = (String) openlistStrm.getParams().get("endTime");
+                if (StringUtils.isNotEmpty(beginTime))
+                {
+                    wrapper.ge("create_time", beginTime);
+                }
+                if (StringUtils.isNotEmpty(endTime))
+                {
+                    wrapper.le("create_time", endTime);
+                }
+            }
         }
         wrapper.orderByDesc("create_time");
         return wrapper;

@@ -215,6 +215,19 @@ public class RenameDetailRestController extends BaseController
             {
                 wrapper.eq("status", renameDetail.getStatus());
             }
+            if (renameDetail.getParams() != null)
+            {
+                String beginTime = (String) renameDetail.getParams().get("beginTime");
+                String endTime = (String) renameDetail.getParams().get("endTime");
+                if (StringUtils.isNotEmpty(beginTime))
+                {
+                    wrapper.ge("create_time", beginTime);
+                }
+                if (StringUtils.isNotEmpty(endTime))
+                {
+                    wrapper.le("create_time", endTime);
+                }
+            }
         }
         wrapper.orderByDesc("create_time");
         return wrapper;

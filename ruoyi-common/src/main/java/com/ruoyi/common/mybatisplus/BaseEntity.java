@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.annotation.TableField;
 import lombok.Data;
 
 import java.io.Serializable;
+import java.util.Map;
 
 /**
  * @Author Jack
@@ -19,5 +20,8 @@ public class BaseEntity implements Serializable {
 
     @TableField(fill = FieldFill.INSERT_UPDATE)
     private String updateTime;
+
+    @TableField(exist = false)
+    private Map<String, Object> params;
 
 }
