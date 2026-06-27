@@ -1,2 +1,2 @@
-ALTER TABLE `openlist_copy`
+ALTER TABLE `openlist_strm`
     drop INDEX `idx_path_name`;
