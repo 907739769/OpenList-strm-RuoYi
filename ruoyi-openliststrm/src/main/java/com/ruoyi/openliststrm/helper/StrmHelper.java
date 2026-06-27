@@ -22,7 +22,6 @@ public class StrmHelper {
                         new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<OpenlistStrmPlus>()
                                 .eq(OpenlistStrmPlus::getStrmPath, strmPath)
                                 .eq(OpenlistStrmPlus::getStrmFileName, strmFileName)
-                                .in(OpenlistStrmPlus::getStrmStatus, "0", "1")
                 );
                 OpenlistStrmPlus strm = new OpenlistStrmPlus();
                 strm.setStrmPath(strmPath);

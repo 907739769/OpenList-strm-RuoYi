@@ -23,11 +23,9 @@ public class CopyHelper {
                         new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<OpenlistCopyPlus>()
                                 .eq(OpenlistCopyPlus::getCopySrcPath, openlistCopyPlus.getCopySrcPath())
                                 .eq(OpenlistCopyPlus::getCopySrcFileName, openlistCopyPlus.getCopySrcFileName())
-                                .in(OpenlistCopyPlus::getCopyStatus, "1", "2", "3")
                 );
                 if (existing != null) {
                     openlistCopyPlus.setCopyId(existing.getCopyId());
-                    openlistCopyPlus.setCopyTaskId(existing.getCopyTaskId());
                     openlistCopyPlusService.updateById(openlistCopyPlus);
                 } else {
                     openlistCopyPlusService.save(openlistCopyPlus);
