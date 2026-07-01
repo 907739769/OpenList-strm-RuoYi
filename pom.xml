@@ -18,7 +18,6 @@
         <java.version>25</java.version>
         <maven-jar-plugin.version>3.1.1</maven-jar-plugin.version>
         <spring-boot.version>4.0.6</spring-boot.version>
-        <shiro.version>2.0.0</shiro.version>
         <druid.version>1.2.23</druid.version>
         <yauaa.version>7.32.0</yauaa.version>
         <fastjson2.version>2.0.62</fastjson2.version>
@@ -50,30 +49,6 @@
                 <groupId>com.alibaba</groupId>
                 <artifactId>druid</artifactId>
                 <version>${druid.version}</version>
-            </dependency>
-
-            <!-- Shiro Core (Jakarta EE 9+ compatible) -->
-            <dependency>
-                <groupId>org.apache.shiro</groupId>
-                <artifactId>shiro-core</artifactId>
-                <version>${shiro.version}</version>
-                <classifier>jakarta</classifier>
-            </dependency>
-
-            <!-- Shiro Web (Jakarta EE 9+ compatible) -->
-            <dependency>
-                <groupId>org.apache.shiro</groupId>
-                <artifactId>shiro-web</artifactId>
-                <version>${shiro.version}</version>
-                <classifier>jakarta</classifier>
-            </dependency>
-
-            <!-- Shiro Spring (Jakarta EE 9+ compatible) -->
-            <dependency>
-                <groupId>org.apache.shiro</groupId>
-                <artifactId>shiro-spring</artifactId>
-                <version>${shiro.version}</version>
-                <classifier>jakarta</classifier>
             </dependency>
 
             <!-- 解析客户端操作系统、浏览器等 -->

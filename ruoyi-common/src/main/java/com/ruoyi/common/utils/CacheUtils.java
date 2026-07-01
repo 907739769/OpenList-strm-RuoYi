@@ -1,15 +1,15 @@
 package com.ruoyi.common.utils;
 
-import java.util.Iterator;
-import java.util.Set;
-import org.apache.shiro.cache.Cache;
-import org.apache.shiro.cache.CacheManager;
+import com.ruoyi.common.utils.spring.SpringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import com.ruoyi.common.utils.spring.SpringUtils;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
+
+import java.util.Set;
 
 /**
- * Cache工具类
+ * Cache工具类（Spring Cache）
  * 
  * @author ruoyi
  */
@@ -19,7 +19,7 @@ public class CacheUtils
 
     private static CacheManager cacheManager = SpringUtils.getBean(CacheManager.class);
 
-    private static final String SYS_CACHE = "sys-cache";
+    private static final String SYS_CACHE = "sysCache";
 
     /**
      * 获取SYS_CACHE缓存
@@ -74,9 +74,12 @@ public class CacheUtils
      * @param key
      * @return
      */
+    @SuppressWarnings("unchecked")
     public static Object get(String cacheName, String key)
     {
-        return getCache(cacheName).get(getKey(key));
+        Cache cache = getCache(cacheName);
+        Cache.ValueWrapper wrapper = cache.get(key);
+        return wrapper != null ? wrapper.get() : null;
     }
 
     /**
@@ -89,7 +92,7 @@ public class CacheUtils
      */
     public static Object get(String cacheName, String key, Object defaultValue)
     {
-        Object value = get(cacheName, getKey(key));
+        Object value = get(cacheName, key);
         return value != null ? value : defaultValue;
     }
 
@@ -102,7 +105,7 @@ public class CacheUtils
      */
     public static void put(String cacheName, String key, Object value)
     {
-        getCache(cacheName).put(getKey(key), value);
+        getCache(cacheName).put(key, value);
     }
 
     /**
@@ -113,7 +116,7 @@ public class CacheUtils
      */
     public static void remove(String cacheName, String key)
     {
-        getCache(cacheName).remove(getKey(key));
+        getCache(cacheName).evict(key);
     }
 
     /**
@@ -123,13 +126,9 @@ public class CacheUtils
      */
     public static void removeAll(String cacheName)
     {
-        Cache<String, Object> cache = getCache(cacheName);
-        Set<String> keys = cache.keys();
-        for (Iterator<String> it = keys.iterator(); it.hasNext();)
-        {
-            cache.remove(it.next());
-        }
-        logger.info("清理缓存： {} => {}", cacheName, keys);
+        Cache cache = getCache(cacheName);
+        cache.clear();
+        logger.info("清理缓存：{}", cacheName);
     }
 
     /**
@@ -150,9 +149,9 @@ public class CacheUtils
      */
     public static void removeByKeys(String cacheName, Set<String> keys)
     {
-        for (Iterator<String> it = keys.iterator(); it.hasNext();)
+        for (String key : keys)
         {
-            remove(it.next());
+            remove(key);
         }
         logger.info("清理缓存： {} => {}", cacheName, keys);
     }
@@ -174,12 +173,12 @@ public class CacheUtils
      * @param cacheName
      * @return
      */
-    public static Cache<String, Object> getCache(String cacheName)
+    public static Cache getCache(String cacheName)
     {
-        Cache<String, Object> cache = cacheManager.getCache(cacheName);
+        Cache cache = cacheManager.getCache(cacheName);
         if (cache == null)
         {
-            throw new RuntimeException("当前系统中没有定义“" + cacheName + "”这个缓存。");
+            throw new RuntimeException("当前系统中没有定义" + cacheName + "这个缓存。");
         }
         return cache;
     }

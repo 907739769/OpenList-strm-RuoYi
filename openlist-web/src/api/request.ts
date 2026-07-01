@@ -42,7 +42,11 @@ service.interceptors.response.use(
     }
   },
   async (error) => {
-    if (error.response?.status === 401 || error.response?.status === 302) {
+    const status = error.response?.status
+    // 401=JWT过期, 403=Shiro未认证(前端JWT filter静默放行后Shiro拦截), 302=重定向
+    const isAuthError = status === 401 || status === 403 || status === 302
+
+    if (isAuthError) {
       const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean }
 
       if (originalRequest._retry) {
@@ -92,6 +96,9 @@ service.interceptors.response.use(
         originalRequest.headers.Authorization = `Bearer ${data.token}`
         return service(originalRequest)
       } catch (refreshError) {
+        // 刷新失败：清空队列（所有排队请求将随登录跳转一起丢弃）
+        retryQueue = []
+
         const userStore = useUserStore()
         userStore.clearToken()
         ElMessage.error('登录已过期，请重新登录')

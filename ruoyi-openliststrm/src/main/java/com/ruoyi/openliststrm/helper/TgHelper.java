@@ -3,9 +3,6 @@ package com.ruoyi.openliststrm.helper;
 import com.ruoyi.common.utils.spring.SpringUtils;
 import com.ruoyi.openliststrm.config.OpenlistConfig;
 import com.ruoyi.openliststrm.tg.TgSendMsg;
-import org.apache.shiro.cache.CacheManager;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
 
 /**
  * @Author Jack

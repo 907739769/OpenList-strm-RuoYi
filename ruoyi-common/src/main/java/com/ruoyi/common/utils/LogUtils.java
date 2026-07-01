@@ -4,10 +4,10 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.Map;
 import jakarta.servlet.http.HttpServletRequest;
-import org.apache.shiro.SecurityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.ruoyi.common.json.JSON;
+import com.ruoyi.common.utils.CurrentUserContext;
 
 /**
  * 处理并记录日志文件
@@ -120,7 +120,8 @@ public class LogUtils
 
     protected static String getUsername()
     {
-        return (String) SecurityUtils.getSubject().getPrincipal();
+        Object principal = CurrentUserContext.getCurrentUser();
+        return principal != null ? principal.toString() : "anonymous";
     }
 
     public static Logger getAccessLog()

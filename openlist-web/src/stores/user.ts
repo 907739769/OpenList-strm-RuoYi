@@ -26,14 +26,14 @@ export const useUserStore = defineStore('user', () => {
   const permissions = ref<string[]>([])
   const routes = ref<MenuRoute[]>([])
 
-  const setToken = (newToken: string) => {
+  const setToken = (newToken: string, expires = 7) => {
     token.value = newToken
-    Cookies.set('token', newToken, { expires: 7 })
+    Cookies.set('token', newToken, { expires })
   }
 
-  const setRefreshToken = (newRefreshToken: string) => {
+  const setRefreshToken = (newRefreshToken: string, expires = 7) => {
     refreshToken.value = newRefreshToken
-    Cookies.set('refreshToken', newRefreshToken, { expires: 7 })
+    Cookies.set('refreshToken', newRefreshToken, { expires })
   }
 
   const clearToken = () => {
@@ -59,8 +59,9 @@ export const useUserStore = defineStore('user', () => {
 
   const login = async (loginForm: LoginRequest) => {
     const data = await loginApi(loginForm) as LoginResponse
-    setToken(data.token)
-    setRefreshToken(data.refreshToken)
+    const expires = loginForm.rememberMe ? 30 : 7
+    setToken(data.token, expires)
+    setRefreshToken(data.refreshToken, expires)
     userInfo.value = {
       userId: data.userId,
       loginName: data.loginName,

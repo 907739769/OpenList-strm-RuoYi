@@ -1,33 +1,31 @@
 package com.ruoyi.web.controller.api.system;
 
 import com.ruoyi.common.config.JwtConfigProperties;
+import com.ruoyi.common.constant.Constants;
+import com.ruoyi.common.constant.UserConstants;
 import com.ruoyi.common.core.domain.JwtTokenDto;
 import com.ruoyi.common.core.domain.Result;
 import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.entity.SysMenu;
 import com.ruoyi.common.core.domain.entity.SysUser;
-import com.ruoyi.common.utils.JwtTokenUtil;
-import com.ruoyi.common.utils.ServletUtils;
-import com.ruoyi.common.utils.StringUtils;
-import com.ruoyi.framework.shiro.service.SysLoginService;
-import com.ruoyi.framework.shiro.service.SysPasswordService;
-import com.ruoyi.framework.shiro.service.SysRegisterService;
+import com.ruoyi.common.utils.*;
+import com.ruoyi.framework.manager.AsyncManager;
+import com.ruoyi.framework.manager.factory.AsyncFactory;
+import com.ruoyi.common.annotation.Anonymous;
 import com.ruoyi.system.service.ISysConfigService;
 import com.ruoyi.system.service.ISysMenuService;
 import com.ruoyi.system.service.ISysRoleService;
 import com.ruoyi.system.service.ISysUserService;
-import com.ruoyi.common.annotation.Anonymous;
-import com.ruoyi.common.utils.ServletUtils;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
-import org.apache.shiro.web.servlet.SimpleCookie;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.servlet.http.HttpServletResponse;
-import java.io.IOException;
+import java.security.MessageDigest;
+import java.security.SecureRandom;
 import java.util.*;
 
 @RestController
@@ -36,32 +34,8 @@ import java.util.*;
 @CrossOrigin(origins = "*")
 public class AuthApiController extends BaseController {
 
-    @Value("${shiro.rememberMe.enabled: false}")
-    private boolean rememberMeEnabled;
-
-    @Value("${shiro.cookie.domain:}")
-    private String domain;
-
-    @Value("${shiro.cookie.path:/}")
-    private String path;
-
-    @Value("${shiro.cookie.httpOnly:true}")
-    private boolean httpOnly;
-
-    @Value("${shiro.rememberMe.cookie.maxAge:2592000}")
-    private int rememberMeMaxAge;
-
-    @Autowired
-    private SysRegisterService registerService;
-
     @Autowired
     private ISysConfigService sysConfigService;
-
-    @Autowired
-    private SysPasswordService passwordService;
-
-    @Autowired
-    private SysLoginService loginService;
 
     @Autowired
     private ISysRoleService roleService;
@@ -78,18 +52,69 @@ public class AuthApiController extends BaseController {
     @Autowired
     private JwtTokenUtil jwtTokenUtil;
 
+    private static final BCryptPasswordEncoder bcryptEncoder = new BCryptPasswordEncoder();
+    private static final String SALT_CHARS = "0123456789abcdef";
+    private static final SecureRandom RANDOM = new SecureRandom();
+
     @PostMapping("/login")
     public Result<JwtTokenDto> login(@Validated @RequestBody LoginRequest request, HttpServletResponse response) {
-        SysUser user = null;
-        try {
-            user = loginService.login(request.getUsername(), request.getPassword());
-        } catch (Exception e) {
-            String msg = "用户或密码错误";
-            if (StringUtils.isNotEmpty(e.getMessage())) {
-                msg = e.getMessage();
-            }
-            return Result.error(401, msg);
+        String username = request.getUsername();
+        String password = request.getPassword();
+
+        // 用户名或密码为空
+        if (StringUtils.isEmpty(username) || StringUtils.isEmpty(password)) {
+            return Result.error(401, "用户名或密码不能为空");
         }
+
+        // 密码长度校验
+        if (password.length() < UserConstants.PASSWORD_MIN_LENGTH
+                || password.length() > UserConstants.PASSWORD_MAX_LENGTH) {
+            return Result.error(401, "密码长度必须在5到20个字符之间");
+        }
+
+        // 用户名长度校验
+        if (username.length() < UserConstants.USERNAME_MIN_LENGTH
+                || username.length() > UserConstants.USERNAME_MAX_LENGTH) {
+            return Result.error(401, "用户名长度必须在2到20个字符之间");
+        }
+
+        // IP黑名单校验
+        String blackStr = sysConfigService.selectConfigByKey("sys.login.blackIPList");
+        if (StringUtils.isNotEmpty(blackStr)) {
+            String ip = ServletUtils.getRequest() != null ? IpUtils.getIpAddr(ServletUtils.getRequest()) : "0.0.0.0";
+            if (IpUtils.isMatchedIp(blackStr, ip)) {
+                AsyncManager.me().execute(AsyncFactory.recordLogininfor(username, Constants.LOGIN_FAIL, "IP被禁止登录"));
+                return Result.error(403, "您的IP已被禁止登录");
+            }
+        }
+
+        // 查询用户
+        SysUser user = userService.selectUserByLoginName(username);
+        if (user == null) {
+            AsyncManager.me().execute(AsyncFactory.recordLogininfor(username, Constants.LOGIN_FAIL, "用户不存在"));
+            return Result.error(401, "用户不存在");
+        }
+
+        if ("2".equals(user.getDelFlag())) {
+            AsyncManager.me().execute(AsyncFactory.recordLogininfor(username, Constants.LOGIN_FAIL, "账号已被删除"));
+            return Result.error(401, "账号已被删除");
+        }
+
+        if ("1".equals(user.getStatus())) {
+            AsyncManager.me().execute(AsyncFactory.recordLogininfor(username, Constants.LOGIN_FAIL, "账号已被停用"));
+            return Result.error(401, "账号已被停用");
+        }
+
+        // 密码校验
+        if (!matches(user, password)) {
+            AsyncManager.me().execute(AsyncFactory.recordLogininfor(username, Constants.LOGIN_FAIL, "密码错误"));
+            return Result.error(401, "用户名或密码错误");
+        }
+
+        AsyncManager.me().execute(AsyncFactory.recordLogininfor(username, Constants.LOGIN_SUCCESS, MessageUtils.message("user.login.success")));
+        // 更新登录信息（IP + 登录时间）
+        userService.updateLoginInfo(user.getUserId(), IpUtils.getIpAddr(getRequest()), DateUtils.getNowDate());
+
         Map<String, Object> claims = new HashMap<>();
         claims.put("loginName", user.getLoginName());
 
@@ -114,21 +139,10 @@ public class AuthApiController extends BaseController {
         dto.setRefreshToken(refreshToken);
         dto.setRefreshExpireTime(jwtConfig.getRefreshExpiration() + System.currentTimeMillis());
 
-        if (Boolean.TRUE.equals(request.getRememberMe())) {
-            String rememberMeValue = user.getLoginName();
-            SimpleCookie rememberMeCookie = new SimpleCookie("rememberMe");
-            rememberMeCookie.setDomain(domain);
-            rememberMeCookie.setPath(path);
-            rememberMeCookie.setHttpOnly(httpOnly);
-            rememberMeCookie.setMaxAge(rememberMeMaxAge);
-            rememberMeCookie.setValue(rememberMeValue);
-            rememberMeCookie.saveTo(ServletUtils.getRequest(), response);
-        }
-
         return Result.success(dto);
     }
 
-@PostMapping("/logout")
+    @PostMapping("/logout")
     public Result<Void> logout(@RequestHeader(value = "Authorization", required = false) String authHeader, HttpServletResponse response) {
         // 清除 JWT cookie
         jakarta.servlet.http.Cookie[] cookies = ServletUtils.getRequest().getCookies();
@@ -202,7 +216,36 @@ public class AuthApiController extends BaseController {
         if (!("true".equals(sysConfigService.selectConfigByKey("sys.account.registerUser")))) {
             return Result.error(500, "当前系统没有开启注册功能！");
         }
-        String msg = registerService.register(user);
+
+        String loginName = user.getLoginName();
+        String password = user.getPassword();
+        String msg = "";
+
+        if (StringUtils.isEmpty(loginName)) {
+            msg = "用户名不能为空";
+        } else if (StringUtils.isEmpty(password)) {
+            msg = "用户密码不能为空";
+        } else if (password.length() < UserConstants.PASSWORD_MIN_LENGTH
+                || password.length() > UserConstants.PASSWORD_MAX_LENGTH) {
+            msg = "密码长度必须在5到20个字符之间";
+        } else if (loginName.length() < UserConstants.USERNAME_MIN_LENGTH
+                || loginName.length() > UserConstants.USERNAME_MAX_LENGTH) {
+            msg = "账户长度必须在2到20个字符之间";
+        } else if (!userService.checkLoginNameUnique(user)) {
+            msg = "保存用户'" + loginName + "'失败，注册账号已存在";
+        } else {
+            user.setPwdUpdateDate(DateUtils.getNowDate());
+            user.setUserName(loginName);
+            user.setSalt(generateSalt());
+            user.setPassword(encryptPassword(loginName, password, user.getSalt()));
+            boolean regFlag = userService.registerUser(user);
+            if (!regFlag) {
+                msg = "注册失败,请联系系统管理人员";
+            } else {
+                AsyncManager.me().execute(AsyncFactory.recordLogininfor(loginName, Constants.REGISTER, MessageUtils.message("user.register.success")));
+            }
+        }
+
         if (StringUtils.isEmpty(msg)) {
             return Result.success();
         }
@@ -303,7 +346,7 @@ public class AuthApiController extends BaseController {
 
     @PostMapping("/changePassword")
     public Result<Void> changePassword(@RequestBody ChangePasswordRequest request,
-                                       @RequestHeader(value = "Authorization", required = false) String authHeader) {
+                                        @RequestHeader(value = "Authorization", required = false) String authHeader) {
         String token = stripBearer(authHeader);
         String username = jwtTokenUtil.getUsernameFromToken(token);
         if (StringUtils.isEmpty(username)) {
@@ -314,17 +357,64 @@ public class AuthApiController extends BaseController {
             return Result.error(401, "用户不存在");
         }
 
-        if (!passwordService.matches(user, request.getOldPassword())) {
+        if (!matches(user, request.getOldPassword())) {
             return Result.error(400, "旧密码错误");
         }
 
         SysUser update = new SysUser();
         update.setUserId(user.getUserId());
-        update.setPassword(passwordService.encodePassword(request.getNewPassword()));
+        update.setPassword(bcryptEncoder.encode(request.getNewPassword()));
         if (userService.resetUserPwd(update) > 0) {
             return Result.success();
         }
         return Result.error(500, "修改密码失败");
+    }
+
+    // ========== 密码工具方法 ==========
+
+    /**
+     * 密码匹配校验
+     */
+    private boolean matches(SysUser user, String newPassword) {
+        String storedPassword = user.getPassword();
+        // 支持 BCrypt 格式密码
+        if (storedPassword != null && (storedPassword.startsWith("$2a$") || storedPassword.startsWith("$2b$"))) {
+            return bcryptEncoder.matches(newPassword, storedPassword);
+        }
+        // 兼容旧版 MD5+salt 格式
+        return storedPassword.equals(encryptPassword(user.getLoginName(), newPassword, user.getSalt()));
+    }
+
+    /**
+     * 加密密码 (MD5 + salt)
+     */
+    private String encryptPassword(String loginName, String password, String salt) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("MD5");
+            byte[] digest = md.digest((loginName + password + salt).getBytes());
+            return bytesToHex(digest);
+        } catch (Exception e) {
+            throw new RuntimeException("MD5加密失败", e);
+        }
+    }
+
+    private String bytesToHex(byte[] bytes) {
+        StringBuilder sb = new StringBuilder();
+        for (byte b : bytes) {
+            sb.append(String.format("%02x", b));
+        }
+        return sb.toString();
+    }
+
+    /**
+     * 生成随机盐
+     */
+    private String generateSalt() {
+        StringBuilder sb = new StringBuilder(6);
+        for (int i = 0; i < 6; i++) {
+            sb.append(SALT_CHARS.charAt(RANDOM.nextInt(SALT_CHARS.length())));
+        }
+        return sb.toString();
     }
 
     public static class ChangePasswordRequest {

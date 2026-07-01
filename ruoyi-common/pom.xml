@@ -35,13 +35,6 @@
             <artifactId>spring-jdbc</artifactId>
         </dependency>
 
-        <!--Shiro核心框架 (Jakarta EE 9+ compatible) -->
-        <dependency>
-            <groupId>org.apache.shiro</groupId>
-            <artifactId>shiro-core</artifactId>
-            <classifier>jakarta</classifier>
-        </dependency>
-
         <!-- 自定义验证注解 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

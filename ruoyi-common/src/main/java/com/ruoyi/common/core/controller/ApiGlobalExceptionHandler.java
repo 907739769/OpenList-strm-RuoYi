@@ -5,7 +5,6 @@ import java.util.List;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 
-import org.apache.shiro.authz.AuthorizationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -94,17 +93,6 @@ public class ApiGlobalExceptionHandler
                 .findFirst()
                 .orElse("参数校验失败");
         return Result.error(400, message);
-    }
-
-    /**
-     * AuthorizationException 异常 (Shiro)
-     */
-    @ExceptionHandler(AuthorizationException.class)
-    @ResponseStatus(HttpStatus.FORBIDDEN)
-    public Result<Void> handleAuthorizationException(AuthorizationException e)
-    {
-        log.warn("无权限异常: {}", e.getMessage());
-        return Result.error(403, "无权限");
     }
 
     /**

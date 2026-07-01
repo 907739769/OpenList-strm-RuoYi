@@ -85,7 +85,6 @@
     <logger name="com.ruoyi" level="info" />
     <logger name="org.springframework" level="warn" />
     <logger name="org.apache" level="warn" />
-    <logger name="com.ruoyi.framework.shiro.web.session" level="warn" />
     <logger name="com.ruoyi.openliststrm" level="debug" />
     <logger name="com.ruoyi.framework.filter.RequestLogFilter" level="debug" />
 
@@ -115,7 +114,6 @@
         <logger name="com.ruoyi" level="info" />
         <logger name="org.springframework" level="warn" />
         <logger name="org.apache" level="warn" />
-        <logger name="com.ruoyi.framework.shiro.web.session" level="warn" />
         <logger name="com.ruoyi.openliststrm" level="debug" />
 
         <!-- root logger dev 环境 -->

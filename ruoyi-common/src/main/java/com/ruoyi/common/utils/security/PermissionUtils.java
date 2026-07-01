@@ -4,11 +4,10 @@ import java.beans.BeanInfo;
 import java.beans.Introspector;
 import java.beans.PropertyDescriptor;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.shiro.SecurityUtils;
-import org.apache.shiro.subject.Subject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.ruoyi.common.constant.PermissionConstants;
+import com.ruoyi.common.utils.CurrentUserContext;
 import com.ruoyi.common.utils.MessageUtils;
 
 /**
@@ -92,10 +91,9 @@ public class PermissionUtils
      */
     public static Object getPrincipalProperty(String property)
     {
-        Subject subject = SecurityUtils.getSubject();
-        if (subject != null)
+        Object principal = CurrentUserContext.getCurrentUser();
+        if (principal != null)
         {
-            Object principal = subject.getPrincipal();
             try
             {
                 BeanInfo bi = Introspector.getBeanInfo(principal.getClass());

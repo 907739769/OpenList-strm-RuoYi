@@ -19,7 +19,7 @@ import com.ruoyi.common.core.domain.entity.SysUser;
 import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.ExceptionUtil;
-import com.ruoyi.common.utils.ShiroUtils;
+import com.ruoyi.common.utils.CurrentUserContext;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.common.utils.bean.BeanValidators;
 import com.ruoyi.common.utils.html.EscapeUtil;
@@ -451,7 +451,7 @@ public class SysUserServiceImpl implements ISysUserService
     @Override
     public void checkUserDataScope(Long userId)
     {
-        if (!SysUser.isAdmin(ShiroUtils.getUserId()))
+        if (!SysUser.isAdmin(CurrentUserContext.getUserId()))
         {
             SysUser user = new SysUser();
             user.setUserId(userId);

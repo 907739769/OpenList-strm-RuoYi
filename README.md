@@ -1,6 +1,6 @@
 ## 平台简介
 
-基于 [RuoYi-Vue](https://gitee.com/y_project/RuoYi-Vue) 4.8.1 二次开发的影视 STRM 管理系统。技术栈：Java 25 (Spring Boot 4.0.6) + Vue 3 + Element Plus + MyBatis-Plus + Shiro + JWT，Docker 双容器部署。
+基于 [RuoYi-Vue](https://gitee.com/y_project/RuoYi-Vue) 4.8.1 二次开发的影视 STRM 管理系统。技术栈：Java 25 (Spring Boot 4.0.6) + Vue 3 + Element Plus + MyBatis-Plus + JWT，Docker 双容器部署。
 
 ## 内置功能
 
@@ -36,7 +36,7 @@
 
 ### 🔐 系统管理
 - 基于 RuoYi 的用户管理、角色管理、菜单管理、字典管理
-- Shiro + JWT 无状态认证，细粒度权限控制
+- JWT 无状态认证，细粒度权限控制
 - 定时任务管理（RuoYi Quartz），支持 Cron 表达式配置
 
 ## 技术栈
@@ -45,7 +45,7 @@
 |------|------|
 | 后端框架 | Spring Boot 4.0.6 (Java 25, Preview Features) |
 | 前端框架 | Vue 3 + Vite + Pinia + Element Plus + PWA |
-| 认证授权 | Shiro 2.0 + JWT |
+| 认证授权 | JWT |
 | 数据访问 | MyBatis-Plus 3.5.7 + MySQL 8.0 + Druid |
 | JSON | FastJSON2 |
 | 消息通知 | Telegram Bot SDK |

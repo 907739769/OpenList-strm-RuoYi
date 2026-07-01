@@ -23,7 +23,7 @@ import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.utils.CurrentUserService;
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.ServletUtils;
-import com.ruoyi.common.utils.ShiroUtils;
+import com.ruoyi.common.utils.CurrentUserContext;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.common.utils.sql.SqlUtil;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -242,7 +242,7 @@ public class BaseController
      */
     public void setSysUser(SysUser user)
     {
-        ShiroUtils.setSysUser(user);
+        CurrentUserContext.setCurrentUser(user);
     }
 
     /**

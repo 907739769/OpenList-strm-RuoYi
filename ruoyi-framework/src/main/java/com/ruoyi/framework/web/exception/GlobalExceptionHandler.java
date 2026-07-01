@@ -1,7 +1,6 @@
 package com.ruoyi.framework.web.exception;
 
 import jakarta.servlet.http.HttpServletRequest;
-import org.apache.shiro.authz.AuthorizationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.validation.BindException;
@@ -28,24 +27,6 @@ import com.ruoyi.common.utils.security.PermissionUtils;
 public class GlobalExceptionHandler
 {
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
-
-    /**
-     * 权限校验异常（ajax请求返回json，redirect请求跳转页面）
-     */
-    @ExceptionHandler(AuthorizationException.class)
-    public Object handleAuthorizationException(AuthorizationException e, HttpServletRequest request)
-    {
-        String requestURI = request.getRequestURI();
-        log.error("请求地址'{}',权限校验失败'{}'", requestURI, e.getMessage());
-        if (ServletUtils.isAjaxRequest(request))
-        {
-            return AjaxResult.error(PermissionUtils.getMsg(e.getMessage()));
-        }
-        else
-        {
-            return new ModelAndView("error/unauth");
-        }
-    }
 
     /**
      * 请求方式不支持

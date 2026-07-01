@@ -14,7 +14,7 @@ import com.ruoyi.common.core.domain.entity.SysRole;
 import com.ruoyi.common.core.domain.entity.SysUser;
 import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.exception.ServiceException;
-import com.ruoyi.common.utils.ShiroUtils;
+import com.ruoyi.common.utils.CurrentUserContext;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.common.utils.spring.SpringUtils;
 import com.ruoyi.system.domain.SysRoleDept;
@@ -329,7 +329,7 @@ public class SysRoleServiceImpl implements ISysRoleService
     @Override
     public void checkRoleDataScope(Long... roleIds)
     {
-        if (!SysUser.isAdmin(ShiroUtils.getUserId()))
+        if (!SysUser.isAdmin(CurrentUserContext.getUserId()))
         {
             for (Long roleId : roleIds)
             {

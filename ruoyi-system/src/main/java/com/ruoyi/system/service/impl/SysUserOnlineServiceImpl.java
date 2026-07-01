@@ -1,14 +1,12 @@
 package com.ruoyi.system.service.impl;
 
-import com.ruoyi.common.constant.ShiroConstants;
+import com.ruoyi.common.utils.CacheUtils;
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.common.utils.spring.SpringUtils;
 import com.ruoyi.system.domain.SysUserOnline;
 import com.ruoyi.system.mapper.SysUserOnlineMapper;
 import com.ruoyi.system.service.ISysUserOnlineService;
-import org.apache.shiro.cache.Cache;
-import org.apache.shiro.cache.CacheManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -16,6 +14,8 @@ import java.io.Serializable;
 import java.util.Date;
 import java.util.Deque;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 /**
  * 在线用户 服务层处理
@@ -25,6 +25,8 @@ import java.util.List;
 @Service
 public class SysUserOnlineServiceImpl implements ISysUserOnlineService
 {
+    private static final ConcurrentMap<String, Deque<Serializable>> SYS_USER_CACHE = new ConcurrentHashMap<>();
+
     @Autowired
     private SysUserOnlineMapper userOnlineDao;
 
@@ -117,10 +119,8 @@ public class SysUserOnlineServiceImpl implements ISysUserOnlineService
     @Override
     public void removeUserCache(String loginName, String sessionId)
     {
-        CacheManager cacheManager = SpringUtils.getBean(CacheManager.class);
-        Cache<String, Deque<Serializable>> cache = cacheManager.getCache(ShiroConstants.SYS_USERCACHE);
-        Deque<Serializable> deque = cache.get(loginName);
-        if (StringUtils.isEmpty(deque) || deque.size() == 0)
+        Deque<Serializable> deque = SYS_USER_CACHE.get(loginName);
+        if (deque == null || deque.isEmpty())
         {
             return;
         }

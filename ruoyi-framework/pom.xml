@@ -48,27 +48,6 @@
             <version>${druid.version}</version>
         </dependency>
 
-        <!-- Shiro Core (Jakarta EE 9+ compatible) -->
-        <dependency>
-            <groupId>org.apache.shiro</groupId>
-            <artifactId>shiro-core</artifactId>
-            <classifier>jakarta</classifier>
-        </dependency>
-
-        <!-- Shiro Web (Jakarta EE 9+ compatible) -->
-        <dependency>
-            <groupId>org.apache.shiro</groupId>
-            <artifactId>shiro-web</artifactId>
-            <classifier>jakarta</classifier>
-        </dependency>
-
-        <!-- Shiro Spring (Jakarta EE 9+ compatible) -->
-        <dependency>
-            <groupId>org.apache.shiro</groupId>
-            <artifactId>shiro-spring</artifactId>
-            <classifier>jakarta</classifier>
-        </dependency>
-
         <!-- 系统模块-->
         <dependency>
             <groupId>com.ruoyi</groupId>
