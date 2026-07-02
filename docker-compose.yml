@@ -38,11 +38,10 @@ services:
     env_file:
       - .env
     environment:
-      SPRING_PROFILES_ACTIVE: druid
       DB_HOST: mysql
       DB_PORT: 3306
       DB_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      CIPHER_KEY: ${CIPHER_KEY}
+      JWT_SECRET: ${JWT_SECRET}
       TZ: Asia/Shanghai
     depends_on:
       mysql:

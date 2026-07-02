@@ -116,6 +116,6 @@ csrf:
 
 # JWT配置
 jwt:
-  secret: mySecretKeyMustBeAtLeast256BitsLongForHS256Algorithm
+  secret: ${JWT_SECRET}
   expiration: 7200000
   refresh-expiration: 604800000
