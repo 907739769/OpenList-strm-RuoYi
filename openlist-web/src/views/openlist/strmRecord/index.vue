@@ -79,7 +79,7 @@
         <el-table-column label="操作" align="center" width="260" fixed="right">
           <template #default="scope">
             <el-button link type="primary" @click="handleRetryOne(scope.row)">
-              <el-icon><Refresh /></el-icon> 重试生成
+              <el-icon><Refresh /></el-icon> 重试
             </el-button>
             <el-button link type="warning" @click="handleRemoveNetDiskOne(scope.row)">
               <el-icon><Download /></el-icon> 删除网盘源文件

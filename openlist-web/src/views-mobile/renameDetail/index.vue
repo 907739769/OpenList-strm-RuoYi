@@ -222,7 +222,7 @@
       </template>
     </el-dialog>
 
-    <!-- Retry Dialog -->
+    <!-- Edit & Rename Dialog -->
     <el-dialog v-model="retryDialogVisible" title="重试重命名" width="85%" @close="handleRetryClose">
       <el-form ref="retryFormRef" :model="retryForm" :rules="retryRules" label-width="60px">
         <el-form-item label="标题" prop="title">
@@ -230,6 +230,12 @@
         </el-form-item>
         <el-form-item label="年份" prop="year">
           <el-input v-model="retryForm.year" placeholder="留空则使用原值" maxlength="4" clearable />
+        </el-form-item>
+        <el-form-item label="季" prop="season" v-if="retryForm.mediaType === 'tv'">
+          <el-input v-model="retryForm.season" placeholder="如 01" maxlength="4" clearable />
+        </el-form-item>
+        <el-form-item label="集" prop="episode" v-if="retryForm.mediaType === 'tv'">
+          <el-input v-model="retryForm.episode" placeholder="如 05" maxlength="6" clearable />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -269,14 +275,16 @@ const fullTextVisible = ref(false)
 const fullTextTitle = ref('')
 const fullTextContent = ref('')
 
-// Retry dialog
+// Edit & Rename dialog
 const retryDialogVisible = ref(false)
 const retryLoading = ref(false)
 const retryFormRef = ref<FormInstance>()
-const retryForm = reactive({ id: 0, title: '', year: '' })
+const retryForm = reactive({ id: 0, title: '', year: '', season: '', episode: '', mediaType: '' })
 const retryRules = reactive<FormRules>({
   title: [{ max: 100, message: '最多 100 个字符', trigger: 'blur' }],
-  year: [{ pattern: /^\d{0,4}$/, message: '年份为 4 位数字', trigger: 'blur' }]
+  year: [{ pattern: /^\d{0,4}$/, message: '年份为 4 位数字', trigger: 'blur' }],
+  season: [{ pattern: /^\d{1,2}$/, message: '季为 1-2 位数字', trigger: 'blur' }],
+  episode: [{ pattern: /^\d{1,4}$/, message: '集为 1-4 位数字', trigger: 'blur' }]
 })
 
 const showFullText = (content: string, title: string) => {
@@ -391,6 +399,9 @@ const handleRetryOne = (row: any) => {
   retryForm.id = row.id
   retryForm.title = row.title || ''
   retryForm.year = row.year || ''
+  retryForm.season = row.season || ''
+  retryForm.episode = row.episode || ''
+  retryForm.mediaType = row.mediaType || ''
   retryDialogVisible.value = true
 }
 
@@ -402,12 +413,12 @@ const handleRetrySubmit = async () => {
   await retryFormRef.value?.validate()
   retryLoading.value = true
   try {
-    await executeRenameDetailApi([retryForm.id], retryForm.title || undefined, retryForm.year || undefined)
-    ElMessage.success('重试成功')
+    await executeRenameDetailApi([retryForm.id], retryForm.title || undefined, retryForm.year || undefined, retryForm.season || undefined, retryForm.episode || undefined)
+    ElMessage.success('编辑并重命名成功')
     retryDialogVisible.value = false
     getList()
   } catch (error: any) {
-    ElMessage.error(error.message || '重试失败')
+    ElMessage.error(error.message || '操作失败')
   } finally {
     retryLoading.value = false
   }

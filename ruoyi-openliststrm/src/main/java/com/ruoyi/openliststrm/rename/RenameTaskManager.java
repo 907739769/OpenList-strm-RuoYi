@@ -67,7 +67,7 @@ public class RenameTaskManager {
         MDC.clear();
     }
 
-    public void executeRenameDetails(Integer id, String title, String year) {
+    public void executeRenameDetails(Integer id, String title, String year, String season, String episode) {
         RenameDetailPlus rd = renameDetailService.getById(id);
         if (rd == null) {
             log.warn("Rename task not found: {}", id);
@@ -86,6 +86,7 @@ public class RenameTaskManager {
         }
         tgt = target.toString();
 
+        // 用户留空则传空字符串，由 MediaParser 从文件名重新识别；手动填写则覆盖
         MediaRenameProcessor processor = new MediaRenameProcessor(
                 Paths.get(tgt),
                 clientProvider,
@@ -93,13 +94,16 @@ public class RenameTaskManager {
                 config,
                 listenerFactory.create(id)
         );
-        processor.handleOneFile(Paths.get(rd.getOriginalPath()).resolve(rd.getOriginalName()), StringUtils.isNotBlank(title) ? title : rd.getTitle(), StringUtils.isNotBlank(year) ? year : rd.getYear(), rd.getSeason(), rd.getEpisode());
+        processor.handleOneFile(Paths.get(rd.getOriginalPath()).resolve(rd.getOriginalName()),
+                StringUtils.isNotBlank(title) ? title : null,
+                StringUtils.isNotBlank(year) ? year : null,
+                season, episode);
     }
 
-    public void executeRenameDetailsBatch(List<Integer> ids, String title, String year) {
+    public void executeRenameDetailsBatch(List<Integer> ids, String title, String year, String season, String episode) {
         if (ids == null || ids.isEmpty()) return;
         for (Integer id : ids) {
-            executeRenameDetails(id, title, year);
+            executeRenameDetails(id, title, year, season, episode);
         }
     }
 

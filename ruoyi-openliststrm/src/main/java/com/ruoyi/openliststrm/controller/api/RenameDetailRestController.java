@@ -140,14 +140,16 @@ public class RenameDetailRestController extends BaseController
     @PostMapping("/execute/{id}")
     public Result<Void> execute(@PathVariable("id") Integer id,
                                 @RequestParam(value = "title", required = false) String title,
-                                @RequestParam(value = "year", required = false) String year)
+                                @RequestParam(value = "year", required = false) String year,
+                                @RequestParam(value = "season", required = false) String season,
+                                @RequestParam(value = "episode", required = false) String episode)
     {
         if (id == null)
         {
             return Result.error("id 为空");
         }
-        logger.info("开始执行重命名明细，ID：{}", id);
-        AsyncManager.me().execute(() -> renameTaskManager.executeRenameDetails(id, title, year));
+        logger.info("开始执行重命名明细，ID：{}，title={}，year={}，season={}，episode={}", id, title, year, season, episode);
+        AsyncManager.me().execute(() -> renameTaskManager.executeRenameDetails(id, title, year, season, episode));
         return Result.success();
     }
 
@@ -157,7 +159,9 @@ public class RenameDetailRestController extends BaseController
     @PostMapping("/execute")
     public Result<Void> batchExecute(@RequestParam("ids") String ids,
                                      @RequestParam(value = "title", required = false) String title,
-                                     @RequestParam(value = "year", required = false) String year)
+                                     @RequestParam(value = "year", required = false) String year,
+                                     @RequestParam(value = "season", required = false) String season,
+                                     @RequestParam(value = "episode", required = false) String episode)
     {
         if (ids == null || ids.trim().isEmpty())
         {
@@ -166,11 +170,13 @@ public class RenameDetailRestController extends BaseController
         List<Integer> idList = Arrays.stream(ids.split(",")).map(String::trim).filter(s -> !s.isEmpty()).map(Integer::parseInt).collect(Collectors.toList());
         for (Integer id : idList)
         {
-            logger.info("开始执行重命名明细，ID：{}", id);
+            logger.info("开始执行重命名明细，ID：{}，title={}，year={}，season={}，episode={}", id, title, year, season, episode);
             final int detailId = id;
             final String t = title;
             final String y = year;
-            AsyncManager.me().execute(() -> renameTaskManager.executeRenameDetails(detailId, t, y));
+            final String s = season;
+            final String e = episode;
+            AsyncManager.me().execute(() -> renameTaskManager.executeRenameDetails(detailId, t, y, s, e));
         }
         return Result.success();
     }
