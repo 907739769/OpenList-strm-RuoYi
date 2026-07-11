@@ -262,4 +262,16 @@ router.afterEach(() => {
   NProgress.done()
 })
 
+// 兜底拦截：旧版 JS Chunk 已失效时强制硬刷新，避免登录页卡死
+router.onError((error, to) => {
+  if (
+    error.message.includes('Failed to fetch dynamically imported module') ||
+    error.message.includes('Importing a module script failed') ||
+    error.name === 'ChunkLoadError'
+  ) {
+    console.warn('[router] 检测到旧资源失效，强制刷新页面...')
+    window.location.href = to.fullPath
+  }
+})
+
 export default router

@@ -19,7 +19,8 @@ export default defineConfig({
       dts: 'src/components.d.ts'
     }),
     VitePWA({
-      registerType: 'autoUpdate',
+      // 使用 prompt 模式，避免后台静默更新导致旧资源失效后页面卡死
+      registerType: 'prompt',
       includeAssets: ['favicon.svg', 'favicon.ico', 'favicon-16x16.png', 'favicon-32x32.png', 'robots.txt'],
       manifest: {
         name: 'OpenList-strm-RuoYi',
@@ -46,8 +47,6 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         cleanupOutdatedCaches: true,
-        skipWaiting: true,
-        clientsClaim: true,
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
