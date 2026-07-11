@@ -124,4 +124,16 @@ public class RenameDetailPlus extends BaseEntity {
      */
     @TableField("status")
     private String status;
+
+    /**
+     * 刮削状态 0-未执行 1-成功 2-失败
+     */
+    @TableField("scrape_status")
+    private String scrapeStatus;
+
+    /**
+     * 刮削失败原因
+     */
+    @TableField("scrape_msg")
+    private String scrapeMsg;
 }

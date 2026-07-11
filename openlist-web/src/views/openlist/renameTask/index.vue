@@ -156,6 +156,16 @@
             <el-radio value="1">启用</el-radio>
           </el-radio-group>
         </el-form-item>
+        <el-divider content-position="left">刮削配置</el-divider>
+        <el-form-item label="启用刮削" prop="scrapeEnabled">
+          <el-switch v-model="form.scrapeEnabled" active-value="1" inactive-value="0" />
+        </el-form-item>
+        <el-form-item label="生成NFO" prop="scrapeNfo" v-if="form.scrapeEnabled === '1'">
+          <el-switch v-model="form.scrapeNfo" active-value="1" inactive-value="0" />
+        </el-form-item>
+        <el-form-item label="下载图片" prop="scrapeImages" v-if="form.scrapeEnabled === '1'">
+          <el-switch v-model="form.scrapeImages" active-value="1" inactive-value="0" />
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="open = false">取 消</el-button>
@@ -240,7 +250,10 @@ const initForm = (): any => ({
   id: undefined,
   sourceFolder: undefined,
   targetRoot: undefined,
-  status: '1'
+  status: '1',
+  scrapeEnabled: '0',
+  scrapeNfo: '0',
+  scrapeImages: '0'
 })
 
 const form = ref<any>(initForm())

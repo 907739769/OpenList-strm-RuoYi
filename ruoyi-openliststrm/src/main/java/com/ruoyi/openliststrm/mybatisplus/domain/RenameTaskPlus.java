@@ -46,4 +46,22 @@ public class RenameTaskPlus extends BaseEntity {
      */
     @TableField("status")
     private String status;
+
+    /**
+     * 是否启用刮削 0-否 1-是
+     */
+    @TableField("scrape_enabled")
+    private String scrapeEnabled;
+
+    /**
+     * 是否生成NFO 0-否 1-是
+     */
+    @TableField("scrape_nfo")
+    private String scrapeNfo;
+
+    /**
+     * 是否下载图片 0-否 1-是
+     */
+    @TableField("scrape_images")
+    private String scrapeImages;
 }

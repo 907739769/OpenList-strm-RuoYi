@@ -56,6 +56,9 @@
           <el-button type="info" :disabled="multiple" @click="handleBatchExecute()">
             <el-icon><Refresh /></el-icon> 批量执行
           </el-button>
+          <el-button type="warning" :disabled="multiple" @click="handleBatchScrape()">
+            <el-icon><Refresh /></el-icon> 批量刮削
+          </el-button>
         </div>
         <el-button text @click="showSearch = !showSearch">
           <el-icon><Filter /></el-icon>
@@ -101,9 +104,20 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="创建时间" prop="createTime" width="170" align="center" />
-        <el-table-column label="操作" align="center" width="260" fixed="right">
+        <el-table-column label="刮削" prop="scrapeStatus" width="90" align="center">
           <template #default="scope">
+            <el-tag v-if="scope.row.scrapeStatus === '1'" type="success" size="small">成功</el-tag>
+            <el-tag v-else-if="scope.row.scrapeStatus === '2'" type="danger" size="small">失败</el-tag>
+            <el-tag v-else-if="scope.row.scrapeStatus === '0'" type="info" size="small">未执行</el-tag>
+            <span v-else class="scrape-none">-</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="创建时间" prop="createTime" width="170" align="center" />
+        <el-table-column label="操作" align="center" width="320" fixed="right">
+          <template #default="scope">
+            <el-button link type="primary" @click="handleScrapeOne(scope.row)">
+              <el-icon><Refresh /></el-icon> 刮削
+            </el-button>
             <el-button link type="primary" @click="handleRetryOne(scope.row)">
               <el-icon><Refresh /></el-icon> 重试
             </el-button>
@@ -123,9 +137,14 @@
               <el-icon class="mobile-rename-arrow" :size="14"><ArrowRight /></el-icon>
               <span class="mobile-rename-new" :title="item.newName">{{ item.newName }}</span>
             </div>
-            <el-tag size="small" :type="item.status === '0' ? 'danger' : 'success'">
-              {{ item.status === '0' ? '失败' : '成功' }}
-            </el-tag>
+            <div class="mobile-status-row">
+              <el-tag size="small" :type="item.status === '0' ? 'danger' : 'success'">
+                {{ item.status === '0' ? '失败' : '成功' }}
+              </el-tag>
+              <el-tag v-if="item.scrapeStatus === '1'" type="success" size="small" class="scrape-tag">NFO</el-tag>
+              <el-tag v-else-if="item.scrapeStatus === '2'" type="danger" size="small" class="scrape-tag">刮削失败</el-tag>
+              <el-tag v-else-if="item.scrapeStatus === '0'" type="info" size="small" class="scrape-tag">未刮削</el-tag>
+            </div>
           </div>
           <div class="mobile-card-body">
             <div class="mobile-card-row">
@@ -196,7 +215,7 @@ import { ref, reactive } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { Search, Refresh, Delete, Filter, ArrowRight } from '@element-plus/icons-vue'
-import { getRenameDetailListApi, executeRenameDetailApi, batchDeleteRenameDetailApi } from '@/api/openlist/renameDetail'
+import { getRenameDetailListApi, executeRenameDetailApi, batchDeleteRenameDetailApi, scrapeRenameDetailApi, batchScrapeRenameDetailApi } from '@/api/openlist/renameDetail'
 import { useAppStore } from '@/stores/app'
 import type { SearchParams, PageResult } from '@/types'
 
@@ -278,6 +297,24 @@ const handleBatchExecute = async () => {
     await ElMessageBox.confirm(`是否确认批量执行选中的重命名详情？`, '警告', { type: 'warning' })
     await executeRenameDetailApi(selectedIds.value)
     ElMessage.success('批量执行成功')
+    getList()
+  } catch (e) { if (e !== 'cancel') console.error(e) }
+}
+
+const handleScrapeOne = async (row: any) => {
+  try {
+    await ElMessageBox.confirm(`是否确认对"${row.newName}"执行刮削？`, '警告', { type: 'info' })
+    await scrapeRenameDetailApi(row.id)
+    ElMessage.success('刮削已启动')
+    getList()
+  } catch (e) { if (e !== 'cancel') console.error(e) }
+}
+
+const handleBatchScrape = async () => {
+  try {
+    await ElMessageBox.confirm(`是否确认批量刮削选中的重命名详情？`, '警告', { type: 'info' })
+    await batchScrapeRenameDetailApi(selectedIds.value)
+    ElMessage.success('批量刮削已启动')
     getList()
   } catch (e) { if (e !== 'cancel') console.error(e) }
 }
@@ -461,6 +498,25 @@ getList()
       color: var(--osr-text-disabled);
     }
   }
+}
+
+/* ============================================
+   Scrape Status
+   ============================================ */
+.scrape-none {
+  color: var(--osr-text-placeholder);
+  font-size: 13px;
+}
+
+.scrape-tag {
+  margin-left: 4px;
+  font-size: 11px;
+}
+
+.mobile-status-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 /* ============================================

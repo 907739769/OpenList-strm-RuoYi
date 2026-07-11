@@ -9,11 +9,24 @@ import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.framework.manager.AsyncManager;
 import com.ruoyi.openliststrm.enums.StrmStatusEnum;
 import com.ruoyi.openliststrm.mybatisplus.domain.RenameDetailPlus;
+import com.ruoyi.openliststrm.mybatisplus.domain.RenameTaskPlus;
 import com.ruoyi.openliststrm.mybatisplus.service.IRenameDetailPlusService;
+import com.ruoyi.openliststrm.mybatisplus.service.IRenameTaskPlusService;
 import com.ruoyi.openliststrm.rename.RenameTaskManager;
+import com.ruoyi.openliststrm.scrape.ScrapeService;
+import com.ruoyi.openliststrm.rename.model.MediaInfo;
+import com.ruoyi.openliststrm.rename.MediaParser;
+import com.ruoyi.openliststrm.rename.RenameClientProvider;
+import com.ruoyi.openliststrm.config.OpenlistConfig;
+import com.ruoyi.openliststrm.helper.OpenListHelper;
+import com.ruoyi.openliststrm.rename.RenameEventListener;
+import com.ruoyi.openliststrm.monitor.processor.MediaRenameProcessor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -35,6 +48,21 @@ public class RenameDetailRestController extends BaseController
 
     @Autowired
     private IRenameDetailPlusService renameDetailPlusService;
+
+    @Autowired
+    private IRenameTaskPlusService renameTaskPlusService;
+
+    @Autowired
+    private ScrapeService scrapeService;
+
+    @Autowired
+    private RenameClientProvider clientProvider;
+
+    @Autowired
+    private OpenListHelper openListHelper;
+
+    @Autowired
+    private OpenlistConfig config;
 
     /**
      * 查询重命名明细列表（分页）- 支持 /rename-details 和 /rename-details/list
@@ -177,6 +205,79 @@ public class RenameDetailRestController extends BaseController
             final String s = season;
             final String e = episode;
             AsyncManager.me().execute(() -> renameTaskManager.executeRenameDetails(detailId, t, y, s, e));
+        }
+        return Result.success();
+    }
+
+    /**
+     * 重新刮削单条记录（默认全部刮削：NFO+图片）
+     */
+    @PostMapping("/scrape/{id}")
+    public Result<Void> scrape(@PathVariable("id") Integer id)
+    {
+        if (id == null)
+        {
+            return Result.error("ID 为空");
+        }
+        RenameDetailPlus detail = renameDetailPlusService.getById(id);
+        if (detail == null)
+        {
+            return Result.error("重命名明细不存在");
+        }
+        logger.info("开始重新刮削（全部），ID：{}", id);
+        final int detailId = id;
+        final String newName = detail.getNewName();
+        final String mediaType = detail.getMediaType();
+        
+        AsyncManager.me().execute(() -> {
+            try {
+                // 解析媒体信息
+                MediaParser parser = new MediaParser(clientProvider.tmdb(), clientProvider.openAI());
+                MediaInfo info = parser.parse(newName);
+                
+                // 查找目标文件
+                Path destFile = Paths.get(detail.getNewPath(), newName);
+                Path outputDir = destFile.getParent();
+                
+                // 默认全部刮削：NFO + 图片
+                scrapeService.scrapeAsync(
+                        detailId, info, mediaType, destFile, outputDir,
+                        "1", "1", "1"
+                );
+                
+                logger.info("刮削任务已启动，ID：{}", id);
+            } catch (Exception e) {
+                logger.error("刮削失败，ID：{}", id, e);
+            }
+        });
+        return Result.success();
+    }
+
+    /**
+     * 批量重新刮削
+     */
+    @PostMapping("/scrape")
+    public Result<Void> batchScrape(@RequestParam("ids") String ids)
+    {
+        if (ids == null || ids.trim().isEmpty())
+        {
+            return Result.error("请选择要刮削的记录");
+        }
+        List<Integer> idList = Arrays.stream(ids.split(",")).map(String::trim).filter(s -> !s.isEmpty()).map(Integer::parseInt).collect(Collectors.toList());
+        for (Integer id : idList)
+        {
+            logger.info("开始批量刮削，ID：{}", id);
+            final int detailId = id;
+            AsyncManager.me().execute(() -> {
+                try {
+                    RenameDetailPlus detail = renameDetailPlusService.getById(detailId);
+                    if (detail != null) {
+                        scrape(detail.getId());
+                    }
+                } catch (Exception e) {
+                    logger.error("批量刮削失败，ID：{}", detailId, e);
+                }
+            });
         }
         return Result.success();
     }

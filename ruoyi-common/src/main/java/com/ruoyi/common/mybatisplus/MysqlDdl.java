@@ -34,7 +34,8 @@ public class MysqlDdl extends SimpleDdl {
                 "sql/20260511-cleanup-unused-dicts.sql",
                 "sql/20260514-fix-password-column-length.sql",
                 "sql/20260626-expand-release-group.sql",
-                "sql/20260626-delindex.sql"
+                "sql/20260626-delindex.sql",
+                "sql/20260711-add-scrape-fields.sql"
         );
     }
 }

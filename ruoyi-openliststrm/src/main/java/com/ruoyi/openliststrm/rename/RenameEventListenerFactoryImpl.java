@@ -5,7 +5,6 @@ import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.openliststrm.mybatisplus.domain.RenameDetailPlus;
 import com.ruoyi.openliststrm.mybatisplus.service.IRenameDetailPlusService;
 import com.ruoyi.openliststrm.rename.model.MediaInfo;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -34,8 +33,8 @@ public class RenameEventListenerFactoryImpl implements RenameEventListenerFactor
         return new RenameEventListener() {
 
             @Override
-            public void onRename(Path original, Path dest, MediaInfo info, String mediaType) {
-                persistSuccess(taskId, original, dest, info, mediaType);
+            public Integer onRename(Path original, Path dest, MediaInfo info, String mediaType) {
+                return persistSuccess(taskId, original, dest, info, mediaType);
             }
 
             @Override
@@ -45,7 +44,7 @@ public class RenameEventListenerFactoryImpl implements RenameEventListenerFactor
         };
     }
 
-    private void persistSuccess(Integer taskId, Path original, Path dest,
+    private Integer persistSuccess(Integer taskId, Path original, Path dest,
                                 MediaInfo info, String mediaType) {
         try {
             String originalDir = original != null && original.getParent() != null
@@ -75,9 +74,11 @@ public class RenameEventListenerFactoryImpl implements RenameEventListenerFactor
 
             saveOrUpdate(record);
             log.debug("Persist rename success task={} {} -> {}", taskId, original, dest);
+            return record.getId();
         } catch (Exception e) {
             log.error("Persist rename success failed", e);
         }
+        return null;
     }
 
     private void persistFailed(Integer taskId, Path original, Path targetRoot,

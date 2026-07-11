@@ -95,4 +95,10 @@ public class OpenlistConfig {
 //        return sysConfigService.selectConfigByKey("openlist.api.refresh");
     }
 
+    // TMDb图片语言偏好 (默认: zh)
+    public String getTmdbImageLanguage() {
+        return "zh";
+//        return sysConfigService.selectConfigByKey("openlist.tmdb.image.language");
+    }
+
 }

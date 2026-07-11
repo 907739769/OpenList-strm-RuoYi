@@ -25,15 +25,31 @@ public class RenameMonitorRegistry {
         final FileMonitorCoordinator service;
         final String source;
         final String target;
+        final String scrapeEnabled;
+        final String scrapeNfo;
+        final String scrapeImages;
 
-        MonitorInfo(FileMonitorCoordinator service, String source, String target) {
+        MonitorInfo(FileMonitorCoordinator service, String source, String target,
+                    String scrapeEnabled, String scrapeNfo, String scrapeImages) {
             this.service = service;
             this.source = source;
             this.target = target;
+            this.scrapeEnabled = scrapeEnabled;
+            this.scrapeNfo = scrapeNfo;
+            this.scrapeImages = scrapeImages;
         }
 
         boolean changed(RenameTaskPlus t) {
-            return !source.equals(t.getSourceFolder()) || !target.equals(t.getTargetRoot());
+            String src = t.getSourceFolder();
+            String tgt = t.getTargetRoot();
+            String sEnabled = t.getScrapeEnabled() != null ? t.getScrapeEnabled() : "0";
+            String sNfo = t.getScrapeNfo() != null ? t.getScrapeNfo() : "0";
+            String sImages = t.getScrapeImages() != null ? t.getScrapeImages() : "0";
+            return !source.equals(src)
+                    || !target.equals(tgt)
+                    || !scrapeEnabled.equals(sEnabled)
+                    || !scrapeNfo.equals(sNfo)
+                    || !scrapeImages.equals(sImages);
         }
     }
 
@@ -104,7 +120,14 @@ public class RenameMonitorRegistry {
                     processor
             );
             svc.start();
-            monitors.put(task.getId(), new MonitorInfo(svc, task.getSourceFolder(), task.getTargetRoot()));
+            monitors.put(task.getId(), new MonitorInfo(
+                    svc,
+                    task.getSourceFolder(),
+                    task.getTargetRoot(),
+                    task.getScrapeEnabled() != null ? task.getScrapeEnabled() : "0",
+                    task.getScrapeNfo() != null ? task.getScrapeNfo() : "0",
+                    task.getScrapeImages() != null ? task.getScrapeImages() : "0"
+            ));
             log.info("Started monitor for rename task {}", task.getId());
         } catch (
                 Exception e) {

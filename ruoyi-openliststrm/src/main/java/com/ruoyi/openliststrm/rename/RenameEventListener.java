@@ -16,7 +16,7 @@ public interface RenameEventListener {
      * @param info      parsed MediaInfo for the file
      * @param mediaType "movie" or "tv"
      */
-    void onRename(Path original, Path dest, MediaInfo info, String mediaType);
+    Integer onRename(Path original, Path dest, MediaInfo info, String mediaType);
 
     /**
      * Called when a file is NOT processed because of a failure (e.g. tmdbId not found).

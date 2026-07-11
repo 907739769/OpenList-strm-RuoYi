@@ -5,12 +5,15 @@ import com.ruoyi.common.utils.spring.SpringUtils;
 import com.ruoyi.openliststrm.config.OpenlistConfig;
 import com.ruoyi.openliststrm.helper.OpenListHelper;
 import com.ruoyi.openliststrm.mybatisplus.domain.RenameDetailPlus;
+import com.ruoyi.openliststrm.mybatisplus.domain.RenameTaskPlus;
 import com.ruoyi.openliststrm.mybatisplus.service.IRenameDetailPlusService;
+import com.ruoyi.openliststrm.mybatisplus.service.IRenameTaskPlusService;
 import com.ruoyi.openliststrm.rename.CategoryRule;
 import com.ruoyi.openliststrm.rename.MediaParser;
 import com.ruoyi.openliststrm.rename.RenameClientProvider;
 import com.ruoyi.openliststrm.rename.RenameEventListener;
 import com.ruoyi.openliststrm.rename.model.MediaInfo;
+import com.ruoyi.openliststrm.scrape.ScrapeService;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -38,6 +41,8 @@ public class MediaRenameProcessor implements FileProcessor {
     private final long minFileSizeBytes;
 
     private final RenameClientProvider clientProvider;
+    private final IRenameTaskPlusService taskService;
+    private ScrapeService scrapeService;
 
     private static final Map<String, List<CategoryRule>> rules = defaultRules();
     private static final String DEFAULT_FILENAME_TEMPLATE = "{{ title }} {% if year %} ({{ year }}) {% endif %}/{% if season %}Season {{ season }}/{% endif %}{{ title }} {% if year and not season %} ({{ year }}) {% endif %}{% if season %}S{{ season }}{% endif %}{% if episode %}E{{ episode }}{% endif %}{% if resolution %} - {{ resolution }}{% endif %}{% if source %}.{{ source }}{% endif %}{% if videoCodec %}.{{ videoCodec }}{% endif %}{% if audioCodec %}.{{ audioCodec }}{% endif %}{% if tags is not empty %}.{{ tags|join('.') }}{% endif %}{% if releaseGroup %}-{{ releaseGroup }}{% endif %}.{{ extension }}";
@@ -63,6 +68,8 @@ public class MediaRenameProcessor implements FileProcessor {
                         .map(v -> Long.parseLong(v) * 1024 * 1024)
                         .orElse(10 * 1024 * 1024L);
         this.clientProvider = clientProvider;
+        this.taskService = SpringUtils.getBean(IRenameTaskPlusService.class);
+        this.scrapeService = SpringUtils.getBean(ScrapeService.class);
     }
 
     @Override
@@ -264,14 +271,55 @@ public class MediaRenameProcessor implements FileProcessor {
         FILE_LOCKS.remove(lockKey, lock);
 
         // notify listener if present
+        Integer detailId = null;
         if (renameListener != null) {
             try {
-                renameListener.onRename(p, destFile, info, mediaType);
+                detailId = renameListener.onRename(p, destFile, info, mediaType);
             } catch (Exception e) {
                 log.warn("renameListener failed: {}", e.getMessage());
             }
         }
 
+        // 异步刮削：NFO + 图片
+        try {
+            scrapeAsyncFile(destFile, info, mediaType, finalDestDir, detailId);
+        } catch (Exception e) {
+            log.warn("启动刮削失败: {}", e.getMessage());
+        }
+
+    }
+
+    /**
+     * 异步触发刮削（NFO + 图片下载）。
+     * 从任务配置中读取 scrape 开关。
+     */
+    private void scrapeAsyncFile(Path destFile, MediaInfo info, String mediaType, Path outputDir, Integer detailId) {
+        try {
+            // 直接使用 processor 的 targetRoot 字段查询对应的任务配置
+            String targetRootPath = targetRoot.toString().replaceAll("/+$", "");
+            RenameTaskPlus task = taskService.getOne(
+                    new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<RenameTaskPlus>()
+                            .eq(RenameTaskPlus::getTargetRoot, targetRootPath)
+                            .last("LIMIT 1")
+            );
+            if (task == null) {
+                log.warn("未找到 targetRoot={} 对应的重命名任务，跳过刮削", targetRootPath);
+                return;
+            }
+
+            // 检查刮削配置：只有启用了刮削才执行
+            if (!"1".equals(task.getScrapeEnabled())) {
+                log.debug("任务 {} 未启用刮削，跳过", task.getId());
+                return;
+            }
+
+            scrapeService.scrapeAsync(
+                    detailId, info, mediaType, destFile, outputDir,
+                    task.getScrapeEnabled(), task.getScrapeNfo(), task.getScrapeImages()
+            );
+        } catch (Exception e) {
+            log.warn("查询任务配置失败: {}", e.getMessage());
+        }
     }
 
     private String sanitizeForPath(String s) {

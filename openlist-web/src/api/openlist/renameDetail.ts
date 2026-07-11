@@ -17,3 +17,11 @@ export function executeRenameDetailApi(detailIds: number[], title?: string, year
   if (episode) params.episode = episode
   return request.post('/openliststrm/rename-details/execute', null, { params })
 }
+
+export function scrapeRenameDetailApi(detailId: number) {
+  return request.post(`/openliststrm/rename-details/scrape/${detailId}`)
+}
+
+export function batchScrapeRenameDetailApi(detailIds: number[]) {
+  return request.post('/openliststrm/rename-details/scrape', null, { params: { ids: detailIds.join(',') } })
+}
