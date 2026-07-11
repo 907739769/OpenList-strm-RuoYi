@@ -23,7 +23,7 @@ export default defineConfig({
       includeAssets: ['favicon.svg', 'favicon.ico', 'favicon-16x16.png', 'favicon-32x32.png', 'robots.txt'],
       manifest: {
         name: 'OpenList-strm-RuoYi',
-        short_name: 'OpenList',
+        short_name: 'OSR',
         description: 'OpenList STRM Management System',
         theme_color: '#409EFF',
         background_color: '#ffffff',
