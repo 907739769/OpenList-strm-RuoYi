@@ -91,17 +91,34 @@ public class TMDbApiService {
      * 获取剧集图片（TV 专用）
      * 接口: GET /tv/{id}/images
      * 返回: { posters: [...], backdrops: [...], logos: [...], stills: [...] }
+     * include_image_language: zh,en,null - 返回中文、英文、无语言标签的图片
      */
     @Cacheable(value = "tmdbTvImages", key = "#p2 + ':' + #p3", unless = "#result == null")
     public String getTvImages(String apiKey, int tvId) {
         HttpUrl url = Objects.requireNonNull(HttpUrl.parse(BASE + "/tv/" + tvId + "/images"))
                 .newBuilder()
                 .addQueryParameter("api_key", apiKey)
-                .addQueryParameter("language", LANGUAGE)
-                .addQueryParameter("include_image_language", LANGUAGE + ",en,null")
+                .addQueryParameter("include_image_language", "zh,en,null")
                 .build();
         Request req = new Request.Builder().url(url).get().build();
         return executeAndReturnString(req, "getTvImages");
+    }
+
+    /**
+     * 获取电影图片（Movie 专用）
+     * 接口: GET /movie/{id}/images
+     * 返回: { posters: [...], backdrops: [...], logos: [...], stills: [...] }
+     * include_image_language: zh,en,null - 返回中文、英文、无语言标签的图片
+     */
+    @Cacheable(value = "tmdbMovieImages", key = "#p2 + ':' + #p3", unless = "#result == null")
+    public String getMovieImages(String apiKey, int movieId) {
+        HttpUrl url = Objects.requireNonNull(HttpUrl.parse(BASE + "/movie/" + movieId + "/images"))
+                .newBuilder()
+                .addQueryParameter("api_key", apiKey)
+                .addQueryParameter("include_image_language", "zh,en,null")
+                .build();
+        Request req = new Request.Builder().url(url).get().build();
+        return executeAndReturnString(req, "getMovieImages");
     }
 
     // --- 抽取公共的 HTTP 执行逻辑 ---

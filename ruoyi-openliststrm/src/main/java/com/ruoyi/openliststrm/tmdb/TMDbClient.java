@@ -240,6 +240,22 @@ public class TMDbClient {
                     if (pc.has("iso_3166_1")) info.getOriginCountries().add(pc.get("iso_3166_1").asText());
                 }
             }
+
+            // Movie: 额外获取 images 数据 (posters, backdrops, logos)
+            try {
+                String imagesJson = api.getMovieImages(apiKey, id);
+                if (imagesJson != null) {
+                    JsonNode images = mapper.readTree(imagesJson);
+                    info.getMetadata().put("images", images);
+                    log.debug("获取电影 images 成功: movieId={}, posters={}, backdrops={}, logos={}",
+                            id,
+                            images.path("posters").size(),
+                            images.path("backdrops").size(),
+                            images.path("logos").size());
+                }
+            } catch (Exception e) {
+                log.warn("获取电影 images 失败: movieId={}, error={}", id, e.getMessage());
+            }
         }
     }
 

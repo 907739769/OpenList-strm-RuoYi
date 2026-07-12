@@ -1,6 +1,8 @@
 package com.ruoyi.openliststrm.scrape;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.openliststrm.config.OpenlistConfig;
 import com.ruoyi.openliststrm.rename.model.MediaInfo;
@@ -39,10 +41,27 @@ public class MediaImageDownloader {
 
     /**
      * 下载电影图片: poster.jpg, fanart.jpg, clearlogo.png
+     * 合并 details 和 images 数据到一个节点中，方便统一处理
      */
     public void downloadMovieImages(MediaInfo info, Path outputDir, boolean forceOverwrite) {
         JsonNode details = getDetails(info);
         if (details == null) return;
+
+        // 合并 images 数据到 details 中
+        JsonNode imagesNode = getImagesFromMetadata(info);
+        if (imagesNode != null) {
+            // 使用 ObjectMapper 合并节点
+            try {
+                ObjectMapper mapper = new ObjectMapper();
+                ObjectNode merged = mapper.valueToTree(details);
+                if (imagesNode.has("posters")) merged.set("posters", imagesNode.get("posters"));
+                if (imagesNode.has("backdrops")) merged.set("backdrops", imagesNode.get("backdrops"));
+                if (imagesNode.has("logos")) merged.set("logos", imagesNode.get("logos"));
+                details = merged;
+            } catch (Exception e) {
+                log.warn("合并 images 数据失败: {}", e.getMessage());
+            }
+        }
 
         downloadImage(details, "poster", "poster.jpg", outputDir, forceOverwrite);
         downloadImage(details, "backdrop", "fanart.jpg", outputDir, forceOverwrite);
@@ -51,10 +70,27 @@ public class MediaImageDownloader {
 
     /**
      * 下载剧集图片: poster.jpg, fanart.jpg, clearlogo.png
+     * 合并 details 和 images 数据到一个节点中，方便统一处理
      */
     public void downloadTvImages(MediaInfo info, Path outputDir, boolean forceOverwrite) {
         JsonNode details = getDetails(info);
         if (details == null) return;
+
+        // 合并 images 数据到 details 中
+        JsonNode imagesNode = getImagesFromMetadata(info);
+        if (imagesNode != null) {
+            // 使用 ObjectMapper 合并节点
+            try {
+                ObjectMapper mapper = new ObjectMapper();
+                ObjectNode merged = mapper.valueToTree(details);
+                if (imagesNode.has("posters")) merged.set("posters", imagesNode.get("posters"));
+                if (imagesNode.has("backdrops")) merged.set("backdrops", imagesNode.get("backdrops"));
+                if (imagesNode.has("logos")) merged.set("logos", imagesNode.get("logos"));
+                details = merged;
+            } catch (Exception e) {
+                log.warn("合并 images 数据失败: {}", e.getMessage());
+            }
+        }
 
         downloadImage(details, "poster", "poster.jpg", outputDir, forceOverwrite);
         downloadImage(details, "backdrop", "fanart.jpg", outputDir, forceOverwrite);
@@ -97,25 +133,27 @@ public class MediaImageDownloader {
     }
 
     private String extractImageUrl(JsonNode details, String type) {
-        // 优先从 images 节点获取 (TMDb images API 返回复数字段: posters, backdrops, logos)
-        JsonNode images = details.path("images");
-        
+        // images 数据已在 downloadMovieImages/downloadTvImages 中合并到 details 顶层
         // 映射: poster -> posters, backdrop -> backdrops
         String imagesKey = type.equals("poster") ? "posters" : 
                            type.equals("backdrop") ? "backdrops" : type;
         
-        if (images.has(imagesKey) && images.get(imagesKey).isArray() && images.get(imagesKey).size() > 0) {
-            // 优先选择中文图片
-            String lang = config.getTmdbImageLanguage();
-            for (JsonNode file : images.get(imagesKey)) {
-                String filePath = file.path("file_path").asText(null);
-                String isoLang = file.path("iso_639_1").asText("");
-                if (filePath != null && lang.equals(isoLang)) {
-                    return TMDb_IMG_BASE + filePath;
+        if (details.has(imagesKey) && details.get(imagesKey).isArray() && details.get(imagesKey).size() > 0) {
+            // 按语言偏好选择: zh > en > null
+            String preferredLang = config.getTmdbImageLanguage();
+            String[] langPriority = {preferredLang, "en", ""};
+            
+            for (String lang : langPriority) {
+                for (JsonNode file : details.get(imagesKey)) {
+                    String filePath = file.path("file_path").asText(null);
+                    String isoLang = file.path("iso_639_1").asText("");
+                    if (filePath != null && lang.equals(isoLang)) {
+                        return TMDb_IMG_BASE + filePath;
+                    }
                 }
             }
             // 回退到第一个
-            JsonNode first = images.get(imagesKey).get(0);
+            JsonNode first = details.get(imagesKey).get(0);
             String filePath = first.path("file_path").asText(null);
             if (filePath != null) {
                 return TMDb_IMG_BASE + filePath;
@@ -133,19 +171,23 @@ public class MediaImageDownloader {
     }
 
     private String extractLogoUrl(JsonNode details) {
-        JsonNode images = details.path("images");
-        if (images.has("logos") && images.get("logos").isArray() && images.get("logos").size() > 0) {
-            // 优先选择中文 logo
-            String lang = config.getTmdbImageLanguage();
-            for (JsonNode logo : images.get("logos")) {
-                String filePath = logo.path("file_path").asText(null);
-                String isoLang = logo.path("iso_639_1").asText("");
-                if (filePath != null && lang.equals(isoLang)) {
-                    return TMDb_IMG_BASE + filePath;
+        // logos 数据已在 downloadMovieImages/downloadTvImages 中合并到 details 顶层
+        if (details.has("logos") && details.get("logos").isArray() && details.get("logos").size() > 0) {
+            // 按语言偏好选择: zh > en > null
+            String preferredLang = config.getTmdbImageLanguage();
+            String[] langPriority = {preferredLang, "en", ""};
+            
+            for (String lang : langPriority) {
+                for (JsonNode logo : details.get("logos")) {
+                    String filePath = logo.path("file_path").asText(null);
+                    String isoLang = logo.path("iso_639_1").asText("");
+                    if (filePath != null && lang.equals(isoLang)) {
+                        return TMDb_IMG_BASE + filePath;
+                    }
                 }
             }
             // 回退到第一个
-            JsonNode first = images.get("logos").get(0);
+            JsonNode first = details.get("logos").get(0);
             String filePath = first.path("file_path").asText(null);
             if (filePath != null) {
                 return TMDb_IMG_BASE + filePath;
@@ -181,6 +223,15 @@ public class MediaImageDownloader {
         Object details = info.getMetadata().get("details");
         if (details instanceof JsonNode) {
             return (JsonNode) details;
+        }
+        return null;
+    }
+
+    private JsonNode getImagesFromMetadata(MediaInfo info) {
+        if (info.getMetadata() == null) return null;
+        Object images = info.getMetadata().get("images");
+        if (images instanceof JsonNode) {
+            return (JsonNode) images;
         }
         return null;
     }

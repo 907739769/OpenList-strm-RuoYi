@@ -17,7 +17,9 @@ public class CacheConfig {
     public CacheManager cacheManager() {
         CaffeineCacheManager cacheManager = new CaffeineCacheManager();
         cacheManager.setCacheNames(Arrays.asList(
-                "sysCache", "sys-config", "sys-dict", "sys-authCache", "tmdbSearch", "tmdbDetails", "tmdbAlts", "openaiSearch"
+                "sysCache", "sys-config", "sys-dict", "sys-authCache",
+                "tmdbSearch", "tmdbDetails", "tmdbAlts", "tmdbSeason", "tmdbTvImages", "tmdbMovieImages",
+                "openaiSearch"
         ));
         cacheManager.setCaffeine(Caffeine.newBuilder()
                 .maximumSize(10000)
