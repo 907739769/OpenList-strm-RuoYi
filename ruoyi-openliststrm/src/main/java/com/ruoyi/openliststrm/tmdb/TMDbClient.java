@@ -37,8 +37,74 @@ public class TMDbClient {
             if (StringUtils.isNotEmpty(tmdbTitle)) {
                 info.setTitle(tmdbTitle);
             }
+
+            // TV: 获取当前季的集详情
+            if (maybeTV(info) && info.getSeason() != null && info.getTmdbId() != null) {
+                try {
+                    enrichEpisodeDetails(info, api);
+                } catch (Exception e) {
+                    log.warn("enrichEpisodeDetails failed for tvId={}, season={}: {}",
+                            info.getTmdbId(), info.getSeason(), e.getMessage());
+                }
+            }
         } catch (Exception e) {
             log.error("TMDb enrich error", e);
+        }
+    }
+
+    /**
+     * 从 TMDB 获取指定季的集列表，并回填当前集的详情（集标题、播出日期、剧情、tmdbId）
+     */
+    private void enrichEpisodeDetails(MediaInfo info, TMDbApiService api) throws IOException {
+        int tvId = Integer.parseInt(info.getTmdbId());
+        int seasonNum = Integer.parseInt(info.getSeason().replaceAll("\\D", ""));
+        String epJson = api.getSeasonEpisodes(apiKey, tvId, seasonNum);
+        if (epJson == null) return;
+
+        JsonNode seasonRoot = mapper.readTree(epJson);
+        JsonNode episodes = seasonRoot.path("episodes");
+        if (!episodes.isArray() || episodes.isEmpty()) return;
+
+        int currentEpNum = 0;
+        if (StringUtils.isNotEmpty(info.getEpisode())) {
+            try {
+                currentEpNum = Integer.parseInt(info.getEpisode().replaceAll("\\D", ""));
+            } catch (NumberFormatException ignored) {
+            }
+        }
+
+        for (JsonNode ep : episodes) {
+            int epNum = ep.path("episode_number").asInt(0);
+            if (epNum != currentEpNum) continue;
+
+            // 集标题（优先中文）
+            String epName = ep.path("name").asText(null);
+            if (StringUtils.isNotEmpty(epName) && isChinese(epName)) {
+                // 尝试从 alternative_titles 获取中文
+                info.setEpisodeName(epName);
+            } else {
+                info.setEpisodeName(epName);
+            }
+
+            // 单集 tmdbId (tv episode id)
+            String epTmdbId = ep.path("id").asText(null);
+            if (StringUtils.isNotEmpty(epTmdbId)) {
+                info.setEpisodeTmdbId(epTmdbId);
+            }
+
+            // 播出日期
+            String airDate = ep.path("air_date").asText(null);
+            if (StringUtils.isNotEmpty(airDate)) {
+                info.setEpisodeAiredDate(airDate);
+            }
+
+            // 剧情简介
+            String overview = ep.path("overview").asText(null);
+            if (StringUtils.isNotEmpty(overview)) {
+                info.setEpisodePlot(overview);
+            }
+
+            break; // 找到当前集后退出
         }
     }
 
@@ -149,6 +215,22 @@ public class TMDbClient {
             if (oc.isArray()) {
                 info.getOriginCountries().clear();
                 for (JsonNode c : oc) info.getOriginCountries().add(c.asText());
+            }
+
+            // TV: 额外获取 images 数据 (posters, backdrops, logos)
+            try {
+                String imagesJson = api.getTvImages(apiKey, id);
+                if (imagesJson != null) {
+                    JsonNode images = mapper.readTree(imagesJson);
+                    info.getMetadata().put("images", images);
+                    log.debug("获取剧集 images 成功: tvId={}, posters={}, backdrops={}, logos={}",
+                            id,
+                            images.path("posters").size(),
+                            images.path("backdrops").size(),
+                            images.path("logos").size());
+                }
+            } catch (Exception e) {
+                log.warn("获取剧集 images 失败: tvId={}, error={}", id, e.getMessage());
             }
         } else {
             JsonNode pcs = d.path("production_countries");

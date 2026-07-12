@@ -315,7 +315,7 @@ public class MediaRenameProcessor implements FileProcessor {
 
             scrapeService.scrapeAsync(
                     detailId, info, mediaType, destFile, outputDir,
-                    task.getScrapeEnabled(), task.getScrapeNfo(), task.getScrapeImages()
+                    task.getScrapeEnabled(), task.getScrapeNfo(), task.getScrapeImages(), false
             );
         } catch (Exception e) {
             log.warn("查询任务配置失败: {}", e.getMessage());

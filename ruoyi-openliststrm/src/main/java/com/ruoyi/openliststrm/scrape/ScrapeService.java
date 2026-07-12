@@ -45,10 +45,12 @@ public class ScrapeService {
      * @param scrapeEnabled 是否启用刮削
      * @param scrapeNfo   是否生成 NFO
      * @param scrapeImages 是否下载图片
+     * @param forceOverwrite 是否强制覆盖已有文件
      */
     public void scrapeAsync(Integer detailId, MediaInfo info, String mediaType,
                             Path destFile, Path outputDir,
-                            String scrapeEnabled, String scrapeNfo, String scrapeImages) {
+                            String scrapeEnabled, String scrapeNfo, String scrapeImages,
+                            boolean forceOverwrite) {
         if (!"1".equals(scrapeEnabled)) {
             return;
         }
@@ -59,12 +61,12 @@ public class ScrapeService {
                 boolean anyScraped = false;
 
                 if ("1".equals(scrapeNfo)) {
-                    generateNfo(info, mediaType, destFile, outputDir);
+                    generateNfo(info, mediaType, destFile, outputDir, forceOverwrite);
                     anyScraped = true;
                 }
 
                 if ("1".equals(scrapeImages)) {
-                    downloadImages(info, mediaType, outputDir);
+                    downloadImages(info, mediaType, outputDir, forceOverwrite);
                     anyScraped = true;
                 }
 
@@ -84,7 +86,7 @@ public class ScrapeService {
         });
     }
 
-    private void generateNfo(MediaInfo info, String mediaType, Path destFile, Path outputDir) throws Exception {
+    private void generateNfo(MediaInfo info, String mediaType, Path destFile, Path outputDir, boolean forceOverwrite) throws Exception {
         if ("tv".equals(mediaType)) {
             nfoGenerator.generateTvNfo(info, destFile, outputDir);
         } else {
@@ -92,11 +94,15 @@ public class ScrapeService {
         }
     }
 
-    private void downloadImages(MediaInfo info, String mediaType, Path outputDir) throws Exception {
+    private void downloadImages(MediaInfo info, String mediaType, Path outputDir, boolean forceOverwrite) throws Exception {
         if ("tv".equals(mediaType)) {
-            imageDownloader.downloadTvImages(info, outputDir);
+            // 剧集图片下载到剧集根目录 (Season XX 的父目录)
+            Path showRoot = outputDir.getParent();
+            if (showRoot != null) {
+                imageDownloader.downloadTvImages(info, showRoot, forceOverwrite);
+            }
         } else {
-            imageDownloader.downloadMovieImages(info, outputDir);
+            imageDownloader.downloadMovieImages(info, outputDir, forceOverwrite);
         }
     }
 

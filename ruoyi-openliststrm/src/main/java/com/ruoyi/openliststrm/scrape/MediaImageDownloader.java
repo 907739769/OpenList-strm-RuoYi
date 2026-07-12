@@ -38,30 +38,30 @@ public class MediaImageDownloader {
     }
 
     /**
-     * 下载电影图片: poster.jpg, backdrop.jpg, logo.png
+     * 下载电影图片: poster.jpg, fanart.jpg, clearlogo.png
      */
-    public void downloadMovieImages(MediaInfo info, Path outputDir) {
+    public void downloadMovieImages(MediaInfo info, Path outputDir, boolean forceOverwrite) {
         JsonNode details = getDetails(info);
         if (details == null) return;
 
-        downloadImage(details, "poster", "poster.jpg", outputDir);
-        downloadImage(details, "backdrop", "backdrop.jpg", outputDir);
-        downloadLogo(details, outputDir);
+        downloadImage(details, "poster", "poster.jpg", outputDir, forceOverwrite);
+        downloadImage(details, "backdrop", "fanart.jpg", outputDir, forceOverwrite);
+        downloadLogo(details, outputDir, forceOverwrite);
     }
 
     /**
-     * 下载剧集图片: poster.jpg, backdrop.jpg, logo.png
+     * 下载剧集图片: poster.jpg, fanart.jpg, clearlogo.png
      */
-    public void downloadTvImages(MediaInfo info, Path outputDir) {
+    public void downloadTvImages(MediaInfo info, Path outputDir, boolean forceOverwrite) {
         JsonNode details = getDetails(info);
         if (details == null) return;
 
-        downloadImage(details, "poster", "poster.jpg", outputDir);
-        downloadImage(details, "backdrop", "backdrop.jpg", outputDir);
-        downloadLogo(details, outputDir);
+        downloadImage(details, "poster", "poster.jpg", outputDir, forceOverwrite);
+        downloadImage(details, "backdrop", "fanart.jpg", outputDir, forceOverwrite);
+        downloadLogo(details, outputDir, forceOverwrite);
     }
 
-    private void downloadImage(JsonNode details, String type, String filename, Path outputDir) {
+    private void downloadImage(JsonNode details, String type, String filename, Path outputDir, boolean forceOverwrite) {
         try {
             String imgUrl = extractImageUrl(details, type);
             if (imgUrl == null) {
@@ -69,6 +69,10 @@ public class MediaImageDownloader {
                 return;
             }
             Path target = outputDir.resolve(filename);
+            if (Files.exists(target) && !forceOverwrite) {
+                log.debug("图片已存在，跳过: {}", target);
+                return;
+            }
             downloadToFile(imgUrl, target);
             log.info("下载 {} 图片: {} -> {}", type, imgUrl, target);
         } catch (Exception e) {
@@ -76,29 +80,49 @@ public class MediaImageDownloader {
         }
     }
 
-    private void downloadLogo(JsonNode details, Path outputDir) {
+    private void downloadLogo(JsonNode details, Path outputDir, boolean forceOverwrite) {
         try {
             String imgUrl = extractLogoUrl(details);
             if (imgUrl == null) return;
-            Path target = outputDir.resolve("logo.png");
+            Path target = outputDir.resolve("clearlogo.png");
+            if (Files.exists(target) && !forceOverwrite) {
+                log.debug("clearlogo 已存在，跳过: {}", target);
+                return;
+            }
             downloadToFile(imgUrl, target);
-            log.info("下载 logo 图片: {} -> {}", imgUrl, target);
+            log.info("下载 clearlogo 图片: {} -> {}", imgUrl, target);
         } catch (Exception e) {
-            log.warn("下载 logo 图片失败: {}", e.getMessage());
+            log.warn("下载 clearlogo 图片失败: {}", e.getMessage());
         }
     }
 
     private String extractImageUrl(JsonNode details, String type) {
-        // 优先从 images 节点获取
+        // 优先从 images 节点获取 (TMDb images API 返回复数字段: posters, backdrops, logos)
         JsonNode images = details.path("images");
-        if (images.has(type) && images.get(type).isArray() && images.get(type).size() > 0) {
-            JsonNode file = images.get(type).get(0);
-            String filePath = file.path("file_path").asText(null);
+        
+        // 映射: poster -> posters, backdrop -> backdrops
+        String imagesKey = type.equals("poster") ? "posters" : 
+                           type.equals("backdrop") ? "backdrops" : type;
+        
+        if (images.has(imagesKey) && images.get(imagesKey).isArray() && images.get(imagesKey).size() > 0) {
+            // 优先选择中文图片
+            String lang = config.getTmdbImageLanguage();
+            for (JsonNode file : images.get(imagesKey)) {
+                String filePath = file.path("file_path").asText(null);
+                String isoLang = file.path("iso_639_1").asText("");
+                if (filePath != null && lang.equals(isoLang)) {
+                    return TMDb_IMG_BASE + filePath;
+                }
+            }
+            // 回退到第一个
+            JsonNode first = images.get(imagesKey).get(0);
+            String filePath = first.path("file_path").asText(null);
             if (filePath != null) {
                 return TMDb_IMG_BASE + filePath;
             }
         }
-        // 回退: 某些 TMDb 响应使用 backdrop_path / poster_path 顶级字段
+        
+        // 回退: 从 details 顶级字段获取 (poster_path, backdrop_path)
         if ("backdrop".equals(type) && details.has("backdrop_path")) {
             return TMDb_IMG_BASE + details.get("backdrop_path").asText();
         }

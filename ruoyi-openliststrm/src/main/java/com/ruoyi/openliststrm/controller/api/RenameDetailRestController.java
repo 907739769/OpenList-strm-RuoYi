@@ -22,7 +22,6 @@ import com.ruoyi.openliststrm.helper.OpenListHelper;
 import com.ruoyi.openliststrm.rename.RenameEventListener;
 import com.ruoyi.openliststrm.monitor.processor.MediaRenameProcessor;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.nio.file.Path;
@@ -239,10 +238,10 @@ public class RenameDetailRestController extends BaseController
                 Path destFile = Paths.get(detail.getNewPath(), newName);
                 Path outputDir = destFile.getParent();
                 
-                // 默认全部刮削：NFO + 图片
+                // 默认全部刮削：NFO + 图片，强制覆盖
                 scrapeService.scrapeAsync(
                         detailId, info, mediaType, destFile, outputDir,
-                        "1", "1", "1"
+                        "1", "1", "1", true
                 );
                 
                 logger.info("刮削任务已启动，ID：{}", id);

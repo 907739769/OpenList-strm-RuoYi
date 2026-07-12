@@ -72,6 +72,38 @@ public class TMDbApiService {
         return executeAndReturnString(req, "getAlternativeTitles");
     }
 
+    /**
+     * 获取季集列表（TV 专用）
+     * 接口: GET /tv/{id}/season/{season_number}
+     */
+    @Cacheable(value = "tmdbSeason", key = "#p2 + ':' + #p3 + ':' + #p4", unless = "#result == null")
+    public String getSeasonEpisodes(String apiKey, int tvId, int seasonNumber) {
+        HttpUrl url = Objects.requireNonNull(HttpUrl.parse(BASE + "/tv/" + tvId + "/season/" + seasonNumber))
+                .newBuilder()
+                .addQueryParameter("api_key", apiKey)
+                .addQueryParameter("language", LANGUAGE)
+                .build();
+        Request req = new Request.Builder().url(url).get().build();
+        return executeAndReturnString(req, "getSeasonEpisodes");
+    }
+
+    /**
+     * 获取剧集图片（TV 专用）
+     * 接口: GET /tv/{id}/images
+     * 返回: { posters: [...], backdrops: [...], logos: [...], stills: [...] }
+     */
+    @Cacheable(value = "tmdbTvImages", key = "#p2 + ':' + #p3", unless = "#result == null")
+    public String getTvImages(String apiKey, int tvId) {
+        HttpUrl url = Objects.requireNonNull(HttpUrl.parse(BASE + "/tv/" + tvId + "/images"))
+                .newBuilder()
+                .addQueryParameter("api_key", apiKey)
+                .addQueryParameter("language", LANGUAGE)
+                .addQueryParameter("include_image_language", LANGUAGE + ",en,null")
+                .build();
+        Request req = new Request.Builder().url(url).get().build();
+        return executeAndReturnString(req, "getTvImages");
+    }
+
     // --- 抽取公共的 HTTP 执行逻辑 ---
     private String executeAndReturnString(Request req, String methodName) {
         try (Response resp = http.newCall(req).execute()) {

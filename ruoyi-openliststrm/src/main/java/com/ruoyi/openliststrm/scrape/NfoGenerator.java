@@ -10,9 +10,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -25,33 +23,44 @@ public class NfoGenerator {
 
     private static final String TMDb_IMG_BASE = "https://image.tmdb.org/t/p/original";
 
+    // ==================== Public API ====================
+
     /**
-     * 生成电影 NFO: {@code <视频文件名>.nfo}
+     * 生成电影 NFO: {@code <视频文件名>.nfo}（与 STRM 文件同名，不含视频后缀）
      */
     public void generateMovieNfo(MediaInfo info, Path destFile, Path outputDir) throws IOException {
         String nfoContent = buildMovieNfo(info);
-        Path nfoFile = destFile.resolveSibling(destFile.getFileName().toString() + ".nfo");
-        writeNfo(nfoFile, nfoContent);
+        String nfoName = stripExtension(destFile.getFileName().toString()) + ".nfo";
+        Path nfoFile = destFile.resolveSibling(nfoName);
+        writeNfo(nfoFile, nfoContent, false);
         log.info("生成电影 NFO: {}", nfoFile);
     }
 
     /**
      * 生成剧集 NFO:
-     * - {@code <系列名>-tvshow.nfo} (系列级)
-     * - {@code <视频文件名>.nfo} (单集级: season + episode)
+     * - {@code tvshow.nfo} (剧集根目录，固定命名)
+     * - {@code season.nfo} (季目录内，固定命名)
+     * - {@code <episodedetails>.nfo} (与 STRM 文件同名)
      */
     public void generateTvNfo(MediaInfo info, Path destFile, Path outputDir) throws IOException {
-        // 系列 NFO
+        // 剧集 NFO → 放在剧集根目录（{show_name} ({year})/），即 Season XX 的父目录
         String tvshowNfo = buildTvShowNfo(info);
-        String seriesName = sanitizeForNfo(info.getTitle());
-        Path tvshowNfoFile = outputDir.resolve(seriesName + "-tvshow.nfo");
-        writeNfo(tvshowNfoFile, tvshowNfo);
+        Path showRoot = destFile.getParent().getParent();
+        Path tvshowNfoFile = showRoot.resolve("tvshow.nfo");
+        writeNfo(tvshowNfoFile, tvshowNfo, false);
         log.info("生成剧集 NFO (系列): {}", tvshowNfoFile);
 
-        // 单集 NFO
+        // 季 NFO → 放在季目录内
+        String seasonNfo = buildSeasonNfo(info);
+        Path seasonNfoFile = destFile.getParent().resolve("season.nfo");
+        writeNfo(seasonNfoFile, seasonNfo, false);
+        log.info("生成剧集 NFO (季): {}", seasonNfoFile);
+
+        // 单集 NFO → 与 STRM 文件同名
         String episodeNfo = buildEpisodeNfo(info);
-        Path episodeNfoFile = destFile.resolveSibling(destFile.getFileName().toString() + ".nfo");
-        writeNfo(episodeNfoFile, episodeNfo);
+        String episodeNfoName = stripExtension(destFile.getFileName().toString()) + ".nfo";
+        Path episodeNfoFile = destFile.resolveSibling(episodeNfoName);
+        writeNfo(episodeNfoFile, episodeNfo, false);
         log.info("生成剧集 NFO (单集): {}", episodeNfoFile);
     }
 
@@ -59,267 +68,189 @@ public class NfoGenerator {
 
     private String buildMovieNfo(MediaInfo info) {
         StringBuilder sb = new StringBuilder();
-        sb.append("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n");
+        sb.append("<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"yes\"?>\n");
         sb.append("<movie>\n");
 
-        // title
         appendTag(sb, "title", info.getTitle());
-        // originaltitle
         appendTag(sb, "originaltitle", info.getOriginalTitle());
-        // sorttitle
         appendTag(sb, "sorttitle", info.getTitle());
-        // tmdbid
         appendTag(sb, "tmdbid", info.getTmdbId());
-        // imdbid (如果 TMDb 详情中有)
+
         JsonNode details = getDetails(info);
         if (details != null && details.has("imdb_id")) {
             appendTag(sb, "imdbid", details.get("imdb_id").asText());
         }
-        // year
         appendTag(sb, "year", info.getYear());
-        // premiere (release date)
+
         if (details != null && details.has("release_date")) {
-            appendTag(sb, "premiere", details.get("release_date").asText());
+            String rd = details.get("release_date").asText();
+            appendTag(sb, "premiere", rd);
+            appendTag(sb, "releasedate", rd);
         }
-        // releasedate
-        if (details != null && details.has("release_date")) {
-            appendTag(sb, "releasedate", details.get("release_date").asText());
-        }
-        // runtime
         if (details != null && details.has("runtime")) {
             appendTag(sb, "runtime", String.valueOf(details.get("runtime").asInt()));
         }
-        // rating
         if (details != null && details.has("vote_average")) {
-            double rating = details.get("vote_average").asDouble(0);
-            appendTag(sb, "rating", String.format("%.1f", rating));
+            appendTag(sb, "rating", String.format("%.1f", details.get("vote_average").asDouble(0)));
         }
-        // votes
         if (details != null && details.has("vote_count")) {
             appendTag(sb, "votes", String.valueOf(details.get("vote_count").asInt()));
         }
-        // metacritic
         if (details != null && details.has("metacritic")) {
             appendTag(sb, "metacritic", String.valueOf(details.get("metacritic").asInt()));
         }
-        // tagline
         appendTag(sb, "tagline", details != null && details.has("tagline") ? details.get("tagline").asText() : null);
-        // outline (short synopsis)
         appendTag(sb, "outline", details != null && details.has("overview") ? truncate(details.get("overview").asText(), 200) : null);
-        // plot (full synopsis)
         appendTag(sb, "plot", details != null && details.has("overview") ? details.get("overview").asText() : null);
-        // trailer
+
         if (details != null && details.has("videos")) {
             String trailer = extractTrailerUrl(details);
-            if (trailer != null) {
-                appendTag(sb, "trailer", trailer);
-            }
+            if (trailer != null) appendTag(sb, "trailer", trailer);
         }
 
-        // genres
-        if (details != null && details.has("genres")) {
-            JsonNode genres = details.get("genres");
-            for (JsonNode g : genres) {
-                appendTag(sb, "genre", g.get("name").asText());
-            }
-        }
-
-        // country
-        if (details != null && details.has("production_countries")) {
-            JsonNode countries = details.get("production_countries");
-            for (JsonNode c : countries) {
-                appendTag(sb, "country", c.get("iso_3166_1").asText());
-            }
-        }
-
-        // studio
-        if (details != null && details.has("production_companies")) {
-            JsonNode companies = details.get("production_companies");
-            for (JsonNode c : companies) {
-                appendTag(sb, "studio", c.get("name").asText());
-            }
-        }
-
-        // director
-        if (details != null && details.has("credits")) {
-            JsonNode credits = details.get("credits");
-            if (credits.has("crew")) {
-                JsonNode crew = credits.get("crew");
-                for (JsonNode member : crew) {
-                    if ("Director".equals(member.path("job").asText("")) || "Executive Producer".equals(member.path("department").asText(""))) {
-                        appendTag(sb, "director", member.get("name").asText());
-                    }
-                }
-            }
-        }
-
-        // actor
-        if (details != null && details.has("credits")) {
-            JsonNode credits = details.get("credits");
-            if (credits.has("cast")) {
-                JsonNode cast = credits.get("cast");
-                int count = 0;
-                for (JsonNode member : cast) {
-                    if (count >= 20) break; // NFO 通常限制 20 个演员
-                    appendTag(sb, "actor", member.get("name").asText());
-                    count++;
-                }
-            }
-        }
-
-        // trailer (YouTube ID)
-        if (details != null && details.has("videos")) {
-            JsonNode videos = details.get("videos");
-            if (videos.has("results")) {
-                for (JsonNode v : videos.get("results")) {
-                    if ("YouTube".equals(v.path("site").asText("")) && "Trailer".equals(v.path("type").asText(""))) {
-                        appendTag(sb, "trailer", "plugin://plugin.video.youtube/play/?video_id=" + v.get("key").asText());
-                        break;
-                    }
-                }
-            }
-        }
-
-        // uniqueid (tmdb)
-        appendTag(sb, "uniqueid", info.getTmdbId(), "tmdb", "false");
+        appendGenres(sb, details, "genres");
+        appendCountries(sb, details, "production_countries", "iso_3166_1");
+        appendStudios(sb, details, "production_companies", "name");
+        appendDirectors(sb, details);
+        appendActors(sb, details);
+        appendUniqueid(sb, info.getTmdbId(), "tmdb", "false");
 
         sb.append("</movie>\n");
         return sb.toString();
     }
 
-    // ==================== TV Show NFO ====================
+    // ==================== TV Show NFO (新规范) ====================
 
+    /**
+     * 剧集级 NFO — 放在剧集根目录（{show_name} ({year})/）
+     * 根节点: <tvshow>
+     */
     private String buildTvShowNfo(MediaInfo info) {
         StringBuilder sb = new StringBuilder();
-        sb.append("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n");
+        sb.append("<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"yes\"?>\n");
         sb.append("<tvshow>\n");
 
-        // title
+        // 标题
         appendTag(sb, "title", info.getTitle());
-        // originaltitle
         appendTag(sb, "originaltitle", info.getOriginalTitle());
-        // sorttitle
-        appendTag(sb, "sorttitle", info.getTitle());
-        // tmdbid
+        appendTag(sb, "showtitle", info.getTitle());
+
+        // TMDB ID
         appendTag(sb, "tmdbid", info.getTmdbId());
-        // imdbid
+        appendUniqueid(sb, info.getTmdbId(), "tmdb", "true");
+
+        // 年份
         JsonNode details = getDetails(info);
-        if (details != null && details.has("imdb_id")) {
-            appendTag(sb, "imdbid", details.get("imdb_id").asText());
-        }
-        // premiered
-        if (details != null && details.has("first_air_date")) {
-            appendTag(sb, "premiered", details.get("first_air_date").asText());
-        }
-        // year
         if (details != null && details.has("first_air_date")) {
             String date = details.get("first_air_date").asText();
             if (date != null && date.length() >= 4) {
                 appendTag(sb, "year", date.substring(0, 4));
             }
         }
-        // status
-        if (details != null && details.has("status")) {
-            appendTag(sb, "status", details.get("status").asText());
-        }
-        // rating
-        if (details != null && details.has("vote_average")) {
-            appendTag(sb, "rating", String.format("%.1f", details.get("vote_average").asDouble(0)));
-        }
-        // episodes (number_of_episodes)
-        if (details != null && details.has("number_of_episodes")) {
-            appendTag(sb, "episodes", String.valueOf(details.get("number_of_episodes").asInt()));
-        }
-        // seasons (number_of_seasons)
-        if (details != null && details.has("number_of_seasons")) {
-            appendTag(sb, "seasons", String.valueOf(details.get("number_of_seasons").asInt()));
-        }
-        // outline
-        appendTag(sb, "outline", details != null && details.has("overview") ? truncate(details.get("overview").asText(), 200) : null);
-        // plot
+
+        // 剧情
         appendTag(sb, "plot", details != null && details.has("overview") ? details.get("overview").asText() : null);
-        // tagline
-        appendTag(sb, "tagline", details != null && details.has("tagline") ? details.get("tagline").asText() : null);
 
-        // genres
-        if (details != null && details.has("genres")) {
-            for (JsonNode g : details.get("genres")) {
-                appendTag(sb, "genre", g.get("name").asText());
-            }
-        }
-
-        // country
+        // 类型、国家、制作公司、演员（同电影）
+        appendGenres(sb, details, "genres");
         if (details != null && details.has("origin_country")) {
-            for (JsonNode c : details.get("origin_country")) {
+            JsonNode oc = details.get("origin_country");
+            for (JsonNode c : oc) {
                 appendTag(sb, "country", c.asText());
             }
         }
-
-        // studio
-        if (details != null && details.has("production_companies")) {
-            for (JsonNode c : details.get("production_companies")) {
-                appendTag(sb, "studio", c.get("name").asText());
-            }
-        }
-
-        // actor (top cast)
-        if (details != null && details.has("credits")) {
-            JsonNode credits = details.get("credits");
-            if (credits.has("cast")) {
-                int count = 0;
-                for (JsonNode member : credits.get("cast")) {
-                    if (count >= 20) break;
-                    appendTag(sb, "actor", member.get("name").asText());
-                    count++;
-                }
-            }
-        }
-
-        // uniqueid
-        appendTag(sb, "uniqueid", info.getTmdbId(), "tmdb", "false");
+        appendStudios(sb, details, "production_companies", "name");
+        appendActors(sb, details);
 
         sb.append("</tvshow>\n");
         return sb.toString();
     }
 
-    // ==================== Episode NFO ====================
+    // ==================== Season NFO (新规范) ====================
 
+    /**
+     * 季级 NFO — 放在 Season XX 目录内
+     * 根节点: <season>
+     */
+    private String buildSeasonNfo(MediaInfo info) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"yes\"?>\n");
+        sb.append("<season>\n");
+
+        // 季标题: 第 X 季
+        int seasonNum = parseSeasonNumber(info.getSeason());
+        appendTag(sb, "title", "第 " + seasonNum + " 季");
+        appendTag(sb, "seasonnumber", String.valueOf(seasonNum));
+
+        // 剧情（来自剧集总览）
+        JsonNode details = getDetails(info);
+        appendTag(sb, "plot", details != null && details.has("overview") ? truncate(details.get("overview").asText(), 500) : null);
+
+        // uniqueid（使用剧集 tmdbId）
+        appendUniqueid(sb, info.getTmdbId(), "tmdb", "true");
+
+        sb.append("</season>\n");
+        return sb.toString();
+    }
+
+    // ==================== Episode NFO (新规范) ====================
+
+    /**
+     * 集级 NFO — 与 .strm 文件同名
+     * 根节点: <episodedetails>
+     */
     private String buildEpisodeNfo(MediaInfo info) {
         StringBuilder sb = new StringBuilder();
-        sb.append("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n");
+        sb.append("<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"yes\"?>\n");
         sb.append("<episodedetails>\n");
 
-        // title (使用文件名中的剧集标题，或默认)
-        String episodeTitle = info.getTitle();
-        if (StringUtils.isNotBlank(info.getEpisode())) {
-            episodeTitle = info.getTitle() + " S" + padSeason(info.getSeason()) + "E" + info.getEpisode();
-        }
-        appendTag(sb, "title", episodeTitle);
-
-        // season
-        appendTag(sb, "season", info.getSeason());
-        // episode
-        appendTag(sb, "episode", info.getEpisode());
-
-        // tmdbid
-        appendTag(sb, "tmdbid", info.getTmdbId());
-
-        // premiered
-        if (info.getYear() != null) {
-            appendTag(sb, "premiered", info.getYear() + "-01-01");
-        }
-
-        // rating
         JsonNode details = getDetails(info);
-        if (details != null && details.has("vote_average")) {
-            appendTag(sb, "rating", String.format("%.1f", details.get("vote_average").asDouble(0)));
+
+        // 集标题
+        String epTitle = StringUtils.isNotBlank(info.getEpisodeName())
+                ? info.getEpisodeName()
+                : (info.getTitle() + " S" + padSeason(info.getSeason()) + "E" + info.getEpisode());
+        appendTag(sb, "title", epTitle);
+
+        // showtitle
+        appendTag(sb, "showtitle", info.getTitle());
+
+        // 季/集号（数字）
+        int seasonNum = parseSeasonNumber(info.getSeason());
+        int epNum = parseEpisodeNumber(info.getEpisode());
+        appendTag(sb, "season", String.valueOf(seasonNum));
+        appendTag(sb, "episode", String.valueOf(epNum));
+
+        // 单集 tmdbId
+        if (StringUtils.isNotBlank(info.getEpisodeTmdbId())) {
+            appendTag(sb, "tmdbid", info.getEpisodeTmdbId());
+            appendUniqueid(sb, info.getEpisodeTmdbId(), "tmdb", "true");
+        } else if (StringUtils.isNotBlank(info.getTmdbId())) {
+            appendTag(sb, "tmdbid", info.getTmdbId());
+            appendUniqueid(sb, info.getTmdbId(), "tmdb", "true");
         }
 
-        // plot
-        appendTag(sb, "plot", details != null && details.has("overview") ? details.get("overview").asText() : null);
+        // 播出日期
+        if (StringUtils.isNotBlank(info.getEpisodeAiredDate())) {
+            appendTag(sb, "aired", info.getEpisodeAiredDate());
+        }
 
-        // uniqueid
-        appendTag(sb, "uniqueid", info.getTmdbId(), "tmdb", "false");
+        // 剧情
+        String plot = StringUtils.isNotBlank(info.getEpisodePlot())
+                ? info.getEpisodePlot()
+                : (details != null && details.has("overview") ? details.get("overview").asText() : null);
+        appendTag(sb, "plot", plot);
+
+        // fileinfo — 视频编码信息
+        if (StringUtils.isNotBlank(info.getVideoCodec())) {
+            sb.append("  <fileinfo>\n");
+            sb.append("    <streamdetails>\n");
+            sb.append("      <video>\n");
+            sb.append("        <codec>").append(escapeXml(info.getVideoCodec())).append("</codec>\n");
+            sb.append("      </video>\n");
+            sb.append("    </streamdetails>\n");
+            sb.append("  </fileinfo>\n");
+        }
 
         sb.append("</episodedetails>\n");
         return sb.toString();
@@ -349,7 +280,68 @@ public class NfoGenerator {
         }
     }
 
+    private void appendGenres(StringBuilder sb, JsonNode details, String key) {
+        if (details != null && details.has(key)) {
+            for (JsonNode g : details.get(key)) {
+                appendTag(sb, "genre", g.get("name").asText());
+            }
+        }
+    }
+
+    private void appendCountries(StringBuilder sb, JsonNode details, String key, String nameField) {
+        if (details != null && details.has(key)) {
+            JsonNode countries = details.get(key);
+            for (JsonNode c : countries) {
+                appendTag(sb, "country", c.get(nameField).asText());
+            }
+        }
+    }
+
+    private void appendStudios(StringBuilder sb, JsonNode details, String key, String nameField) {
+        if (details != null && details.has(key)) {
+            JsonNode companies = details.get(key);
+            for (JsonNode c : companies) {
+                appendTag(sb, "studio", c.get(nameField).asText());
+            }
+        }
+    }
+
+    private void appendDirectors(StringBuilder sb, JsonNode details) {
+        if (details != null && details.has("credits")) {
+            JsonNode credits = details.get("credits");
+            if (credits.has("crew")) {
+                for (JsonNode member : credits.get("crew")) {
+                    String job = member.path("job").asText("");
+                    if ("Director".equals(job)) {
+                        appendTag(sb, "director", member.get("name").asText());
+                    }
+                }
+            }
+        }
+    }
+
+    private void appendActors(StringBuilder sb, JsonNode details) {
+        if (details != null && details.has("credits")) {
+            JsonNode credits = details.get("credits");
+            if (credits.has("cast")) {
+                int count = 0;
+                for (JsonNode member : credits.get("cast")) {
+                    if (count >= 20) break;
+                    appendTag(sb, "actor", member.get("name").asText());
+                    count++;
+                }
+            }
+        }
+    }
+
+    private void appendUniqueid(StringBuilder sb, String value, String type, String defaultFlag) {
+        if (StringUtils.isNotBlank(value)) {
+            appendTag(sb, "uniqueid", value, type, defaultFlag);
+        }
+    }
+
     private String escapeXml(String s) {
+        if (s == null) return "";
         return s.replace("&", "&amp;")
                 .replace("<", "&lt;")
                 .replace(">", "&gt;")
@@ -357,14 +349,33 @@ public class NfoGenerator {
                 .replace("'", "&apos;");
     }
 
-    private String sanitizeForNfo(String s) {
-        if (StringUtils.isBlank(s)) return "unknown";
-        return s.replaceAll("[\\\\/:*?\"<>|]", "_").trim();
-    }
-
     private String truncate(String s, int maxLen) {
         if (s == null) return null;
         return s.length() > maxLen ? s.substring(0, maxLen) + "..." : s;
+    }
+
+    private String stripExtension(String filename) {
+        if (filename == null) return null;
+        int dot = filename.lastIndexOf('.');
+        return dot > 0 ? filename.substring(0, dot) : filename;
+    }
+
+    private int parseSeasonNumber(String season) {
+        if (StringUtils.isBlank(season)) return 0;
+        try {
+            return Integer.parseInt(season.replaceAll("\\D", ""));
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
+    private int parseEpisodeNumber(String episode) {
+        if (StringUtils.isBlank(episode)) return 0;
+        try {
+            return Integer.parseInt(episode.replaceAll("\\D", ""));
+        } catch (NumberFormatException e) {
+            return 0;
+        }
     }
 
     private String padSeason(String season) {
@@ -385,10 +396,14 @@ public class NfoGenerator {
         return null;
     }
 
-    private void writeNfo(Path nfoFile, String content) throws IOException {
+    private void writeNfo(Path nfoFile, String content, boolean forceOverwrite) throws IOException {
         Path parent = nfoFile.getParent();
         if (parent != null) {
             Files.createDirectories(parent);
+        }
+        if (Files.exists(nfoFile) && !forceOverwrite) {
+            log.debug("NFO 文件已存在，跳过: {}", nfoFile);
+            return;
         }
         Files.write(nfoFile, content.getBytes(StandardCharsets.UTF_8),
                 StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);

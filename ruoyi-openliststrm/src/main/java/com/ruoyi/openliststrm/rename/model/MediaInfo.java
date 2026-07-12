@@ -23,6 +23,12 @@ public class MediaInfo {
     private String episode; // E or episode number
     private String tmdbId;
 
+    // 集级元数据（从 TMDB /tv/{id}/season/{number} 获取）
+    private String episodeName; // 集标题（中文）
+    private String episodeTmdbId; // 单集 TMDB ID (tv episode id)
+    private String episodePlot; // 单集剧情简介
+    private String episodeAiredDate; // 单集播出日期 YYYY-MM-DD
+
     private String resolution; // e.g., 2160p, 1080p, 1080i
     private String videoCodec; // H264, H265, x264, HEVC
     private String audioCodec; // AAC, DDP5.1, DTS
