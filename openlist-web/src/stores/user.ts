@@ -59,9 +59,8 @@ export const useUserStore = defineStore('user', () => {
 
   const login = async (loginForm: LoginRequest) => {
     const data = await loginApi(loginForm) as LoginResponse
-    const expires = loginForm.rememberMe ? 30 : 7
-    setToken(data.token, expires)
-    setRefreshToken(data.refreshToken, expires)
+    setToken(data.token)
+    setRefreshToken(data.refreshToken)
     userInfo.value = {
       userId: data.userId,
       loginName: data.loginName,

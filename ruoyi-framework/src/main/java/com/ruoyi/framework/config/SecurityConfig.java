@@ -1,13 +1,15 @@
 package com.ruoyi.framework.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ruoyi.common.core.domain.Result;
 import com.ruoyi.framework.config.properties.PermitAllUrlProperties;
 import com.ruoyi.framework.security.JwtAuthenticationFilter;
 import com.ruoyi.framework.security.SecurityUserDetailsService;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -18,6 +20,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -27,7 +30,6 @@ import java.util.Arrays;
 import java.util.List;
 
 @Configuration
-@ConditionalOnProperty(name = "spring.security.enabled", havingValue = "true", matchIfMissing = false)
 public class SecurityConfig {
     @Autowired
     @Lazy
@@ -53,6 +55,17 @@ public class SecurityConfig {
     }
 
     @Bean
+    public AuthenticationEntryPoint jsonAuthenticationEntryPoint() {
+        return (request, response, authException) -> {
+            response.setContentType("application/json;charset=UTF-8");
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            ObjectMapper mapper = new ObjectMapper();
+            String json = mapper.writeValueAsString(Result.error(401, "未认证"));
+            response.getWriter().write(json);
+        };
+    }
+
+    @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
             .csrf(customizer -> customizer.disable())
@@ -64,6 +77,7 @@ public class SecurityConfig {
                 .requestMatchers(getPermitAllUrls().toArray(new String[0])).permitAll()
                 .anyRequest().authenticated()
             )
+            .exceptionHandling(ex -> ex.authenticationEntryPoint(jsonAuthenticationEntryPoint()))
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }

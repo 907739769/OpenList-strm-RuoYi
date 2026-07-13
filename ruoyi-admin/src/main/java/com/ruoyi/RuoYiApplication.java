@@ -17,11 +17,7 @@ import java.net.InetAddress;
 @SpringBootApplication(excludeName = {
     "org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration",
     "org.springframework.boot.autoconfigure.jdbc.DataSourceTransactionManagerAutoConfiguration",
-    "org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration",
-    "org.springframework.boot.security.autoconfigure.SecurityAutoConfiguration",
-    "org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration",
-    "org.springframework.boot.security.autoconfigure.web.servlet.SecurityFilterAutoConfiguration",
-    "org.springframework.boot.security.autoconfigure.web.servlet.ServletWebSecurityAutoConfiguration"
+    "org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration"
 })
 @EnableCaching
 @ComponentScan(basePackages = {"com.ruoyi"})

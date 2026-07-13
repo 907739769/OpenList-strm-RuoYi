@@ -80,13 +80,6 @@ spring:
   mvc:
     pathmatch:
       matching-strategy: ant_path_matcher
-  autoconfigure:
-    exclude:
-      - org.springframework.boot.security.autoconfigure.SecurityAutoConfiguration
-      - org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
-      - org.springframework.boot.security.autoconfigure.web.servlet.SecurityFilterAutoConfiguration
-      - org.springframework.boot.security.autoconfigure.web.servlet.ServletWebSecurityAutoConfiguration
-
 # MyBatis Plus配置
 mybatis-plus:
   # 搜索指定包别名

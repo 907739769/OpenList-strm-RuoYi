@@ -255,7 +255,12 @@ public class AuthApiController extends BaseController {
     @GetMapping("/info")
     public Result<Map<String, Object>> getUserInfo(@RequestHeader(value = "Authorization", required = false) String authHeader) {
         String token = stripBearer(authHeader);
-        String username = jwtTokenUtil.getUsernameFromToken(token);
+        String username;
+        try {
+            username = jwtTokenUtil.getUsernameFromToken(token);
+        } catch (Exception e) {
+            return Result.error(401, "未登录");
+        }
         if (StringUtils.isEmpty(username)) {
             return Result.error(401, "未登录");
         }
@@ -273,7 +278,12 @@ public class AuthApiController extends BaseController {
     @GetMapping("/routers")
     public Result<List<Map<String, Object>>> getRouters(@RequestHeader(value = "Authorization", required = false) String authHeader) {
         String token = stripBearer(authHeader);
-        String username = jwtTokenUtil.getUsernameFromToken(token);
+        String username;
+        try {
+            username = jwtTokenUtil.getUsernameFromToken(token);
+        } catch (Exception e) {
+            return Result.error(401, "未登录");
+        }
         if (StringUtils.isEmpty(username)) {
             return Result.error(401, "未登录");
         }
@@ -348,7 +358,12 @@ public class AuthApiController extends BaseController {
     public Result<Void> changePassword(@RequestBody ChangePasswordRequest request,
                                         @RequestHeader(value = "Authorization", required = false) String authHeader) {
         String token = stripBearer(authHeader);
-        String username = jwtTokenUtil.getUsernameFromToken(token);
+        String username;
+        try {
+            username = jwtTokenUtil.getUsernameFromToken(token);
+        } catch (Exception e) {
+            return Result.error(401, "未登录");
+        }
         if (StringUtils.isEmpty(username)) {
             return Result.error(401, "未登录");
         }
@@ -434,14 +449,11 @@ public class AuthApiController extends BaseController {
         private String username;
         @jakarta.validation.constraints.NotBlank(message = "密码不能为空")
         private String password;
-        private Boolean rememberMe;
 
         public String getUsername() { return username; }
         public void setUsername(String username) { this.username = username; }
         public String getPassword() { return password; }
         public void setPassword(String password) { this.password = password; }
-        public Boolean getRememberMe() { return rememberMe; }
-        public void setRememberMe(Boolean rememberMe) { this.rememberMe = rememberMe; }
     }
 
     public static class RefreshRequest {

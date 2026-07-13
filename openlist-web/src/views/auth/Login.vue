@@ -10,11 +10,6 @@
           <el-input v-model="loginForm.password" type="password" placeholder="密码" :prefix-icon="Lock" size="large" show-password @keyup.enter="handleLogin" />
         </el-form-item>
         <el-form-item>
-          <div class="remember-row">
-            <el-checkbox v-model="loginForm.rememberMe">记住我</el-checkbox>
-          </div>
-        </el-form-item>
-        <el-form-item>
           <el-button type="primary" size="large" :loading="loading" class="login-btn" @click="handleLogin">
             登 录
           </el-button>
@@ -40,8 +35,7 @@ const loading = ref(false)
 
 const loginForm = reactive({
   username: '',
-  password: '',
-  rememberMe: false
+  password: ''
 })
 
 const loginRules = {
@@ -88,12 +82,6 @@ const handleLogin = async () => {
     margin-bottom: 30px;
     color: #303133;
     font-size: 24px;
-  }
-
-  .remember-row {
-    display: flex;
-    justify-content: space-between;
-    width: 100%;
   }
 
   .login-btn {
