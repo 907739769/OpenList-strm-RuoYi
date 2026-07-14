@@ -91,6 +91,9 @@
       <el-button link type="danger" size="small" @click="handleBatchDelete">
         <el-icon><Delete /></el-icon> 批量删除
       </el-button>
+      <el-button link type="warning" size="small" @click="handleBatchScrape">
+        <el-icon><Refresh /></el-icon> 批量刮削
+      </el-button>
       <el-button link size="small" @click="clearSelection">
         取消
       </el-button>
@@ -129,9 +132,14 @@
               </span>
             </div>
           </div>
-          <el-tag :type="record.status === '1' ? 'success' : 'danger'" size="small" effect="light" class="status-tag">
-            {{ record.status === '1' ? '成功' : '失败' }}
-          </el-tag>
+          <div class="mobile-status-row">
+            <el-tag :type="record.status === '1' ? 'success' : 'danger'" size="small" effect="light" class="status-tag">
+              {{ record.status === '1' ? '成功' : '失败' }}
+            </el-tag>
+            <el-tag v-if="record.scrapeStatus === '1'" type="success" size="small" class="scrape-tag">NFO</el-tag>
+            <el-tag v-else-if="record.scrapeStatus === '2'" type="danger" size="small" class="scrape-tag">刮削失败</el-tag>
+            <el-tag v-else-if="record.scrapeStatus === '0'" type="info" size="small" class="scrape-tag">未刮削</el-tag>
+          </div>
           <!-- Path comparison -->
           <div class="rename-paths">
             <div class="rename-path-item rename-path-original" @click.stop="showFullText(record.originalPath, '原路径')">
@@ -150,7 +158,10 @@
           </div>
         </div>
         <div class="card-actions" @click.stop>
-          <el-button link type="primary" size="small" :icon="Refresh" @click="handleRetryOne(record)">
+          <el-button link type="warning" size="small" :icon="Refresh" @click="handleScrapeOne(record)">
+            刮削
+          </el-button>
+          <el-button link type="primary" size="small" :icon="RefreshLeft" @click="handleRetryOne(record)">
             重试
           </el-button>
           <el-button link type="danger" size="small" :icon="Delete" @click="handleDeleteOne(record)">
@@ -258,7 +269,9 @@ import {
 import {
   getRenameDetailListApi,
   executeRenameDetailApi,
-  batchDeleteRenameDetailApi
+  batchDeleteRenameDetailApi,
+  scrapeRenameDetailApi,
+  batchScrapeRenameDetailApi
 } from '@/api/openlist/renameDetail'
 import type { SearchParams, PageResult } from '@/types'
 
@@ -447,6 +460,24 @@ const handleDeleteOne = async (row: any) => {
     await ElMessageBox.confirm(`是否确认删除重命名记录"${row.originalName}"？`, '警告', { type: 'warning' })
     await batchDeleteRenameDetailApi([row.id])
     ElMessage.success('删除成功')
+    getList()
+  } catch (e) { if (e !== 'cancel') console.error(e) }
+}
+
+const handleScrapeOne = async (row: any) => {
+  try {
+    await ElMessageBox.confirm(`是否确认对"${row.newName}"执行刮削？`, '提示', { type: 'info' })
+    await scrapeRenameDetailApi(row.id)
+    ElMessage.success('刮削已启动')
+    getList()
+  } catch (e) { if (e !== 'cancel') console.error(e) }
+}
+
+const handleBatchScrape = async () => {
+  try {
+    await ElMessageBox.confirm(`是否确认批量刮削选中的 ${selectedIds.value.length} 条记录？`, '提示', { type: 'info' })
+    await batchScrapeRenameDetailApi(selectedIds.value)
+    ElMessage.success('批量刮削已启动')
     getList()
   } catch (e) { if (e !== 'cancel') console.error(e) }
 }
@@ -704,6 +735,17 @@ getList()
 
   .status-tag {
     align-self: flex-start;
+  }
+
+  .mobile-status-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+
+  .scrape-tag {
+    font-size: 11px;
   }
 
   /* Path comparison */
