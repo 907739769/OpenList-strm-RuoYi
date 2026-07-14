@@ -56,3 +56,4 @@ test-results/
 /.omo
 .env
 .playwright-mcp/
+/.qoder
