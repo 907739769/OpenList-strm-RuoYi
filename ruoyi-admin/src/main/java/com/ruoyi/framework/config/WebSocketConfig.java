@@ -1,6 +1,5 @@
 package com.ruoyi.framework.config;
 
-import com.ruoyi.web.controller.monitor.LogWebSocket;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
@@ -15,11 +14,5 @@ public class WebSocketConfig {
     public ServerEndpointExporter serverEndpointExporter() {
         log.info(">>> ServerEndpointExporter bean created");
         return new ServerEndpointExporter();
-    }
-
-    @Bean
-    public LogWebSocket logWebSocket() {
-        log.info(">>> LogWebSocket bean registered");
-        return new LogWebSocket();
     }
 }

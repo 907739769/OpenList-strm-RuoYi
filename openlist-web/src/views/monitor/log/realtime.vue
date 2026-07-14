@@ -134,8 +134,9 @@ function disconnect() {
 function connectWebSocket() {
   const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://'
   const host = window.location.host
+  const token = document.cookie.match(/token=([^;]+)/)?.[1] || ''
   // WebSocket path - LogWebSocket uses /websocket/log/ (no /api prefix)
-  const url = `${protocol}${host}/websocket/log/${logType.value}`
+  const url = `${protocol}${host}/websocket/log/${logType.value}${token ? `?token=${token}` : ''}`
 
   if (typeof WebSocket === 'undefined') {
     ElMessage.error('浏览器不支持 WebSocket')

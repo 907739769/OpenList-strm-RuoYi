@@ -74,6 +74,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/api/doc.html", "/api/v3/api-docs/**", "/swagger-resources/**", "/webjars/**").permitAll()
+                .requestMatchers("/websocket/**").permitAll()
                 .requestMatchers(getPermitAllUrls().toArray(new String[0])).permitAll()
                 .anyRequest().authenticated()
             )

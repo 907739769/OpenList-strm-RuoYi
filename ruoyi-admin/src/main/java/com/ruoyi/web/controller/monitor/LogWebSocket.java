@@ -12,6 +12,10 @@ import jakarta.websocket.OnOpen;
 import jakarta.websocket.Session;
 import jakarta.websocket.server.PathParam;
 import jakarta.websocket.server.ServerEndpoint;
+import com.ruoyi.common.utils.JwtTokenUtil;
+import jakarta.annotation.PostConstruct;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -28,10 +32,20 @@ import java.util.regex.Pattern;
  * 优化：增加移动端适配，智能隐藏元数据
  */
 @ServerEndpoint("/websocket/log/{logType}")
+@Component
 public class LogWebSocket {
 
     private static final Logger log = LoggerFactory.getLogger(LogWebSocket.class);
     private static final String LOG_BASE_PATH = "/data/logs";
+    private static JwtTokenUtil jwtTokenUtil;
+
+    @Autowired
+    private JwtTokenUtil tokenUtil;
+
+    @PostConstruct
+    void init() {
+        jwtTokenUtil = tokenUtil;
+    }
 
     static {
         log.info(">>> LogWebSocket class loaded, @ServerEndpoint=/websocket/log/{logType}");
@@ -49,6 +63,20 @@ public class LogWebSocket {
 
     @OnOpen
     public void onOpen(Session session, @PathParam("logType") String logType) {
+        // Token 校验
+        String queryString = session.getQueryString();
+        String token = extractToken(queryString);
+        if (token == null || jwtTokenUtil.isTokenExpired(token)) {
+            try {
+                session.getBasicRemote().sendText("unauthorized");
+                session.close();
+            } catch (Exception e) {
+                log.debug("关闭 WebSocket 连接时出错", e);
+            }
+            log.warn("WebSocket 连接被拒绝：token 无效或已过期, logType={}", logType);
+            return;
+        }
+
         try {
             String fileName = "sys-info.log";
             if ("debug".equalsIgnoreCase(logType)) fileName = "sys-debug.log";
@@ -114,6 +142,17 @@ public class LogWebSocket {
     private void stopTailer() {
         if (tailer != null) tailer.stop();
         if (executorService != null) executorService.shutdownNow();
+    }
+
+    private String extractToken(String queryString) {
+        if (queryString == null || queryString.isEmpty()) return null;
+        for (String param : queryString.split("&")) {
+            int idx = param.indexOf('=');
+            if (idx > 0 && "token".equals(param.substring(0, idx))) {
+                return param.substring(idx + 1);
+            }
+        }
+        return null;
     }
 
     /**
