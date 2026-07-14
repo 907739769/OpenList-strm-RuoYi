@@ -100,6 +100,8 @@ public class ScrapeService {
             Path showRoot = outputDir.getParent();
             if (showRoot != null) {
                 imageDownloader.downloadTvImages(info, showRoot, forceOverwrite);
+                // 季海报下载到季目录
+                imageDownloader.downloadSeasonPoster(info, outputDir, forceOverwrite);
             }
         } else {
             imageDownloader.downloadMovieImages(info, outputDir, forceOverwrite);

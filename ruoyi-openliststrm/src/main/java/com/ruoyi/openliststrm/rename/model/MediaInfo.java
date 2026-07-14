@@ -28,6 +28,11 @@ public class MediaInfo {
     private String episodeTmdbId; // 单集 TMDB ID (tv episode id)
     private String episodePlot; // 单集剧情简介
     private String episodeAiredDate; // 单集播出日期 YYYY-MM-DD
+    private String episodeRating; // 单集评分
+    private String episodeDirector; // 单集导演
+    private String episodeWriter; // 单集编剧
+    private String episodeGuestStars; // 单集客串演员（逗号分隔）
+    private String episodeStillPath; // 单集剧照路径（TMDb file_path）
 
     private String resolution; // e.g., 2160p, 1080p, 1080i
     private String videoCodec; // H264, H265, x264, HEVC
@@ -85,4 +90,14 @@ public class MediaInfo {
     public void setOriginCountries(List<String> originCountries) { this.originCountries = originCountries; }
     public Map<String, Object> getMetadata() { return metadata; }
     public void setMetadata(Map<String, Object> metadata) { this.metadata = metadata; }
+    public String getEpisodeRating() { return episodeRating; }
+    public void setEpisodeRating(String episodeRating) { this.episodeRating = episodeRating; }
+    public String getEpisodeDirector() { return episodeDirector; }
+    public void setEpisodeDirector(String episodeDirector) { this.episodeDirector = episodeDirector; }
+    public String getEpisodeWriter() { return episodeWriter; }
+    public void setEpisodeWriter(String episodeWriter) { this.episodeWriter = episodeWriter; }
+    public String getEpisodeGuestStars() { return episodeGuestStars; }
+    public void setEpisodeGuestStars(String episodeGuestStars) { this.episodeGuestStars = episodeGuestStars; }
+    public String getEpisodeStillPath() { return episodeStillPath; }
+    public void setEpisodeStillPath(String episodeStillPath) { this.episodeStillPath = episodeStillPath; }
 }

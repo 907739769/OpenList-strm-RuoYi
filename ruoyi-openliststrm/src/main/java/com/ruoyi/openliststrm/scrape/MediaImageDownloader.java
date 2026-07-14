@@ -40,7 +40,7 @@ public class MediaImageDownloader {
     }
 
     /**
-     * 下载电影图片: poster.jpg, fanart.jpg, clearlogo.png
+     * 下载电影图片: poster.jpg, fanart.jpg, clearlogo.png, banner.jpg, clearart.png, landscape.jpg, thumb.jpg
      * 合并 details 和 images 数据到一个节点中，方便统一处理
      */
     public void downloadMovieImages(MediaInfo info, Path outputDir, boolean forceOverwrite) {
@@ -48,28 +48,16 @@ public class MediaImageDownloader {
         if (details == null) return;
 
         // 合并 images 数据到 details 中
-        JsonNode imagesNode = getImagesFromMetadata(info);
-        if (imagesNode != null) {
-            // 使用 ObjectMapper 合并节点
-            try {
-                ObjectMapper mapper = new ObjectMapper();
-                ObjectNode merged = mapper.valueToTree(details);
-                if (imagesNode.has("posters")) merged.set("posters", imagesNode.get("posters"));
-                if (imagesNode.has("backdrops")) merged.set("backdrops", imagesNode.get("backdrops"));
-                if (imagesNode.has("logos")) merged.set("logos", imagesNode.get("logos"));
-                details = merged;
-            } catch (Exception e) {
-                log.warn("合并 images 数据失败: {}", e.getMessage());
-            }
-        }
+        details = mergeImages(details, getImagesFromMetadata(info));
 
         downloadImage(details, "poster", "poster.jpg", outputDir, forceOverwrite);
         downloadImage(details, "backdrop", "fanart.jpg", outputDir, forceOverwrite);
         downloadLogo(details, outputDir, forceOverwrite);
+        downloadAdditionalImages(details, outputDir, forceOverwrite);
     }
 
     /**
-     * 下载剧集图片: poster.jpg, fanart.jpg, clearlogo.png
+     * 下载剧集图片: poster.jpg, fanart.jpg, clearlogo.png, banner.jpg, clearart.png, landscape.jpg, thumb.jpg
      * 合并 details 和 images 数据到一个节点中，方便统一处理
      */
     public void downloadTvImages(MediaInfo info, Path outputDir, boolean forceOverwrite) {
@@ -77,24 +65,54 @@ public class MediaImageDownloader {
         if (details == null) return;
 
         // 合并 images 数据到 details 中
-        JsonNode imagesNode = getImagesFromMetadata(info);
-        if (imagesNode != null) {
-            // 使用 ObjectMapper 合并节点
-            try {
-                ObjectMapper mapper = new ObjectMapper();
-                ObjectNode merged = mapper.valueToTree(details);
-                if (imagesNode.has("posters")) merged.set("posters", imagesNode.get("posters"));
-                if (imagesNode.has("backdrops")) merged.set("backdrops", imagesNode.get("backdrops"));
-                if (imagesNode.has("logos")) merged.set("logos", imagesNode.get("logos"));
-                details = merged;
-            } catch (Exception e) {
-                log.warn("合并 images 数据失败: {}", e.getMessage());
-            }
-        }
+        details = mergeImages(details, getImagesFromMetadata(info));
 
         downloadImage(details, "poster", "poster.jpg", outputDir, forceOverwrite);
         downloadImage(details, "backdrop", "fanart.jpg", outputDir, forceOverwrite);
         downloadLogo(details, outputDir, forceOverwrite);
+        downloadAdditionalImages(details, outputDir, forceOverwrite);
+    }
+
+    /**
+     * 下载季级别图片: season-poster.jpg 到季目录
+     */
+    public void downloadSeasonPoster(MediaInfo info, Path seasonDir, boolean forceOverwrite) {
+        if (info.getMetadata() == null) return;
+        Object siObj = info.getMetadata().get("season_images");
+        if (!(siObj instanceof JsonNode)) return;
+        JsonNode seasonImages = (JsonNode) siObj;
+        JsonNode posters = seasonImages.path("posters");
+        if (!posters.isArray() || posters.size() == 0) return;
+
+        String url = selectImageFromList(posters);
+        if (url == null) return;
+
+        Path target = seasonDir.resolve("season-poster.jpg");
+        if (Files.exists(target) && !forceOverwrite) {
+            log.debug("季海报已存在，跳过: {}", target);
+            return;
+        }
+        try {
+            downloadToFile(url, target);
+            log.info("下载季海报图片: {} -> {}", url, target);
+        } catch (Exception e) {
+            log.warn("下载季海报图片失败: {}", e.getMessage());
+        }
+    }
+
+    private JsonNode mergeImages(JsonNode details, JsonNode imagesNode) {
+        if (imagesNode == null) return details;
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            ObjectNode merged = mapper.valueToTree(details);
+            if (imagesNode.has("posters")) merged.set("posters", imagesNode.get("posters"));
+            if (imagesNode.has("backdrops")) merged.set("backdrops", imagesNode.get("backdrops"));
+            if (imagesNode.has("logos")) merged.set("logos", imagesNode.get("logos"));
+            return merged;
+        } catch (Exception e) {
+            log.warn("合并 images 数据失败: {}", e.getMessage());
+            return details;
+        }
     }
 
     private void downloadImage(JsonNode details, String type, String filename, Path outputDir, boolean forceOverwrite) {
@@ -118,7 +136,7 @@ public class MediaImageDownloader {
 
     private void downloadLogo(JsonNode details, Path outputDir, boolean forceOverwrite) {
         try {
-            String imgUrl = extractLogoUrl(details);
+            String imgUrl = extractLogoUrl(details, 0);
             if (imgUrl == null) return;
             Path target = outputDir.resolve("clearlogo.png");
             if (Files.exists(target) && !forceOverwrite) {
@@ -129,6 +147,49 @@ public class MediaImageDownloader {
             log.info("下载 clearlogo 图片: {} -> {}", imgUrl, target);
         } catch (Exception e) {
             log.warn("下载 clearlogo 图片失败: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * 下载额外图片类型: banner, clearart, landscape, thumb
+     */
+    private void downloadAdditionalImages(JsonNode details, Path outputDir, boolean forceOverwrite) {
+        // banner.jpg: 从 backdrops 中选择第二张（与 fanart 不同）
+        downloadImageByIndex(details, "backdrops", "banner.jpg", 1, forceOverwrite, outputDir);
+
+        // clearart.png: 从 logos 中选择第二张（与 clearlogo 不同）
+        downloadImageByIndex(details, "logos", "clearart.png", 1, forceOverwrite, outputDir);
+
+        // landscape.jpg: 从 backdrops 中选择第三张（或第二张如只有两张）
+        downloadImageByIndex(details, "backdrops", "landscape.jpg", 2, forceOverwrite, outputDir);
+
+        // thumb.jpg: 从 posters 中选择第二张（与 poster 不同）
+        downloadImageByIndex(details, "posters", "thumb.jpg", 1, forceOverwrite, outputDir);
+    }
+
+    /**
+     * 从图片列表中按索引下载图片，如果索引超出范围则回退到第一张
+     */
+    private void downloadImageByIndex(JsonNode details, String imagesKey, String filename,
+                                      int preferredIndex, boolean forceOverwrite, Path outputDir) {
+        try {
+            JsonNode imagesArray = details.path(imagesKey);
+            if (!imagesArray.isArray() || imagesArray.size() == 0) return;
+
+            // 如果有足够的图片，使用指定索引；否则使用第一张
+            int idx = Math.min(preferredIndex, imagesArray.size() - 1);
+            String url = selectImageFromListAt(imagesArray, idx);
+            if (url == null) return;
+
+            Path target = outputDir.resolve(filename);
+            if (Files.exists(target) && !forceOverwrite) {
+                log.debug("{} 已存在，跳过: {}", filename, target);
+                return;
+            }
+            downloadToFile(url, target);
+            log.info("下载 {} 图片: {} -> {}", filename, url, target);
+        } catch (Exception e) {
+            log.warn("下载 {} 图片失败: {}", filename, e.getMessage());
         }
     }
 
@@ -170,30 +231,63 @@ public class MediaImageDownloader {
         return null;
     }
 
-    private String extractLogoUrl(JsonNode details) {
+    private String extractLogoUrl(JsonNode details, int preferredIndex) {
         // logos 数据已在 downloadMovieImages/downloadTvImages 中合并到 details 顶层
         if (details.has("logos") && details.get("logos").isArray() && details.get("logos").size() > 0) {
-            // 按语言偏好选择: zh > en > null
-            String preferredLang = config.getTmdbImageLanguage();
-            String[] langPriority = {preferredLang, "en", ""};
-            
-            for (String lang : langPriority) {
-                for (JsonNode logo : details.get("logos")) {
-                    String filePath = logo.path("file_path").asText(null);
-                    String isoLang = logo.path("iso_639_1").asText("");
-                    if (filePath != null && lang.equals(isoLang)) {
-                        return TMDb_IMG_BASE + filePath;
-                    }
-                }
-            }
-            // 回退到第一个
-            JsonNode first = details.get("logos").get(0);
-            String filePath = first.path("file_path").asText(null);
-            if (filePath != null) {
+            return selectImageFromListAt(details.get("logos"), preferredIndex);
+        }
+        return null;
+    }
+
+    /**
+     * 从图片列表中选择最佳图片（按语言偏好），返回完整 URL
+     */
+    private String selectImageFromList(JsonNode imageArray) {
+        return selectImageFromListAt(imageArray, 0);
+    }
+
+    /**
+     * 从图片列表中选择指定索引的图片（按语言偏好），返回完整 URL
+     * 如果 preferredIndex 超出范围，则回退到第一张
+     */
+    private String selectImageFromListAt(JsonNode imageArray, int preferredIndex) {
+        if (!imageArray.isArray() || imageArray.size() == 0) return null;
+
+        String preferredLang = config.getTmdbImageLanguage();
+        String[] langPriority = {preferredLang, "en", ""};
+
+        // 首先尝试在 preferredIndex 附近按语言偏好选择
+        int maxIdx = Math.min(preferredIndex, imageArray.size() - 1);
+
+        // 从 preferredIndex 开始向前查找匹配语言的图片
+        for (int i = maxIdx; i < imageArray.size(); i++) {
+            JsonNode file = imageArray.get(i);
+            String filePath = file.path("file_path").asText(null);
+            if (filePath == null) continue;
+            String isoLang = file.path("iso_639_1").asText("");
+            if (preferredLang.equals(isoLang)) {
                 return TMDb_IMG_BASE + filePath;
             }
         }
-        return null;
+        // 再从头查找 en 语言
+        for (int i = maxIdx; i < imageArray.size(); i++) {
+            JsonNode file = imageArray.get(i);
+            String filePath = file.path("file_path").asText(null);
+            if (filePath == null) continue;
+            String isoLang = file.path("iso_639_1").asText("");
+            if ("en".equals(isoLang)) {
+                return TMDb_IMG_BASE + filePath;
+            }
+        }
+        // 回退: 使用 preferredIndex 处的图片
+        JsonNode selected = imageArray.get(maxIdx);
+        String filePath = selected.path("file_path").asText(null);
+        if (filePath != null) {
+            return TMDb_IMG_BASE + filePath;
+        }
+        // 最终回退: 使用第一张
+        filePath = imageArray.get(0).path("file_path").asText(null);
+        return filePath != null ? TMDb_IMG_BASE + filePath : null;
     }
 
     private void downloadToFile(String urlStr, Path target) throws IOException {

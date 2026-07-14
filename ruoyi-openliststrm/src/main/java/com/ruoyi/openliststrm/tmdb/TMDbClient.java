@@ -53,7 +53,7 @@ public class TMDbClient {
     }
 
     /**
-     * 从 TMDB 获取指定季的集列表，并回填当前集的详情（集标题、播出日期、剧情、tmdbId）
+     * 从 TMDB 获取指定季的集列表，并回填当前集的详情（集标题、播出日期、剧情、tmdbId、评分、导演、编剧）
      */
     private void enrichEpisodeDetails(MediaInfo info, TMDbApiService api) throws IOException {
         int tvId = Integer.parseInt(info.getTmdbId());
@@ -79,10 +79,7 @@ public class TMDbClient {
 
             // 集标题（优先中文）
             String epName = ep.path("name").asText(null);
-            if (StringUtils.isNotEmpty(epName) && isChinese(epName)) {
-                // 尝试从 alternative_titles 获取中文
-                info.setEpisodeName(epName);
-            } else {
+            if (StringUtils.isNotEmpty(epName)) {
                 info.setEpisodeName(epName);
             }
 
@@ -102,6 +99,53 @@ public class TMDbClient {
             String overview = ep.path("overview").asText(null);
             if (StringUtils.isNotEmpty(overview)) {
                 info.setEpisodePlot(overview);
+            }
+
+            // 单集评分
+            if (ep.hasNonNull("vote_average")) {
+                info.setEpisodeRating(String.format("%.1f", ep.get("vote_average").asDouble(0)));
+            }
+
+            // 导演和编剧（从 crew 中提取）
+            JsonNode crew = ep.path("crew");
+            if (crew.isArray()) {
+                StringBuilder directors = new StringBuilder();
+                StringBuilder writers = new StringBuilder();
+                for (JsonNode c : crew) {
+                    String department = c.path("department").asText("");
+                    String job = c.path("job").asText("");
+                    String name = c.path("name").asText("");
+                    if (StringUtils.isEmpty(name)) continue;
+                    if ("Directing".equals(department) && "Director".equals(job)) {
+                        if (directors.length() > 0) directors.append(", ");
+                        directors.append(name);
+                    } else if ("Writing".equals(department)) {
+                        if (writers.length() > 0) writers.append(", ");
+                        writers.append(name);
+                    }
+                }
+                if (directors.length() > 0) info.setEpisodeDirector(directors.toString());
+                if (writers.length() > 0) info.setEpisodeWriter(writers.toString());
+            }
+
+            // 客串演员（guest_stars）
+            JsonNode guestStars = ep.path("guest_stars");
+            if (guestStars.isArray() && guestStars.size() > 0) {
+                StringBuilder guests = new StringBuilder();
+                for (JsonNode gs : guestStars) {
+                    String name = gs.path("name").asText("");
+                    if (StringUtils.isNotEmpty(name)) {
+                        if (guests.length() > 0) guests.append(", ");
+                        guests.append(name);
+                    }
+                }
+                if (guests.length() > 0) info.setEpisodeGuestStars(guests.toString());
+            }
+
+            // 单集剧照路径
+            String stillPath = ep.path("still_path").asText(null);
+            if (StringUtils.isNotEmpty(stillPath)) {
+                info.setEpisodeStillPath(stillPath);
             }
 
             break; // 找到当前集后退出
@@ -232,6 +276,34 @@ public class TMDbClient {
             } catch (Exception e) {
                 log.warn("获取剧集 images 失败: tvId={}, error={}", id, e.getMessage());
             }
+
+            // TV: 获取外部 ID (IMDb, TVDb)
+            try {
+                String extJson = api.getExternalIds(apiKey, type, id);
+                if (extJson != null) {
+                    JsonNode extIds = mapper.readTree(extJson);
+                    info.getMetadata().put("external_ids", extIds);
+                    log.debug("获取剧集 external_ids 成功: tvId={}", id);
+                }
+            } catch (Exception e) {
+                log.warn("获取剧集 external_ids 失败: tvId={}, error={}", id, e.getMessage());
+            }
+
+            // TV: 获取季级别图片
+            if (info.getSeason() != null) {
+                try {
+                    int seasonNum = Integer.parseInt(info.getSeason().replaceAll("\\D", ""));
+                    String seasonImagesJson = api.getTvSeasonImages(apiKey, id, seasonNum);
+                    if (seasonImagesJson != null) {
+                        JsonNode seasonImages = mapper.readTree(seasonImagesJson);
+                        info.getMetadata().put("season_images", seasonImages);
+                        log.debug("获取季 images 成功: tvId={}, season={}, posters={}",
+                                id, seasonNum, seasonImages.path("posters").size());
+                    }
+                } catch (Exception e) {
+                    log.warn("获取季 images 失败: tvId={}, error={}", id, e.getMessage());
+                }
+            }
         } else {
             JsonNode pcs = d.path("production_countries");
             if (pcs.isArray()) {
@@ -255,6 +327,30 @@ public class TMDbClient {
                 }
             } catch (Exception e) {
                 log.warn("获取电影 images 失败: movieId={}, error={}", id, e.getMessage());
+            }
+
+            // Movie: 获取外部 ID (IMDb, TVDb)
+            try {
+                String extJson = api.getExternalIds(apiKey, type, id);
+                if (extJson != null) {
+                    JsonNode extIds = mapper.readTree(extJson);
+                    info.getMetadata().put("external_ids", extIds);
+                    log.debug("获取电影 external_ids 成功: movieId={}", id);
+                }
+            } catch (Exception e) {
+                log.warn("获取电影 external_ids 失败: movieId={}, error={}", id, e.getMessage());
+            }
+
+            // Movie: 获取上映/分级信息
+            try {
+                String rdJson = api.getMovieReleaseDates(apiKey, id);
+                if (rdJson != null) {
+                    JsonNode rd = mapper.readTree(rdJson);
+                    info.getMetadata().put("release_dates", rd);
+                    log.debug("获取电影 release_dates 成功: movieId={}", id);
+                }
+            } catch (Exception e) {
+                log.warn("获取电影 release_dates 失败: movieId={}, error={}", id, e.getMessage());
             }
         }
     }

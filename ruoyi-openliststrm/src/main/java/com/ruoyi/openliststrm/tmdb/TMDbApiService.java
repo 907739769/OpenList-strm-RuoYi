@@ -118,6 +118,53 @@ public class TMDbApiService {
         return executeAndReturnString(req, "getMovieImages");
     }
 
+    /**
+     * 获取外部 ID（IMDb、TVDb 等）
+     * 接口: GET /{type}/{id}/external_ids
+     * 返回: { imdb_id, tvdb_id, ... }
+     */
+    @Cacheable(value = "tmdbExternalIds", key = "#p1 + ':' + #p2", unless = "#result == null")
+    public String getExternalIds(String apiKey, String type, int id) {
+        HttpUrl url = Objects.requireNonNull(HttpUrl.parse(BASE + "/" + type + "/" + id + "/external_ids"))
+                .newBuilder()
+                .addQueryParameter("api_key", apiKey)
+                .build();
+        Request req = new Request.Builder().url(url).get().build();
+        return executeAndReturnString(req, "getExternalIds");
+    }
+
+    /**
+     * 获取电影上映/分级信息（Movie 专用）
+     * 接口: GET /movie/{id}/release_dates
+     * 返回: { results: [{ iso_3166_1, release_dates: [{ certification, ... }] }] }
+     */
+    @Cacheable(value = "tmdbReleaseDates", key = "#p1", unless = "#result == null")
+    public String getMovieReleaseDates(String apiKey, int movieId) {
+        HttpUrl url = Objects.requireNonNull(HttpUrl.parse(BASE + "/movie/" + movieId + "/release_dates"))
+                .newBuilder()
+                .addQueryParameter("api_key", apiKey)
+                .build();
+        Request req = new Request.Builder().url(url).get().build();
+        return executeAndReturnString(req, "getMovieReleaseDates");
+    }
+
+    /**
+     * 获取季级别图片（TV 专用）
+     * 接口: GET /tv/{id}/season/{season_number}/images
+     * 返回: { posters: [...], ... }
+     * include_image_language: zh,en,null
+     */
+    @Cacheable(value = "tmdbSeasonImages", key = "#p1 + ':' + #p2", unless = "#result == null")
+    public String getTvSeasonImages(String apiKey, int tvId, int seasonNumber) {
+        HttpUrl url = Objects.requireNonNull(HttpUrl.parse(BASE + "/tv/" + tvId + "/season/" + seasonNumber + "/images"))
+                .newBuilder()
+                .addQueryParameter("api_key", apiKey)
+                .addQueryParameter("include_image_language", "zh,en,null")
+                .build();
+        Request req = new Request.Builder().url(url).get().build();
+        return executeAndReturnString(req, "getTvSeasonImages");
+    }
+
     // --- 抽取公共的 HTTP 执行逻辑 ---
     private String executeAndReturnString(Request req, String methodName) {
         try (Response resp = http.newCall(req).execute()) {

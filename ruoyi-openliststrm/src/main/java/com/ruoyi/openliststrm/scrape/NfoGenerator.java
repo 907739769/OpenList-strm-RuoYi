@@ -11,7 +11,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
-import java.util.List;
 
 /**
  * 生成 Emby/Jellyfin/Plex 兼容的 NFO 文件。
@@ -71,15 +70,31 @@ public class NfoGenerator {
         sb.append("<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"yes\"?>\n");
         sb.append("<movie>\n");
 
+        JsonNode details = getDetails(info);
+        JsonNode externalIds = getExternalIds(info);
+
         appendTag(sb, "title", info.getTitle());
         appendTag(sb, "originaltitle", info.getOriginalTitle());
         appendTag(sb, "sorttitle", info.getTitle());
         appendTag(sb, "tmdbid", info.getTmdbId());
 
-        JsonNode details = getDetails(info);
-        if (details != null && details.has("imdb_id")) {
-            appendTag(sb, "imdbid", details.get("imdb_id").asText());
+        // IMDb ID: 从 details 或 external_ids 获取
+        String imdbId = null;
+        if (details != null && details.hasNonNull("imdb_id")) {
+            imdbId = details.get("imdb_id").asText();
+        } else if (externalIds != null && externalIds.hasNonNull("imdb_id")) {
+            imdbId = externalIds.get("imdb_id").asText();
         }
+        if (StringUtils.isNotBlank(imdbId)) {
+            appendTag(sb, "imdbid", imdbId);
+        }
+
+        // uniqueid 节点（IMDb 优先为 default）
+        if (StringUtils.isNotBlank(imdbId)) {
+            appendUniqueid(sb, imdbId, "imdb", "true");
+        }
+        appendUniqueid(sb, info.getTmdbId(), "tmdb", imdbId == null ? "true" : "false");
+
         appendTag(sb, "year", info.getYear());
 
         if (details != null && details.has("release_date")) {
@@ -90,15 +105,30 @@ public class NfoGenerator {
         if (details != null && details.has("runtime")) {
             appendTag(sb, "runtime", String.valueOf(details.get("runtime").asInt()));
         }
-        if (details != null && details.has("vote_average")) {
-            appendTag(sb, "rating", String.format("%.1f", details.get("vote_average").asDouble(0)));
+
+        // 分级信息 (MPAA 等)
+        if (info.getMetadata() != null && info.getMetadata().get("release_dates") != null) {
+            String certification = extractCertification(info);
+            if (StringUtils.isNotBlank(certification)) {
+                appendTag(sb, "mpaa", certification);
+            }
         }
-        if (details != null && details.has("vote_count")) {
-            appendTag(sb, "votes", String.valueOf(details.get("vote_count").asInt()));
-        }
+
+        // 多源评分
+        appendRatings(sb, details, imdbId);
+
         if (details != null && details.has("metacritic")) {
             appendTag(sb, "metacritic", String.valueOf(details.get("metacritic").asInt()));
         }
+
+        // popularity 数据
+        if (details != null && details.has("popularity")) {
+            double popularity = details.get("popularity").asDouble(0);
+            if (popularity > 0) {
+                appendTag(sb, "top250", String.format("%.0f", popularity));
+            }
+        }
+
         appendTag(sb, "tagline", details != null && details.has("tagline") ? details.get("tagline").asText() : null);
         appendTag(sb, "outline", details != null && details.has("overview") ? truncate(details.get("overview").asText(), 200) : null);
         appendTag(sb, "plot", details != null && details.has("overview") ? details.get("overview").asText() : null);
@@ -108,12 +138,30 @@ public class NfoGenerator {
             if (trailer != null) appendTag(sb, "trailer", trailer);
         }
 
+        // 合集信息 (belongs_to_collection)
+        if (details != null && details.has("belongs_to_collection") && !details.get("belongs_to_collection").isNull()) {
+            JsonNode collection = details.get("belongs_to_collection");
+            String collectionName = collection.path("name").asText(null);
+            if (StringUtils.isNotBlank(collectionName)) {
+                sb.append("  <set>\n");
+                appendTag(sb, "name", collectionName, "    ");
+                appendTag(sb, "overview", "", "    ");
+                sb.append("  </set>\n");
+            }
+        }
+
         appendGenres(sb, details, "genres");
-        appendCountries(sb, details, "production_countries", "iso_3166_1");
+        appendCountries(sb, details, "production_countries", "name");
         appendStudios(sb, details, "production_companies", "name");
         appendDirectors(sb, details);
-        appendActors(sb, details);
-        appendUniqueid(sb, info.getTmdbId(), "tmdb", "false");
+        appendWriters(sb, details);
+        appendActorsStructured(sb, details);
+
+        // 标签 (keywords)
+        appendKeywords(sb, details);
+
+        // 图片引用 (thumb)
+        appendThumbs(sb, info, details);
 
         sb.append("</movie>\n");
         return sb.toString();
@@ -130,28 +178,99 @@ public class NfoGenerator {
         sb.append("<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"yes\"?>\n");
         sb.append("<tvshow>\n");
 
+        JsonNode details = getDetails(info);
+        JsonNode externalIds = getExternalIds(info);
+
         // 标题
         appendTag(sb, "title", info.getTitle());
         appendTag(sb, "originaltitle", info.getOriginalTitle());
         appendTag(sb, "showtitle", info.getTitle());
 
-        // TMDB ID
+        // TMDB ID + IMDb ID
         appendTag(sb, "tmdbid", info.getTmdbId());
-        appendUniqueid(sb, info.getTmdbId(), "tmdb", "true");
+        String imdbId = null;
+        if (externalIds != null && externalIds.hasNonNull("imdb_id")) {
+            imdbId = externalIds.get("imdb_id").asText();
+        }
+        if (StringUtils.isNotBlank(imdbId)) {
+            appendTag(sb, "imdbid", imdbId);
+        }
 
-        // 年份
-        JsonNode details = getDetails(info);
-        if (details != null && details.has("first_air_date")) {
-            String date = details.get("first_air_date").asText();
-            if (date != null && date.length() >= 4) {
-                appendTag(sb, "year", date.substring(0, 4));
+        // uniqueid 节点
+        if (StringUtils.isNotBlank(imdbId)) {
+            appendUniqueid(sb, imdbId, "imdb", "true");
+        }
+        appendUniqueid(sb, info.getTmdbId(), "tmdb", imdbId == null ? "true" : "false");
+
+        // TVDb ID
+        if (externalIds != null && externalIds.hasNonNull("tvdb_id")) {
+            String tvdbId = externalIds.get("tvdb_id").asText();
+            if (StringUtils.isNotBlank(tvdbId)) {
+                appendUniqueid(sb, tvdbId, "tvdb", "false");
             }
         }
 
-        // 剧情
-        appendTag(sb, "plot", details != null && details.has("overview") ? details.get("overview").asText() : null);
+        // 年份
+        String firstAirDate = null;
+        if (details != null && details.has("first_air_date")) {
+            firstAirDate = details.get("first_air_date").asText();
+            if (firstAirDate != null && firstAirDate.length() >= 4) {
+                appendTag(sb, "year", firstAirDate.substring(0, 4));
+            }
+        }
 
-        // 类型、国家、制作公司、演员（同电影）
+        // 首播日期
+        appendTag(sb, "premiered", firstAirDate);
+
+        // 剧集状态
+        if (details != null && details.has("status")) {
+            String status = details.get("status").asText();
+            if (StringUtils.isNotBlank(status)) {
+                appendTag(sb, "status", status);
+            }
+        }
+
+        // 评分
+        if (details != null && details.has("vote_average")) {
+            double rating = details.get("vote_average").asDouble(0);
+            if (rating > 0) {
+                appendTag(sb, "rating", String.format("%.1f", rating));
+            }
+        }
+        if (details != null && details.has("vote_count")) {
+            appendTag(sb, "votes", String.valueOf(details.get("vote_count").asInt()));
+        }
+
+        // 多源评分
+        appendRatings(sb, details, imdbId);
+
+        // 简介
+        String overview = details != null && details.has("overview") ? details.get("overview").asText() : null;
+        appendTag(sb, "plot", overview);
+        appendTag(sb, "outline", truncate(overview, 200));
+
+        // tagline
+        appendTag(sb, "tagline", details != null && details.has("tagline") ? details.get("tagline").asText() : null);
+
+        // 季数、集数
+        if (details != null) {
+            if (details.has("number_of_seasons")) {
+                appendTag(sb, "season", String.valueOf(details.get("number_of_seasons").asInt()));
+            }
+            if (details.has("number_of_episodes")) {
+                appendTag(sb, "episode", String.valueOf(details.get("number_of_episodes").asInt()));
+            }
+        }
+
+        // episodeguide
+        if (StringUtils.isNotBlank(info.getTmdbId())) {
+            sb.append("  <episodeguide>\n");
+            sb.append("    <url cache=\"tmdb.xml\">https://api.tmdb.org/3/tv/").append(escapeXml(info.getTmdbId()))
+                    .append("?api_key=&amp;language=zh-CN</url>\n");
+            sb.append("  </episodeguide>\n");
+        }
+
+        // 类型、国家、制作公司
         appendGenres(sb, details, "genres");
         if (details != null && details.has("origin_country")) {
             JsonNode oc = details.get("origin_country");
@@ -160,7 +279,13 @@ public class NfoGenerator {
             }
         }
         appendStudios(sb, details, "production_companies", "name");
-        appendActors(sb, details);
+        appendActorsStructured(sb, details);
+
+        // 标签 (keywords)
+        appendKeywords(sb, details);
+
+        // 图片引用 (thumb)
+        appendThumbs(sb, info, details);
 
         sb.append("</tvshow>\n");
         return sb.toString();
@@ -182,12 +307,34 @@ public class NfoGenerator {
         appendTag(sb, "title", "第 " + seasonNum + " 季");
         appendTag(sb, "seasonnumber", String.valueOf(seasonNum));
 
+        // tvshowid 关联
+        if (StringUtils.isNotBlank(info.getTmdbId())) {
+            appendTag(sb, "tvshowid", info.getTmdbId());
+        }
+
         // 剧情（来自剧集总览）
         JsonNode details = getDetails(info);
         appendTag(sb, "plot", details != null && details.has("overview") ? truncate(details.get("overview").asText(), 500) : null);
 
+        // premiered（首播日期，使用剧集的 first_air_date）
+        if (details != null && details.has("first_air_date")) {
+            appendTag(sb, "premiered", details.get("first_air_date").asText());
+        }
+
         // uniqueid（使用剧集 tmdbId）
         appendUniqueid(sb, info.getTmdbId(), "tmdb", "true");
+
+        // 季级别图片引用
+        JsonNode seasonImages = getSeasonImages(info);
+        if (seasonImages != null) {
+            JsonNode posters = seasonImages.path("posters");
+            if (posters.isArray() && posters.size() > 0) {
+                String posterPath = posters.get(0).path("file_path").asText(null);
+                if (StringUtils.isNotBlank(posterPath)) {
+                    sb.append("  <thumb aspect=\"poster\">").append(TMDb_IMG_BASE).append(escapeXml(posterPath)).append("</thumb>\n");
+                }
+            }
+        }
 
         sb.append("</season>\n");
         return sb.toString();
@@ -235,19 +382,58 @@ public class NfoGenerator {
             appendTag(sb, "aired", info.getEpisodeAiredDate());
         }
 
+        // 单集评分
+        if (StringUtils.isNotBlank(info.getEpisodeRating())) {
+            appendTag(sb, "rating", info.getEpisodeRating());
+        }
+
+        // 导演
+        if (StringUtils.isNotBlank(info.getEpisodeDirector())) {
+            appendTag(sb, "director", info.getEpisodeDirector());
+        }
+
+        // 编剧
+        if (StringUtils.isNotBlank(info.getEpisodeWriter())) {
+            appendTag(sb, "writer", info.getEpisodeWriter());
+        }
+
+        // 客串演员
+        if (StringUtils.isNotBlank(info.getEpisodeGuestStars())) {
+            appendTag(sb, "credits", info.getEpisodeGuestStars());
+        }
+
         // 剧情
         String plot = StringUtils.isNotBlank(info.getEpisodePlot())
                 ? info.getEpisodePlot()
                 : (details != null && details.has("overview") ? details.get("overview").asText() : null);
         appendTag(sb, "plot", plot);
 
+        // 单集剧照 (thumb)
+        if (StringUtils.isNotBlank(info.getEpisodeStillPath())) {
+            sb.append("  <thumb>").append(TMDb_IMG_BASE).append(escapeXml(info.getEpisodeStillPath())).append("</thumb>\n");
+        }
+
         // fileinfo — 视频编码信息
-        if (StringUtils.isNotBlank(info.getVideoCodec())) {
+        boolean hasVideo = StringUtils.isNotBlank(info.getVideoCodec());
+        boolean hasAudio = StringUtils.isNotBlank(info.getAudioCodec());
+        boolean hasResolution = StringUtils.isNotBlank(info.getResolution());
+        if (hasVideo || hasAudio || hasResolution) {
             sb.append("  <fileinfo>\n");
             sb.append("    <streamdetails>\n");
-            sb.append("      <video>\n");
-            sb.append("        <codec>").append(escapeXml(info.getVideoCodec())).append("</codec>\n");
-            sb.append("      </video>\n");
+            if (hasVideo) {
+                sb.append("      <video>\n");
+                sb.append("        <codec>").append(escapeXml(info.getVideoCodec())).append("</codec>\n");
+                if (hasResolution) {
+                    sb.append("        <width>").append(escapeXml(parseResolutionWidth(info.getResolution()))).append("</width>\n");
+                    sb.append("        <height>").append(escapeXml(parseResolutionHeight(info.getResolution()))).append("</height>\n");
+                }
+                sb.append("      </video>\n");
+            }
+            if (hasAudio) {
+                sb.append("      <audio>\n");
+                sb.append("        <codec>").append(escapeXml(info.getAudioCodec())).append("</codec>\n");
+                sb.append("      </audio>\n");
+            }
             sb.append("    </streamdetails>\n");
             sb.append("  </fileinfo>\n");
         }
@@ -267,9 +453,33 @@ public class NfoGenerator {
         return null;
     }
 
+    private JsonNode getExternalIds(MediaInfo info) {
+        if (info.getMetadata() == null) return null;
+        Object extIds = info.getMetadata().get("external_ids");
+        if (extIds instanceof JsonNode) {
+            return (JsonNode) extIds;
+        }
+        return null;
+    }
+
+    private JsonNode getSeasonImages(MediaInfo info) {
+        if (info.getMetadata() == null) return null;
+        Object si = info.getMetadata().get("season_images");
+        if (si instanceof JsonNode) {
+            return (JsonNode) si;
+        }
+        return null;
+    }
+
     private void appendTag(StringBuilder sb, String name, String value) {
         if (StringUtils.isNotBlank(value)) {
             sb.append("  <").append(name).append(">").append(escapeXml(value)).append("</").append(name).append(">\n");
+        }
+    }
+
+    private void appendTag(StringBuilder sb, String name, String value, String indent) {
+        if (StringUtils.isNotBlank(value)) {
+            sb.append(indent).append("<").append(name).append(">").append(escapeXml(value)).append("</").append(name).append(">\n");
         }
     }
 
@@ -334,6 +544,131 @@ public class NfoGenerator {
         }
     }
 
+    /**
+     * 结构化 actor 节点：包含 name、role、thumb
+     */
+    private void appendActorsStructured(StringBuilder sb, JsonNode details) {
+        if (details == null || !details.has("credits")) return;
+        JsonNode credits = details.get("credits");
+        if (!credits.has("cast")) return;
+        int count = 0;
+        for (JsonNode member : credits.get("cast")) {
+            if (count >= 20) break;
+            String name = member.path("name").asText(null);
+            String role = member.path("character").asText(null);
+            String profilePath = member.path("profile_path").asText(null);
+            if (StringUtils.isBlank(name)) continue;
+            sb.append("  <actor>\n");
+            appendTag(sb, "name", name, "    ");
+            appendTag(sb, "role", role, "    ");
+            if (StringUtils.isNotBlank(profilePath)) {
+                appendTag(sb, "thumb", TMDb_IMG_BASE + profilePath, "    ");
+            }
+            sb.append("  </actor>\n");
+            count++;
+        }
+    }
+
+    private void appendWriters(StringBuilder sb, JsonNode details) {
+        if (details == null || !details.has("credits")) return;
+        JsonNode credits = details.get("credits");
+        if (!credits.has("crew")) return;
+        for (JsonNode member : credits.get("crew")) {
+            String department = member.path("department").asText("");
+            if ("Writing".equals(department)) {
+                String name = member.path("name").asText(null);
+                if (StringUtils.isNotBlank(name)) {
+                    appendTag(sb, "writer", name);
+                }
+            }
+        }
+    }
+
+    private void appendKeywords(StringBuilder sb, JsonNode details) {
+        if (details == null) return;
+        JsonNode keywords = null;
+        if (details.has("keywords") && details.get("keywords").has("keywords")) {
+            keywords = details.get("keywords").get("keywords");
+        } else if (details.has("keywords") && details.get("keywords").isArray()) {
+            keywords = details.get("keywords");
+        }
+        if (keywords != null && keywords.isArray()) {
+            int count = 0;
+            for (JsonNode kw : keywords) {
+                if (count >= 10) break;
+                String name = kw.path("name").asText(null);
+                if (StringUtils.isNotBlank(name)) {
+                    appendTag(sb, "tag", name);
+                    count++;
+                }
+            }
+        }
+    }
+
+    private void appendRatings(StringBuilder sb, JsonNode details, String imdbId) {
+        if (details == null) return;
+        boolean hasTmdbRating = details.has("vote_average") && details.get("vote_average").asDouble(0) > 0;
+        boolean hasImdb = StringUtils.isNotBlank(imdbId);
+        if (!hasTmdbRating && !hasImdb) return;
+
+        sb.append("  <ratings>\n");
+        if (hasTmdbRating) {
+            sb.append("    <rating name=\"themoviedb\" max=\"10\" default=\"true\">\n");
+            appendTag(sb, "value", String.format("%.1f", details.get("vote_average").asDouble(0)), "      ");
+            if (details.has("vote_count")) {
+                appendTag(sb, "votes", String.valueOf(details.get("vote_count").asInt()), "      ");
+            }
+            sb.append("    </rating>\n");
+        }
+        sb.append("  </ratings>\n");
+    }
+
+    private void appendThumbs(StringBuilder sb, MediaInfo info, JsonNode details) {
+        if (details == null) return;
+        // poster
+        String posterPath = details.path("poster_path").asText(null);
+        if (StringUtils.isNotBlank(posterPath)) {
+            sb.append("  <thumb aspect=\"poster\" preview=\"").append(TMDb_IMG_BASE).append(escapeXml(posterPath)).append("\">")
+                    .append(TMDb_IMG_BASE).append(escapeXml(posterPath)).append("</thumb>\n");
+        }
+        // fanart / backdrop
+        String backdropPath = details.path("backdrop_path").asText(null);
+        if (StringUtils.isNotBlank(backdropPath)) {
+            sb.append("  <fanart>\n");
+            sb.append("    <thumb preview=\"").append(TMDb_IMG_BASE).append(escapeXml(backdropPath)).append("\">")
+                    .append(TMDb_IMG_BASE).append(escapeXml(backdropPath)).append("</thumb>\n");
+            sb.append("  </fanart>\n");
+        }
+    }
+
+    private String extractCertification(MediaInfo info) {
+        try {
+            Object rdObj = info.getMetadata().get("release_dates");
+            if (!(rdObj instanceof JsonNode)) return null;
+            JsonNode rd = (JsonNode) rdObj;
+            JsonNode results = rd.path("results");
+            if (!results.isArray()) return null;
+            // 优先查找 CN 分级，然后 US
+            String[] priorityCountries = {"CN", "US"};
+            for (String country : priorityCountries) {
+                for (JsonNode r : results) {
+                    if (country.equals(r.path("iso_3166_1").asText(""))) {
+                        JsonNode dates = r.path("release_dates");
+                        if (dates.isArray()) {
+                            for (JsonNode d : dates) {
+                                String cert = d.path("certification").asText("");
+                                if (StringUtils.isNotBlank(cert)) return cert;
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            // ignore
+        }
+        return null;
+    }
+
     private void appendUniqueid(StringBuilder sb, String value, String type, String defaultFlag) {
         if (StringUtils.isNotBlank(value)) {
             appendTag(sb, "uniqueid", value, type, defaultFlag);
@@ -382,6 +717,30 @@ public class NfoGenerator {
         if (StringUtils.isBlank(season)) return "00";
         int num = Integer.parseInt(season.replaceAll("\\D", ""));
         return num < 10 ? "0" + num : String.valueOf(num);
+    }
+
+    /**
+     * 从 resolution 字符串解析宽度（如 "1080p" -> "1920", "2160p" -> "3840", "720p" -> "1280"）
+     */
+    private String parseResolutionWidth(String resolution) {
+        if (resolution == null) return "";
+        String lower = resolution.toLowerCase();
+        if (lower.contains("2160") || lower.contains("4k") || lower.contains("uhd")) return "3840";
+        if (lower.contains("1080")) return "1920";
+        if (lower.contains("720")) return "1280";
+        if (lower.contains("480")) return "854";
+        if (lower.contains("576")) return "1024";
+        return "";
+    }
+
+    /**
+     * 从 resolution 字符串解析高度（如 "1080p" -> "1080"）
+     */
+    private String parseResolutionHeight(String resolution) {
+        if (resolution == null) return "";
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("(\\d{3,4})").matcher(resolution);
+        if (m.find()) return m.group(1);
+        return "";
     }
 
     private String extractTrailerUrl(JsonNode details) {
