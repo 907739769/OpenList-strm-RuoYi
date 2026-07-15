@@ -27,11 +27,11 @@ public class NfoGenerator {
     /**
      * 生成电影 NFO: {@code <视频文件名>.nfo}（与 STRM 文件同名，不含视频后缀）
      */
-    public void generateMovieNfo(MediaInfo info, Path destFile, Path outputDir) throws IOException {
+    public void generateMovieNfo(MediaInfo info, Path destFile, Path outputDir, boolean forceOverwrite) throws IOException {
         String nfoContent = buildMovieNfo(info);
         String nfoName = stripExtension(destFile.getFileName().toString()) + ".nfo";
         Path nfoFile = destFile.resolveSibling(nfoName);
-        writeNfo(nfoFile, nfoContent, false);
+        writeNfo(nfoFile, nfoContent, forceOverwrite);
         log.info("生成电影 NFO: {}", nfoFile);
     }
 
@@ -41,7 +41,7 @@ public class NfoGenerator {
      * - {@code season.nfo} (季目录内，固定命名)
      * - {@code <episodedetails>.nfo} (与 STRM 文件同名)
      */
-    public void generateTvNfo(MediaInfo info, Path destFile, Path outputDir) throws IOException {
+    public void generateTvNfo(MediaInfo info, Path destFile, Path outputDir, boolean forceOverwrite) throws IOException {
         // 剧集 NFO → 放在剧集根目录（{show_name} ({year})/），即 Season XX 的父目录
         String tvshowNfo = buildTvShowNfo(info);
         Path showRoot = destFile.getParent().getParent();
@@ -52,7 +52,7 @@ public class NfoGenerator {
         // 季 NFO → 放在季目录内
         String seasonNfo = buildSeasonNfo(info);
         Path seasonNfoFile = destFile.getParent().resolve("season.nfo");
-        writeNfo(seasonNfoFile, seasonNfo, false);
+        writeNfo(seasonNfoFile, seasonNfo, forceOverwrite);
         log.info("生成剧集 NFO (季): {}", seasonNfoFile);
 
         // 单集 NFO → 与 STRM 文件同名

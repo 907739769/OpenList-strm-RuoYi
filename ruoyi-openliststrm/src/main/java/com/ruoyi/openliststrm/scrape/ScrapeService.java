@@ -88,9 +88,9 @@ public class ScrapeService {
 
     private void generateNfo(MediaInfo info, String mediaType, Path destFile, Path outputDir, boolean forceOverwrite) throws Exception {
         if ("tv".equals(mediaType)) {
-            nfoGenerator.generateTvNfo(info, destFile, outputDir);
+            nfoGenerator.generateTvNfo(info, destFile, outputDir, forceOverwrite);
         } else {
-            nfoGenerator.generateMovieNfo(info, destFile, outputDir);
+            nfoGenerator.generateMovieNfo(info, destFile, outputDir, forceOverwrite);
         }
     }
 

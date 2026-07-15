@@ -1,8 +1,11 @@
 package com.ruoyi.openliststrm.tmdb;
 
+import com.ruoyi.common.utils.CacheUtils;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.*;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -53,7 +56,11 @@ public class TMDbApiService {
     @Cacheable(value = "tmdbDetails", key = "#p1 + ':' + #p2", unless = "#result == null")
     public String getDetails(String apiKey, String type, int id) {
         HttpUrl url = Objects.requireNonNull(HttpUrl.parse(BASE + "/" + type + "/" + id))
-                .newBuilder().addQueryParameter("api_key", apiKey).addQueryParameter("language", LANGUAGE).build();
+                .newBuilder()
+                .addQueryParameter("api_key", apiKey)
+                .addQueryParameter("language", LANGUAGE)
+                .addQueryParameter("append_to_response", "credits,videos")
+                .build();
         Request req = new Request.Builder().url(url).get().build();
         return executeAndReturnString(req, "getDetails");
     }
