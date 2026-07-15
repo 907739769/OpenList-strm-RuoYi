@@ -73,9 +73,12 @@ public class NfoGenerator {
         JsonNode details = getDetails(info);
         JsonNode externalIds = getExternalIds(info);
 
-        appendTag(sb, "title", info.getTitle());
-        appendTag(sb, "originaltitle", info.getOriginalTitle());
-        appendTag(sb, "sorttitle", info.getTitle());
+        // 标题优先取 TMDb 接口返回值
+        String movieTitle = details != null && details.hasNonNull("title") ? details.get("title").asText() : info.getTitle();
+        String movieOriginalTitle = details != null && details.hasNonNull("original_title") ? details.get("original_title").asText() : info.getOriginalTitle();
+        appendTag(sb, "title", movieTitle);
+        appendTag(sb, "originaltitle", movieOriginalTitle);
+        appendTag(sb, "sorttitle", movieTitle);
         appendTag(sb, "tmdbid", info.getTmdbId());
 
         // IMDb ID: 从 details 或 external_ids 获取
@@ -121,17 +124,9 @@ public class NfoGenerator {
             appendTag(sb, "metacritic", String.valueOf(details.get("metacritic").asInt()));
         }
 
-        // popularity 数据
-        if (details != null && details.has("popularity")) {
-            double popularity = details.get("popularity").asDouble(0);
-            if (popularity > 0) {
-                appendTag(sb, "top250", String.format("%.0f", popularity));
-            }
-        }
-
         appendTag(sb, "tagline", details != null && details.has("tagline") ? details.get("tagline").asText() : null);
-        appendTag(sb, "outline", details != null && details.has("overview") ? truncate(details.get("overview").asText(), 200) : null);
-        appendTag(sb, "plot", details != null && details.has("overview") ? details.get("overview").asText() : null);
+        appendCDataTag(sb, "outline", details != null && details.has("overview") ? truncate(details.get("overview").asText(), 200) : null);
+        appendCDataTag(sb, "plot", details != null && details.has("overview") ? details.get("overview").asText() : null);
 
         if (details != null && details.has("videos")) {
             String trailer = extractTrailerUrl(details);
@@ -181,10 +176,12 @@ public class NfoGenerator {
         JsonNode details = getDetails(info);
         JsonNode externalIds = getExternalIds(info);
 
-        // 标题
-        appendTag(sb, "title", info.getTitle());
-        appendTag(sb, "originaltitle", info.getOriginalTitle());
-        appendTag(sb, "showtitle", info.getTitle());
+        // 标题优先取 TMDb 接口返回值
+        String tvTitle = details != null && details.hasNonNull("name") ? details.get("name").asText() : info.getTitle();
+        String tvOriginalTitle = details != null && details.hasNonNull("original_name") ? details.get("original_name").asText() : tvTitle;
+        appendTag(sb, "title", tvTitle);
+        appendTag(sb, "originaltitle", tvOriginalTitle);
+        appendTag(sb, "showtitle", tvTitle);
 
         // TMDB ID + IMDb ID
         appendTag(sb, "tmdbid", info.getTmdbId());
@@ -230,24 +227,19 @@ public class NfoGenerator {
             }
         }
 
-        // 评分
-        if (details != null && details.has("vote_average")) {
-            double rating = details.get("vote_average").asDouble(0);
-            if (rating > 0) {
-                appendTag(sb, "rating", String.format("%.1f", rating));
-            }
-        }
-        if (details != null && details.has("vote_count")) {
-            appendTag(sb, "votes", String.valueOf(details.get("vote_count").asInt()));
-        }
-
-        // 多源评分
+        // 多源评分（统一使用 <ratings> 结构体）
         appendRatings(sb, details, imdbId);
+
+        // 内容分级 (TV-14, TV-MA 等)
+        String tvCertification = extractTvCertification(info);
+        if (StringUtils.isNotBlank(tvCertification)) {
+            appendTag(sb, "mpaa", tvCertification);
+        }
 
         // 简介
         String overview = details != null && details.has("overview") ? details.get("overview").asText() : null;
-        appendTag(sb, "plot", overview);
-        appendTag(sb, "outline", truncate(overview, 200));
+        appendCDataTag(sb, "plot", overview);
+        appendCDataTag(sb, "outline", truncate(overview, 200));
 
         // tagline
         appendTag(sb, "tagline", details != null && details.has("tagline") ? details.get("tagline").asText() : null);
@@ -262,15 +254,7 @@ public class NfoGenerator {
             }
         }
 
-        // episodeguide
-        if (StringUtils.isNotBlank(info.getTmdbId())) {
-            sb.append("  <episodeguide>\n");
-            sb.append("    <url cache=\"tmdb.xml\">https://api.tmdb.org/3/tv/").append(escapeXml(info.getTmdbId()))
-                    .append("?api_key=&amp;language=zh-CN</url>\n");
-            sb.append("  </episodeguide>\n");
-        }
-
-        // 类型、国家、制作公司
+        // 类型、国家、播出网络
         appendGenres(sb, details, "genres");
         if (details != null && details.has("origin_country")) {
             JsonNode oc = details.get("origin_country");
@@ -278,7 +262,12 @@ public class NfoGenerator {
                 appendTag(sb, "country", c.asText());
             }
         }
-        appendStudios(sb, details, "production_companies", "name");
+        // studio 使用播出网络（networks）而非制作公司
+        if (details != null && details.has("networks") && details.get("networks").isArray() && !details.get("networks").isEmpty()) {
+            appendStudios(sb, details, "networks", "name");
+        } else {
+            appendStudios(sb, details, "production_companies", "name");
+        }
         appendActorsStructured(sb, details);
 
         // 标签 (keywords)
@@ -302,9 +291,19 @@ public class NfoGenerator {
         sb.append("<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"yes\"?>\n");
         sb.append("<season>\n");
 
-        // 季标题: 第 X 季
         int seasonNum = parseSeasonNumber(info.getSeason());
-        appendTag(sb, "title", "第 " + seasonNum + " 季");
+
+        // 季标题：优先使用 TMDb 返回的季名称
+        Object sdObj = info.getMetadata() != null ? info.getMetadata().get("season_details") : null;
+        @SuppressWarnings("unchecked")
+        java.util.Map<String, Object> seasonMeta = (sdObj instanceof java.util.Map)
+                ? (java.util.Map<String, Object>) sdObj : null;
+
+        String seasonName = null;
+        if (seasonMeta != null && seasonMeta.get("name") instanceof String n && StringUtils.isNotBlank(n)) {
+            seasonName = n;
+        }
+        appendTag(sb, "title", StringUtils.isNotBlank(seasonName) ? seasonName : "第 " + seasonNum + " 季");
         appendTag(sb, "seasonnumber", String.valueOf(seasonNum));
 
         // tvshowid 关联
@@ -312,17 +311,42 @@ public class NfoGenerator {
             appendTag(sb, "tvshowid", info.getTmdbId());
         }
 
-        // 剧情（来自剧集总览）
-        JsonNode details = getDetails(info);
-        appendTag(sb, "plot", details != null && details.has("overview") ? truncate(details.get("overview").asText(), 500) : null);
-
-        // premiered（首播日期，使用剧集的 first_air_date）
-        if (details != null && details.has("first_air_date")) {
-            appendTag(sb, "premiered", details.get("first_air_date").asText());
+        // 季级别的 uniqueid：使用季的 TMDb ID
+        String seasonTmdbId = null;
+        if (seasonMeta != null && seasonMeta.get("id") instanceof String sid) {
+            seasonTmdbId = sid;
+        }
+        if (StringUtils.isNotBlank(seasonTmdbId)) {
+            appendUniqueid(sb, seasonTmdbId, "tmdb", "true");
         }
 
-        // uniqueid（使用剧集 tmdbId）
-        appendUniqueid(sb, info.getTmdbId(), "tmdb", "true");
+        // 年份：从季的首播日期提取
+        String seasonAirDate = null;
+        if (seasonMeta != null && seasonMeta.get("air_date") instanceof String ad) {
+            seasonAirDate = ad;
+        }
+        if (StringUtils.isNotBlank(seasonAirDate) && seasonAirDate.length() >= 4) {
+            appendTag(sb, "year", seasonAirDate.substring(0, 4));
+        }
+
+        // 首播日期：使用季的真实首播日期
+        if (StringUtils.isNotBlank(seasonAirDate)) {
+            appendTag(sb, "premiered", seasonAirDate);
+        }
+
+        // 剧情：使用季的独立概述
+        String seasonPlot = null;
+        if (seasonMeta != null && seasonMeta.get("overview") instanceof String so) {
+            seasonPlot = so;
+        }
+        if (StringUtils.isBlank(seasonPlot)) {
+            // 回退：使用剧集整体概述
+            JsonNode details = getDetails(info);
+            if (details != null && details.has("overview")) {
+                seasonPlot = details.get("overview").asText();
+            }
+        }
+        appendCDataTag(sb, "plot", StringUtils.isNotBlank(seasonPlot) ? truncate(seasonPlot, 500) : null);
 
         // 季级别图片引用
         JsonNode seasonImages = getSeasonImages(info);
@@ -353,14 +377,21 @@ public class NfoGenerator {
 
         JsonNode details = getDetails(info);
 
+        // 剧集标题优先取 TMDb 接口返回值
+        String showTitle = details != null && details.hasNonNull("name") ? details.get("name").asText() : info.getTitle();
+
         // 集标题
-        String epTitle = StringUtils.isNotBlank(info.getEpisodeName())
-                ? info.getEpisodeName()
-                : (info.getTitle() + " S" + padSeason(info.getSeason()) + "E" + info.getEpisode());
+        String epTitle;
+        if (StringUtils.isNotBlank(info.getEpisodeName())) {
+            epTitle = info.getEpisodeName();
+        } else {
+            int epNum = parseEpisodeNumber(info.getEpisode());
+            epTitle = "第 " + epNum + " 集";
+        }
         appendTag(sb, "title", epTitle);
 
         // showtitle
-        appendTag(sb, "showtitle", info.getTitle());
+        appendTag(sb, "showtitle", showTitle);
 
         // 季/集号（数字）
         int seasonNum = parseSeasonNumber(info.getSeason());
@@ -368,13 +399,10 @@ public class NfoGenerator {
         appendTag(sb, "season", String.valueOf(seasonNum));
         appendTag(sb, "episode", String.valueOf(epNum));
 
-        // 单集 tmdbId
+        // 单集 tmdbId（仅当有单集独立 ID 时才写入，不回退到剧集 ID）
         if (StringUtils.isNotBlank(info.getEpisodeTmdbId())) {
             appendTag(sb, "tmdbid", info.getEpisodeTmdbId());
             appendUniqueid(sb, info.getEpisodeTmdbId(), "tmdb", "true");
-        } else if (StringUtils.isNotBlank(info.getTmdbId())) {
-            appendTag(sb, "tmdbid", info.getTmdbId());
-            appendUniqueid(sb, info.getTmdbId(), "tmdb", "true");
         }
 
         // 播出日期
@@ -406,7 +434,7 @@ public class NfoGenerator {
         String plot = StringUtils.isNotBlank(info.getEpisodePlot())
                 ? info.getEpisodePlot()
                 : (details != null && details.has("overview") ? details.get("overview").asText() : null);
-        appendTag(sb, "plot", plot);
+        appendCDataTag(sb, "plot", plot);
 
         // 单集剧照 (thumb)
         if (StringUtils.isNotBlank(info.getEpisodeStillPath())) {
@@ -469,6 +497,18 @@ public class NfoGenerator {
             return (JsonNode) si;
         }
         return null;
+    }
+
+    /**
+     * 写入 CDATA 包裹的标签，适用于 plot/outline 等可能含特殊字符的长文本。
+     * CDATA 内部无需转义 XML 实体，但需要处理内容中出现的 "]]>" 序列。
+     */
+    private void appendCDataTag(StringBuilder sb, String name, String value) {
+        if (StringUtils.isNotBlank(value)) {
+            // CDATA 中不能出现 "]]>" ，需拆分为 "]]" + ">" 
+            String safe = value.replace("]]>", "]]><![CDATA[>");
+            sb.append("  <").append(name).append("><![CDATA[").append(safe).append("]]></").append(name).append(">\n");
+        }
     }
 
     private void appendTag(StringBuilder sb, String name, String value) {
@@ -639,6 +679,34 @@ public class NfoGenerator {
                     .append(TMDb_IMG_BASE).append(escapeXml(backdropPath)).append("</thumb>\n");
             sb.append("  </fanart>\n");
         }
+    }
+
+    /**
+     * 提取电视剧内容分级（TV-14, TV-MA 等）
+     * 从 TMDb content_ratings 接口数据中获取
+     */
+    private String extractTvCertification(MediaInfo info) {
+        try {
+            if (info.getMetadata() == null) return null;
+            Object crObj = info.getMetadata().get("content_ratings");
+            if (!(crObj instanceof JsonNode)) return null;
+            JsonNode cr = (JsonNode) crObj;
+            JsonNode results = cr.path("results");
+            if (!results.isArray()) return null;
+            // 优先查找 CN 分级，然后 US
+            String[] priorityCountries = {"CN", "US"};
+            for (String country : priorityCountries) {
+                for (JsonNode r : results) {
+                    if (country.equals(r.path("iso_3166_1").asText(""))) {
+                        String rating = r.path("rating").asText("");
+                        if (StringUtils.isNotBlank(rating)) return rating;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            // ignore
+        }
+        return null;
     }
 
     private String extractCertification(MediaInfo info) {

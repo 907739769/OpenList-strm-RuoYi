@@ -62,6 +62,27 @@ public class TMDbClient {
         if (epJson == null) return;
 
         JsonNode seasonRoot = mapper.readTree(epJson);
+
+        // 存储季级别数据（air_date、overview、id）供 Season NFO 使用
+        {
+            java.util.Map<String, Object> seasonMeta = new java.util.HashMap<>();
+            if (seasonRoot.hasNonNull("air_date")) {
+                seasonMeta.put("air_date", seasonRoot.get("air_date").asText());
+            }
+            if (seasonRoot.hasNonNull("overview")) {
+                seasonMeta.put("overview", seasonRoot.get("overview").asText());
+            }
+            if (seasonRoot.hasNonNull("id")) {
+                seasonMeta.put("id", seasonRoot.get("id").asText());
+            }
+            if (seasonRoot.hasNonNull("name")) {
+                seasonMeta.put("name", seasonRoot.get("name").asText());
+            }
+            if (!seasonMeta.isEmpty()) {
+                info.getMetadata().put("season_details", seasonMeta);
+            }
+        }
+
         JsonNode episodes = seasonRoot.path("episodes");
         if (!episodes.isArray() || episodes.isEmpty()) return;
 
@@ -287,6 +308,18 @@ public class TMDbClient {
                 }
             } catch (Exception e) {
                 log.warn("获取剧集 external_ids 失败: tvId={}, error={}", id, e.getMessage());
+            }
+
+            // TV: 获取内容分级
+            try {
+                String crJson = api.getTvContentRatings(apiKey, id);
+                if (crJson != null) {
+                    JsonNode cr = mapper.readTree(crJson);
+                    info.getMetadata().put("content_ratings", cr);
+                    log.debug("获取剧集 content_ratings 成功: tvId={}", id);
+                }
+            } catch (Exception e) {
+                log.warn("获取剧集 content_ratings 失败: tvId={}, error={}", id, e.getMessage());
             }
 
             // TV: 获取季级别图片

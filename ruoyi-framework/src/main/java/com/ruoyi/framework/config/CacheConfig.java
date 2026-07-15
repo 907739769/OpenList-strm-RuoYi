@@ -19,7 +19,7 @@ public class CacheConfig {
         cacheManager.setCacheNames(Arrays.asList(
                 "sysCache", "sys-config", "sys-dict", "sys-authCache",
                 "tmdbSearch", "tmdbDetails", "tmdbAlts", "tmdbSeason", "tmdbTvImages", "tmdbMovieImages",
-                "openaiSearch"
+                "tmdbExternalIds", "tmdbReleaseDates", "tmdbSeasonImages", "tmdbContentRatings"
         ));
         cacheManager.setCaffeine(Caffeine.newBuilder()
                 .maximumSize(10000)

@@ -172,6 +172,21 @@ public class TMDbApiService {
         return executeAndReturnString(req, "getTvSeasonImages");
     }
 
+    /**
+     * 获取剧集内容分级（TV 专用）
+     * 接口: GET /tv/{id}/content_ratings
+     * 返回: { results: [{ iso_3166_1, rating }] }
+     */
+    @Cacheable(value = "tmdbContentRatings", key = "#p1", unless = "#result == null")
+    public String getTvContentRatings(String apiKey, int tvId) {
+        HttpUrl url = Objects.requireNonNull(HttpUrl.parse(BASE + "/tv/" + tvId + "/content_ratings"))
+                .newBuilder()
+                .addQueryParameter("api_key", apiKey)
+                .build();
+        Request req = new Request.Builder().url(url).get().build();
+        return executeAndReturnString(req, "getTvContentRatings");
+    }
+
     // --- 抽取公共的 HTTP 执行逻辑 ---
     private String executeAndReturnString(Request req, String methodName) {
         try (Response resp = http.newCall(req).execute()) {
