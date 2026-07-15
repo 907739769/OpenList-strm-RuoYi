@@ -46,21 +46,19 @@ const loginRules = {
 const handleLogin = async () => {
   const form = loginFormRef.value
   if (!form) return
-  await form.validate(async (valid) => {
-    if (valid) {
-      loading.value = true
-      try {
-        await userStore.login(loginForm)
-        ElMessage.success('登录成功')
-        const redirect = (route.query.redirect as string) || '/'
-        router.push(redirect)
-      } catch (error) {
-        ElMessage.error('登录失败，请检查用户名和密码')
-      } finally {
-        loading.value = false
-      }
-    }
-  })
+  const valid = await form.validate().catch(() => false)
+  if (!valid) return
+  loading.value = true
+  try {
+    await userStore.login(loginForm)
+    ElMessage.success('登录成功')
+    const redirect = (route.query.redirect as string) || '/'
+    router.push(redirect)
+  } catch (error) {
+    ElMessage.error('登录失败，请检查用户名和密码')
+  } finally {
+    loading.value = false
+  }
 }
 </script>
 

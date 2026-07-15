@@ -20,20 +20,26 @@ export interface MenuRoute {
 
 export const useUserStore = defineStore('user', () => {
   const token = ref<string>(Cookies.get('token') || '')
-  const refreshToken = ref<string>('')
+  const refreshToken = ref<string>(Cookies.get('refreshToken') || '')
   const userInfo = ref<UserInfo | null>(null)
   const roles = ref<string[]>([])
   const permissions = ref<string[]>([])
   const routes = ref<MenuRoute[]>([])
 
-  const setToken = (newToken: string, expires = 7) => {
+  const setToken = (newToken: string, expireTime?: number) => {
     token.value = newToken
-    Cookies.set('token', newToken, { expires })
+    const cookieOpts = expireTime
+      ? { expires: new Date(expireTime) }
+      : { expires: 7 }
+    Cookies.set('token', newToken, cookieOpts)
   }
 
-  const setRefreshToken = (newRefreshToken: string, expires = 7) => {
+  const setRefreshToken = (newRefreshToken: string, refreshExpireTime?: number) => {
     refreshToken.value = newRefreshToken
-    Cookies.set('refreshToken', newRefreshToken, { expires })
+    const cookieOpts = refreshExpireTime
+      ? { expires: new Date(refreshExpireTime) }
+      : { expires: 7 }
+    Cookies.set('refreshToken', newRefreshToken, cookieOpts)
   }
 
   const clearToken = () => {
@@ -48,19 +54,20 @@ export const useUserStore = defineStore('user', () => {
   }
 
   const refreshTokenFn = async () => {
-    if (!refreshToken.value) {
+    const rt = refreshToken.value || Cookies.get('refreshToken') || ''
+    if (!rt) {
       throw new Error('No refresh token')
     }
-    const data = await refreshApi(refreshToken.value) as LoginResponse
-    setToken(data.token)
-    setRefreshToken(data.refreshToken)
+    const data = await refreshApi(rt) as LoginResponse
+    setToken(data.token, data.expireTime)
+    setRefreshToken(data.refreshToken, data.refreshExpireTime)
     return data
   }
 
   const login = async (loginForm: LoginRequest) => {
     const data = await loginApi(loginForm) as LoginResponse
-    setToken(data.token)
-    setRefreshToken(data.refreshToken)
+    setToken(data.token, data.expireTime)
+    setRefreshToken(data.refreshToken, data.refreshExpireTime)
     userInfo.value = {
       userId: data.userId,
       loginName: data.loginName,

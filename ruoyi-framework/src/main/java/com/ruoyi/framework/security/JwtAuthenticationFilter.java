@@ -1,6 +1,5 @@
 package com.ruoyi.framework.security;
 
-import com.ruoyi.common.core.domain.entity.SysUser;
 import com.ruoyi.common.utils.JwtTokenUtil;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -39,6 +38,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
         String token = authHeader.substring(7);
         try {
+            // 先检查 token 是否过期，避免对过期 token 抛出不必要的异常
+            if (jwtTokenUtil.isTokenExpired(token)) {
+                filterChain.doFilter(request, response);
+                return;
+            }
             String username = jwtTokenUtil.getUsernameFromToken(token);
             if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 UserDetails userDetails = userDetailsService.loadUserByUsername(username);
@@ -47,18 +51,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                             new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
                     WebAuthenticationDetailsSource source = new WebAuthenticationDetailsSource();
                     authToken.setDetails(source.buildDetails(request));
-                    try {
-                        Object currentUser = request.getAttribute("currentUser");
-                        if (currentUser instanceof SysUser) {
-                            authToken.setDetails(currentUser);
-                        }
-                    } catch (Exception e) {
-                    }
                     SecurityContextHolder.getContext().setAuthentication(authToken);
                 }
             }
         } catch (Exception e) {
-            // Token invalid/expired/malformed — proceed as unauthenticated
+            // Token malformed — proceed as unauthenticated
         }
         filterChain.doFilter(request, response);
     }

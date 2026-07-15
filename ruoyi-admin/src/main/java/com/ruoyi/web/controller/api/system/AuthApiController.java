@@ -92,12 +92,12 @@ public class AuthApiController extends BaseController {
         SysUser user = userService.selectUserByLoginName(username);
         if (user == null) {
             AsyncManager.me().execute(AsyncFactory.recordLogininfor(username, Constants.LOGIN_FAIL, "用户不存在"));
-            return Result.error(401, "用户不存在");
+            return Result.error(401, "用户名或密码错误");
         }
 
         if ("2".equals(user.getDelFlag())) {
             AsyncManager.me().execute(AsyncFactory.recordLogininfor(username, Constants.LOGIN_FAIL, "账号已被删除"));
-            return Result.error(401, "账号已被删除");
+            return Result.error(401, "用户名或密码错误");
         }
 
         if ("1".equals(user.getStatus())) {
@@ -144,6 +144,17 @@ public class AuthApiController extends BaseController {
 
     @PostMapping("/logout")
     public Result<Void> logout(@RequestHeader(value = "Authorization", required = false) String authHeader, HttpServletResponse response) {
+        // 记录登出日志（含用户信息）
+        String token = stripBearer(authHeader);
+        if (StringUtils.isNotEmpty(token)) {
+            try {
+                String loginName = jwtTokenUtil.getUsernameFromToken(token);
+                AsyncManager.me().execute(AsyncFactory.recordLogininfor(loginName, Constants.LOGOUT, "用户登出"));
+                logger.info("[JWT] 用户 {} 已登出，注意：JWT 未被服务端撤销，将在过期时间后自然失效（当前无 Redis 黑名单机制）", loginName);
+            } catch (Exception e) {
+                logger.debug("[JWT] 登出时解析 token 失败: {}", e.getMessage());
+            }
+        }
         // 清除 JWT cookie
         jakarta.servlet.http.Cookie[] cookies = ServletUtils.getRequest().getCookies();
         if (cookies != null) {
@@ -254,14 +265,8 @@ public class AuthApiController extends BaseController {
 
     @GetMapping("/info")
     public Result<Map<String, Object>> getUserInfo(@RequestHeader(value = "Authorization", required = false) String authHeader) {
-        String token = stripBearer(authHeader);
-        String username;
-        try {
-            username = jwtTokenUtil.getUsernameFromToken(token);
-        } catch (Exception e) {
-            return Result.error(401, "未登录");
-        }
-        if (StringUtils.isEmpty(username)) {
+        String username = extractValidatedUsername(authHeader);
+        if (username == null) {
             return Result.error(401, "未登录");
         }
         SysUser user = userService.selectUserByLoginName(username);
@@ -277,14 +282,8 @@ public class AuthApiController extends BaseController {
 
     @GetMapping("/routers")
     public Result<List<Map<String, Object>>> getRouters(@RequestHeader(value = "Authorization", required = false) String authHeader) {
-        String token = stripBearer(authHeader);
-        String username;
-        try {
-            username = jwtTokenUtil.getUsernameFromToken(token);
-        } catch (Exception e) {
-            return Result.error(401, "未登录");
-        }
-        if (StringUtils.isEmpty(username)) {
+        String username = extractValidatedUsername(authHeader);
+        if (username == null) {
             return Result.error(401, "未登录");
         }
         SysUser user = userService.selectUserByLoginName(username);
@@ -347,6 +346,27 @@ public class AuthApiController extends BaseController {
         return meta;
     }
 
+    /**
+     * 从 Authorization 头中提取并验证用户名
+     * @return 用户名，如果 token 无效则返回 null
+     */
+    private String extractValidatedUsername(String authHeader) {
+        String token = stripBearer(authHeader);
+        if (StringUtils.isEmpty(token)) {
+            return null;
+        }
+        String username;
+        try {
+            username = jwtTokenUtil.getUsernameFromToken(token);
+        } catch (Exception e) {
+            return null;
+        }
+        if (StringUtils.isEmpty(username) || !jwtTokenUtil.isTokenValid(token, username)) {
+            return null;
+        }
+        return username;
+    }
+
     private String stripBearer(String authHeader) {
         if (StringUtils.isNotEmpty(authHeader) && authHeader.startsWith("Bearer ")) {
             return authHeader.substring(7);
@@ -357,14 +377,8 @@ public class AuthApiController extends BaseController {
     @PostMapping("/changePassword")
     public Result<Void> changePassword(@RequestBody ChangePasswordRequest request,
                                         @RequestHeader(value = "Authorization", required = false) String authHeader) {
-        String token = stripBearer(authHeader);
-        String username;
-        try {
-            username = jwtTokenUtil.getUsernameFromToken(token);
-        } catch (Exception e) {
-            return Result.error(401, "未登录");
-        }
-        if (StringUtils.isEmpty(username)) {
+        String username = extractValidatedUsername(authHeader);
+        if (username == null) {
             return Result.error(401, "未登录");
         }
         SysUser user = userService.selectUserByLoginName(username);

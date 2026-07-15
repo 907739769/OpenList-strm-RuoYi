@@ -87,8 +87,8 @@ service.interceptors.response.use(
         const data = await refreshApi(refreshTokenValue) as LoginResponse
 
         const userStore2 = useUserStore()
-        userStore2.setToken(data.token)
-        userStore2.setRefreshToken(data.refreshToken)
+        userStore2.setToken(data.token, data.expireTime)
+        userStore2.setRefreshToken(data.refreshToken, data.refreshExpireTime)
 
         retryQueue.forEach(callback => callback(data.token))
         retryQueue = []
