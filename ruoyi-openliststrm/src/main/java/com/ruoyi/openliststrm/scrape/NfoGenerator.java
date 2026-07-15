@@ -46,7 +46,7 @@ public class NfoGenerator {
         String tvshowNfo = buildTvShowNfo(info);
         Path showRoot = destFile.getParent().getParent();
         Path tvshowNfoFile = showRoot.resolve("tvshow.nfo");
-        writeNfo(tvshowNfoFile, tvshowNfo, false);
+        writeNfo(tvshowNfoFile, tvshowNfo, forceOverwrite);
         log.info("生成剧集 NFO (系列): {}", tvshowNfoFile);
 
         // 季 NFO → 放在季目录内
@@ -59,7 +59,7 @@ public class NfoGenerator {
         String episodeNfo = buildEpisodeNfo(info);
         String episodeNfoName = stripExtension(destFile.getFileName().toString()) + ".nfo";
         Path episodeNfoFile = destFile.resolveSibling(episodeNfoName);
-        writeNfo(episodeNfoFile, episodeNfo, false);
+        writeNfo(episodeNfoFile, episodeNfo, forceOverwrite);
         log.info("生成剧集 NFO (单集): {}", episodeNfoFile);
     }
 
