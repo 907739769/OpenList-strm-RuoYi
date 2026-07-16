@@ -94,6 +94,9 @@
       <el-button link type="warning" size="small" @click="handleBatchScrape">
         <el-icon><Refresh /></el-icon> 批量刮削
       </el-button>
+      <el-button link type="danger" size="small" @click="handleBatchDeleteScrape">
+        <el-icon><Delete /></el-icon> 删除刮削
+      </el-button>
       <el-button link size="small" @click="clearSelection">
         取消
       </el-button>
@@ -160,6 +163,9 @@
         <div class="card-actions" @click.stop>
           <el-button link type="warning" size="small" :icon="Refresh" @click="handleScrapeOne(record)">
             刮削
+          </el-button>
+          <el-button link type="danger" size="small" :icon="Delete" @click="handleDeleteScrapeOne(record)" v-if="record.scrapeStatus === '1'">
+            删刮削
           </el-button>
           <el-button link type="primary" size="small" :icon="RefreshLeft" @click="handleRetryOne(record)">
             重试
@@ -271,7 +277,9 @@ import {
   executeRenameDetailApi,
   batchDeleteRenameDetailApi,
   scrapeRenameDetailApi,
-  batchScrapeRenameDetailApi
+  batchScrapeRenameDetailApi,
+  deleteScrapeFilesApi,
+  batchDeleteScrapeFilesApi
 } from '@/api/openlist/renameDetail'
 import type { SearchParams, PageResult } from '@/types'
 
@@ -482,6 +490,24 @@ const handleBatchScrape = async () => {
   } catch (e) { if (e !== 'cancel') console.error(e) }
 }
 
+const handleDeleteScrapeOne = async (row: any) => {
+  try {
+    await ElMessageBox.confirm(`是否确认删除"${row.newName}"的刮削文件（NFO + 图片）？`, '删除刮削文件', { type: 'warning' })
+    await deleteScrapeFilesApi(row.id)
+    ElMessage.success('刮削文件已删除')
+    getList()
+  } catch (e) { if (e !== 'cancel') console.error(e) }
+}
+
+const handleBatchDeleteScrape = async () => {
+  try {
+    await ElMessageBox.confirm(`是否确认删除选中记录的刮削文件？`, '批量删除刮削', { type: 'warning' })
+    await batchDeleteScrapeFilesApi(selectedIds.value)
+    ElMessage.success('刮削文件已删除')
+    getList()
+  } catch (e) { if (e !== 'cancel') console.error(e) }
+}
+
 getList()
 </script>
 
@@ -603,6 +629,8 @@ getList()
   border: 1px solid var(--osr-primary-light-7);
   border-radius: var(--osr-radius-md);
   font-size: 13px;
+  flex-wrap: wrap;
+  overflow-x: auto;
 
   .selected-count {
     font-weight: 600;

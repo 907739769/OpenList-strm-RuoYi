@@ -59,6 +59,9 @@
           <el-button type="warning" :disabled="multiple" @click="handleBatchScrape()">
             <el-icon><Refresh /></el-icon> 批量刮削
           </el-button>
+          <el-button type="danger" :disabled="multiple" plain @click="handleBatchDeleteScrape()">
+            <el-icon><Delete /></el-icon> 删除刮削
+          </el-button>
         </div>
         <el-button text @click="showSearch = !showSearch">
           <el-icon><Filter /></el-icon>
@@ -117,6 +120,9 @@
           <template #default="scope">
             <el-button link type="primary" @click="handleScrapeOne(scope.row)">
               <el-icon><Refresh /></el-icon> 刮削
+            </el-button>
+            <el-button link type="danger" @click="handleDeleteScrapeOne(scope.row)" v-if="scope.row.scrapeStatus === '1'">
+              <el-icon><Delete /></el-icon> 删刮削
             </el-button>
             <el-button link type="primary" @click="handleRetryOne(scope.row)">
               <el-icon><Refresh /></el-icon> 重试
@@ -215,7 +221,7 @@ import { ref, reactive } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { Search, Refresh, Delete, Filter, ArrowRight } from '@element-plus/icons-vue'
-import { getRenameDetailListApi, executeRenameDetailApi, batchDeleteRenameDetailApi, scrapeRenameDetailApi, batchScrapeRenameDetailApi } from '@/api/openlist/renameDetail'
+import { getRenameDetailListApi, executeRenameDetailApi, batchDeleteRenameDetailApi, scrapeRenameDetailApi, batchScrapeRenameDetailApi, deleteScrapeFilesApi, batchDeleteScrapeFilesApi } from '@/api/openlist/renameDetail'
 import { useAppStore } from '@/stores/app'
 import type { SearchParams, PageResult } from '@/types'
 
@@ -315,6 +321,24 @@ const handleBatchScrape = async () => {
     await ElMessageBox.confirm(`是否确认批量刮削选中的重命名详情？`, '警告', { type: 'info' })
     await batchScrapeRenameDetailApi(selectedIds.value)
     ElMessage.success('批量刮削已启动')
+    getList()
+  } catch (e) { if (e !== 'cancel') console.error(e) }
+}
+
+const handleDeleteScrapeOne = async (row: any) => {
+  try {
+    await ElMessageBox.confirm(`是否确认删除"${row.newName}"的刮削文件（NFO + 图片）？`, '删除刮削文件', { type: 'warning' })
+    await deleteScrapeFilesApi(row.id)
+    ElMessage.success('刮削文件已删除')
+    getList()
+  } catch (e) { if (e !== 'cancel') console.error(e) }
+}
+
+const handleBatchDeleteScrape = async () => {
+  try {
+    await ElMessageBox.confirm(`是否确认删除选中记录的刮削文件？`, '批量删除刮削', { type: 'warning' })
+    await batchDeleteScrapeFilesApi(selectedIds.value)
+    ElMessage.success('刮削文件已删除')
     getList()
   } catch (e) { if (e !== 'cancel') console.error(e) }
 }

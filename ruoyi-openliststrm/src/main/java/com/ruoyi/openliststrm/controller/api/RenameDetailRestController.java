@@ -282,6 +282,50 @@ public class RenameDetailRestController extends BaseController
     }
 
     /**
+     * 删除单条记录的刮削文件（NFO + 图片）
+     */
+    @PostMapping("/scrape/delete/{id}")
+    public Result<Void> deleteScrapeFiles(@PathVariable("id") Integer id)
+    {
+        if (id == null)
+        {
+            return Result.error("ID 为空");
+        }
+        RenameDetailPlus detail = renameDetailPlusService.getById(id);
+        if (detail == null)
+        {
+            return Result.error("重命名明细不存在");
+        }
+        int deleted = scrapeService.deleteScrapeFiles(detail);
+        logger.info("删除刮削文件完成，ID：{}，删除数量：{}", id, deleted);
+        return Result.success();
+    }
+
+    /**
+     * 批量删除刮削文件
+     */
+    @PostMapping("/scrape/batch")
+    public Result<Void> batchDeleteScrapeFiles(@RequestParam("ids") String ids)
+    {
+        if (ids == null || ids.trim().isEmpty())
+        {
+            return Result.error("请选择要删除刮削文件的记录");
+        }
+        List<Integer> idList = Arrays.stream(ids.split(",")).map(String::trim).filter(s -> !s.isEmpty()).map(Integer::parseInt).collect(Collectors.toList());
+        int totalDeleted = 0;
+        for (Integer id : idList)
+        {
+            RenameDetailPlus detail = renameDetailPlusService.getById(id);
+            if (detail != null)
+            {
+                totalDeleted += scrapeService.deleteScrapeFiles(detail);
+            }
+        }
+        logger.info("批量删除刮削文件完成，记录数：{}，删除文件数：{}", idList.size(), totalDeleted);
+        return Result.success();
+    }
+
+    /**
      * 构建查询条件
      */
     private com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<RenameDetailPlus> buildQueryWrapper(RenameDetailPlus renameDetail)

@@ -1,11 +1,8 @@
 package com.ruoyi.openliststrm.tmdb;
 
-import com.ruoyi.common.utils.CacheUtils;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.*;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -190,7 +187,11 @@ public class TMDbApiService {
     // --- 抽取公共的 HTTP 执行逻辑 ---
     private String executeAndReturnString(Request req, String methodName) {
         try (Response resp = http.newCall(req).execute()) {
-            if (!resp.isSuccessful() || resp.body() == null) return null;
+            if (!resp.isSuccessful() || resp.body() == null) {
+                log.warn(methodName + " failed with status code " + resp.code());
+                log.debug(methodName + " failed with resp " + resp);
+                return null;
+            }
             return resp.body().string(); // 直接返回纯文本JSON，缓存它！
         } catch (IOException e) {
             log.warn("TMDb {} failed: {}", methodName, e.getMessage());

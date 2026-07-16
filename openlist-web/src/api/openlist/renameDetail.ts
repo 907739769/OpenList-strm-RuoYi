@@ -25,3 +25,11 @@ export function scrapeRenameDetailApi(detailId: number) {
 export function batchScrapeRenameDetailApi(detailIds: number[]) {
   return request.post('/openliststrm/rename-details/scrape', null, { params: { ids: detailIds.join(',') } })
 }
+
+export function deleteScrapeFilesApi(detailId: number) {
+  return request.post(`/openliststrm/rename-details/scrape/delete/${detailId}`)
+}
+
+export function batchDeleteScrapeFilesApi(detailIds: number[]) {
+  return request.post('/openliststrm/rename-details/scrape/batch', null, { params: { ids: detailIds.join(',') } })
+}
