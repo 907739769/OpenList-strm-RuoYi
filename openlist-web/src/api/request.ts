@@ -17,6 +17,70 @@ const subscribeRequest = (callback: (token: string) => void) => {
   retryQueue.push(callback)
 }
 
+/**
+ * 共享的 token 刷新逻辑，供 success handler（body-level 401）和 error handler（HTTP 401/403）共用
+ */
+async function handleTokenRefresh(originalRequest: InternalAxiosRequestConfig & { _retry?: boolean }) {
+  if (originalRequest._retry) {
+    return Promise.reject(new Error('Already retried'))
+  }
+
+  if (isRefreshing) {
+    try {
+      await new Promise<void>((resolve) => {
+        subscribeRequest((token: string) => {
+          originalRequest.headers.Authorization = `Bearer ${token}`
+          resolve()
+        })
+      })
+      return service(originalRequest)
+    } catch (refreshError) {
+      const userStore = useUserStore()
+      userStore.clearToken()
+      window.location.href = '/login'
+      return Promise.reject(refreshError)
+    }
+  }
+
+  isRefreshing = true
+  originalRequest._retry = true
+
+  try {
+    const userStore = useUserStore()
+    const refreshTokenValue = Cookies.get('refreshToken')
+
+    if (!refreshTokenValue) {
+      userStore.clearToken()
+      window.location.href = '/login'
+      return Promise.reject(new Error('No refresh token'))
+    }
+
+    const { refreshApi } = await import('@/api/auth')
+    const data = await refreshApi(refreshTokenValue) as LoginResponse
+
+    const userStore2 = useUserStore()
+    userStore2.setToken(data.token, data.expireTime)
+    userStore2.setRefreshToken(data.refreshToken, data.refreshExpireTime)
+
+    retryQueue.forEach(callback => callback(data.token))
+    retryQueue = []
+
+    originalRequest.headers.Authorization = `Bearer ${data.token}`
+    return service(originalRequest)
+  } catch (refreshError) {
+    // 刷新失败：清空队列（所有排队请求将随登录跳转一起丢弃）
+    retryQueue = []
+
+    const userStore = useUserStore()
+    userStore.clearToken()
+    ElMessage.error('登录已过期，请重新登录')
+    window.location.href = '/login'
+    return Promise.reject(refreshError)
+  } finally {
+    isRefreshing = false
+  }
+}
+
 service.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const token = Cookies.get('token')
@@ -36,6 +100,10 @@ service.interceptors.response.use(
 
     if (code === 200) {
       return data as any
+    } else if (code === 401) {
+      // body-level 401: token expired but HTTP was 200 (permitAll endpoints like /api/auth/info)
+      // trigger the same refresh flow as HTTP 401
+      return handleTokenRefresh(response.config as InternalAxiosRequestConfig & { _retry?: boolean })
     } else {
       ElMessage.error(message || '请求失败')
       return Promise.reject(new Error(message || '请求失败'))
@@ -48,65 +116,7 @@ service.interceptors.response.use(
 
     if (isAuthError) {
       const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean }
-
-      if (originalRequest._retry) {
-        return Promise.reject(error)
-      }
-
-      if (isRefreshing) {
-        try {
-          await new Promise<void>((resolve) => {
-            subscribeRequest((token: string) => {
-              originalRequest.headers.Authorization = `Bearer ${token}`
-              resolve()
-            })
-          })
-          return service(originalRequest)
-        } catch (refreshError) {
-          const userStore = useUserStore()
-          userStore.clearToken()
-          window.location.href = '/login'
-          return Promise.reject(refreshError)
-        }
-      }
-
-      isRefreshing = true
-      originalRequest._retry = true
-
-      try {
-        const userStore = useUserStore()
-        const refreshTokenValue = Cookies.get('refreshToken')
-
-        if (!refreshTokenValue) {
-          userStore.clearToken()
-          window.location.href = '/login'
-          return Promise.reject(error)
-        }
-
-        const { refreshApi } = await import('@/api/auth')
-        const data = await refreshApi(refreshTokenValue) as LoginResponse
-
-        const userStore2 = useUserStore()
-        userStore2.setToken(data.token, data.expireTime)
-        userStore2.setRefreshToken(data.refreshToken, data.refreshExpireTime)
-
-        retryQueue.forEach(callback => callback(data.token))
-        retryQueue = []
-
-        originalRequest.headers.Authorization = `Bearer ${data.token}`
-        return service(originalRequest)
-      } catch (refreshError) {
-        // 刷新失败：清空队列（所有排队请求将随登录跳转一起丢弃）
-        retryQueue = []
-
-        const userStore = useUserStore()
-        userStore.clearToken()
-        ElMessage.error('登录已过期，请重新登录')
-        window.location.href = '/login'
-        return Promise.reject(refreshError)
-      } finally {
-        isRefreshing = false
-      }
+      return handleTokenRefresh(originalRequest)
     } else {
       ElMessage.error(error.message || '网络错误')
       return Promise.reject(error)
