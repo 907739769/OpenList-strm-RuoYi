@@ -53,13 +53,25 @@ public class NotifyRestController
             log.warn("APIKEY校验不通过");
             return Result.error("APIKEY校验不通过");
         }
-        if (openListHelper.isVideo(req.getQbDlFilePath()))
+        try
         {
-            copyService.syncOneFile(req.getSrcDir(), req.getSrcDst(), req.getQbDlFilePath().replaceFirst(req.getQbDlRootPath(), ""));
+            // 注意：这里必须使用普通前缀截取而非正则替换。qbDlRootPath 来自外部回调输入，
+            // 若使用 String#replaceFirst 会把它当作正则表达式解析，路径中含有 ( . + [ 等
+            // 字符时会抛出 PatternSyntaxException，导致该匿名回调接口直接 500。
+            String relativePath = StringUtils.removeStart(req.getQbDlFilePath(), req.getQbDlRootPath());
+            if (openListHelper.isVideo(req.getQbDlFilePath()))
+            {
+                copyService.syncOneFile(req.getSrcDir(), req.getSrcDst(), relativePath);
+            }
+            else
+            {
+                copyService.syncFiles(req.getSrcDir(), req.getSrcDst(), relativePath);
+            }
         }
-        else
+        catch (Exception e)
         {
-            copyService.syncFiles(req.getSrcDir(), req.getSrcDst(), req.getQbDlFilePath().replaceFirst(req.getQbDlRootPath(), ""));
+            log.error("处理目录变更通知失败, req: {}", req, e);
+            return Result.error("处理通知失败: " + e.getMessage());
         }
         return Result.success();
     }

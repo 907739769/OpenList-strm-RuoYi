@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Iterator;
 import java.util.List;
@@ -50,6 +51,7 @@ public class AsynHelper {
      * 改为异步调度模式
      */
     public void isCopyDone(String dstDir, String strmDir) {
+        Instant deadline = Instant.now().plus(monitorDuration());
         // 首次延迟30秒后开始检查
         scheduler.schedule(() -> {
             try {
@@ -65,7 +67,7 @@ public class AsynHelper {
                 }
 
                 // 开始递归检查
-                processCopyListRecursive(copyList, dstDir, strmDir);
+                processCopyListRecursive(copyList, dstDir, strmDir, deadline);
             } catch (Exception e) {
                 log.error("Error in isCopyDone initialization", e);
             }
@@ -75,7 +77,7 @@ public class AsynHelper {
     /**
      * 递归检查批量任务状态
      */
-    private void processCopyListRecursive(List<OpenlistCopyPlus> copyList, String dstDir, String strmDir) {
+    private void processCopyListRecursive(List<OpenlistCopyPlus> copyList, String dstDir, String strmDir, Instant deadline) {
         Iterator<OpenlistCopyPlus> iterator = copyList.iterator();
         while (iterator.hasNext()) {
             OpenlistCopyPlus copy = iterator.next();
@@ -133,9 +135,22 @@ public class AsynHelper {
         if (copyList.isEmpty()) {
             // 所有任务都已移出列表（完成或失败），执行最终的 strm 生成
             finishStrmDir(dstDir, strmDir);
+        } else if (Instant.now().isAfter(deadline)) {
+            // 超过最长监控时长仍未结束：强制标记剩余任务为异常，停止继续调度，
+            // 避免下游一直卡在非终态时调度任务无限期堆积
+            Duration duration = monitorDuration();
+            for (OpenlistCopyPlus copy : copyList) {
+                updateCopyStatus(copy, "4");
+                log.warn("复制任务监控超时（超过 {}），已标记为异常并停止监控: taskId={}, path={}",
+                        duration, copy.getCopyTaskId(), copy.getCopySrcPath());
+            }
+            TgHelper.sendMsg("*复制任务监控超时*\n" +
+                    "以下批量复制任务超过 " + duration.toMinutes() + " 分钟未结束，已停止监控，请人工核查：\n" +
+                    "目标目录：" + StringUtils.escapeMarkdownV2(dstDir));
+            finishStrmDir(dstDir, strmDir);
         } else {
             // 列表不为空，说明还有任务在运行，延迟30秒后再次调用自己
-            scheduler.schedule(() -> processCopyListRecursive(copyList, dstDir, strmDir), Instant.now().plusSeconds(30));
+            scheduler.schedule(() -> processCopyListRecursive(copyList, dstDir, strmDir, deadline), Instant.now().plusSeconds(30));
         }
     }
 
@@ -151,13 +166,14 @@ public class AsynHelper {
         }
 
         // 延迟30秒后开始第一次检查
-        scheduler.schedule(() -> checkOneFileRecursive(path, copy), Instant.now().plusSeconds(30));
+        Instant deadline = Instant.now().plus(monitorDuration());
+        scheduler.schedule(() -> checkOneFileRecursive(path, copy, deadline), Instant.now().plusSeconds(30));
     }
 
     /**
      * 递归检查单文件状态
      */
-    private void checkOneFileRecursive(String path, OpenlistCopyPlus copy) {
+    private void checkOneFileRecursive(String path, OpenlistCopyPlus copy, Instant deadline) {
         try {
             JSONObject jsonResponse = openlistApi.copyInfo(copy.getCopyTaskId());
 
@@ -194,12 +210,29 @@ public class AsynHelper {
                 return; // 任务失败，退出递归
             }
 
+            if (Instant.now().isAfter(deadline)) {
+                // 超过最长监控时长仍未结束：强制标记为异常，停止继续调度
+                updateCopyStatus(copy, "4");
+                Duration duration = monitorDuration();
+                log.warn("单文件复制监控超时（超过 {}），已标记为异常并停止监控: taskId={}, path={}",
+                        duration, copy.getCopyTaskId(), path);
+                TgHelper.sendMsg("*复制任务监控超时*\n" +
+                        "文件：" + StringUtils.escapeMarkdownV2(path) + "\n" +
+                        "超过 " + duration.toMinutes() + " 分钟未结束，已停止监控，请人工核查");
+                return;
+            }
+
             // 任务仍在运行中，继续调度下一次检查
-        scheduler.schedule(() -> checkOneFileRecursive(path, copy), Instant.now().plusSeconds(30));
+            scheduler.schedule(() -> checkOneFileRecursive(path, copy, deadline), Instant.now().plusSeconds(30));
 
         } catch (Exception e) {
             log.error("Error in checkOneFileRecursive for path: {}", path, e);
         }
+    }
+
+    // 辅助方法：复制任务状态监控的最长持续时间（可通过 sys_config 配置）
+    private Duration monitorDuration() {
+        return Duration.ofMinutes(config.getCopyMonitorMaxMinutes());
     }
 
     // 辅助方法：更新数据库状态

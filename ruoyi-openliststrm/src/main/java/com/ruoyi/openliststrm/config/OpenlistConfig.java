@@ -4,6 +4,9 @@ import com.ruoyi.system.service.ISysConfigService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.util.Arrays;
+import java.util.List;
+
 /**
  * @Author Jack
  * @Date 2025/7/16 19:32
@@ -111,6 +114,39 @@ public class OpenlistConfig {
             return Long.parseLong(getOpenListMinFileSize()) * 1024 * 1024;
         } catch (Exception e) {
             return 1L * 1024 * 1024;
+        }
+    }
+
+    /**
+     * 本地目录浏览接口允许访问的根目录白名单（逗号分隔）。
+     * 未配置时默认仅允许挂载的 /data 目录，避免管理端接口可以枚举整个宿主机文件系统。
+     */
+    public List<String> getAllowedLocalRoots() {
+        String value = sysConfigService.selectConfigByKey("openlist.local.allowedroots");
+        if (value == null || value.isBlank()) {
+            return List.of("/data");
+        }
+        return Arrays.stream(value.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .toList();
+    }
+
+    /**
+     * 复制任务状态监控的最长持续时间（分钟）。超过该时长仍未结束的任务会被强制标记为异常，
+     * 停止继续调度，避免下游长期卡在非终态时，调度任务无限期堆积。
+     * 未配置或配置非法时默认 600 分钟。
+     */
+    public long getCopyMonitorMaxMinutes() {
+        String value = sysConfigService.selectConfigByKey("openlist.copy.monitor.maxminutes");
+        if (value == null || value.isBlank()) {
+            return 600L;
+        }
+        try {
+            long minutes = Long.parseLong(value.trim());
+            return minutes > 0 ? minutes : 600L;
+        } catch (NumberFormatException e) {
+            return 600L;
         }
     }
 

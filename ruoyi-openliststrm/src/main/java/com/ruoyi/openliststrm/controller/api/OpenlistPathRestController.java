@@ -6,12 +6,14 @@ import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.Result;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.openliststrm.api.OpenlistApi;
+import com.ruoyi.openliststrm.config.OpenlistConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.File;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -30,6 +32,9 @@ public class OpenlistPathRestController extends BaseController
 
     @Autowired
     private OpenlistApi openlistApi;
+
+    @Autowired
+    private OpenlistConfig openlistConfig;
 
     /**
      * 获取 Openlist 目录结构
@@ -91,40 +96,69 @@ public class OpenlistPathRestController extends BaseController
         List<Map<String, Object>> trees = new ArrayList<>();
         log.info("正在获取本地目录，父节点 ID: {}", id);
 
-        File[] files;
         boolean isRoot = StringUtils.isEmpty(id);
+        List<String> allowedRoots = openlistConfig.getAllowedLocalRoots();
 
         try
         {
             if (isRoot)
             {
-                files = File.listRoots();
-                log.info("系统根目录数量: {}", files == null ? 0 : files.length);
-            }
-            else
-            {
-                File parent = new File(id);
-                if (!parent.exists())
+                // 根节点：仅返回配置的白名单根目录，不再枚举整个宿主机的磁盘/挂载点，
+                // 避免管理端接口被用来遍历服务器上任意目录
+                for (String rootPath : allowedRoots)
                 {
-                    log.warn("目录不存在: {}", id);
-                    return Result.success(trees);
+                    try
+                    {
+                        File root = new File(rootPath);
+                        if (root.exists() && root.isDirectory())
+                        {
+                            String currentPath = root.getCanonicalPath().replace("\\", "/");
+                            Map<String, Object> map = new HashMap<>();
+                            map.put("id", currentPath);
+                            map.put("pId", "");
+                            map.put("name", currentPath);
+                            map.put("title", currentPath);
+                            map.put("isParent", true);
+                            trees.add(map);
+                        }
+                        else
+                        {
+                            log.warn("配置的本地根目录不存在，已跳过: {}", rootPath);
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        // 单个根目录规范化失败不应影响其余白名单根目录的展示
+                        log.warn("规范化本地根目录失败，已跳过: {}", rootPath, e);
+                    }
                 }
-                files = parent.listFiles();
+                return Result.success(trees);
             }
 
+            File parent = new File(id);
+            if (!parent.exists())
+            {
+                log.warn("目录不存在: {}", id);
+                return Result.success(trees);
+            }
+            if (!isPathAllowed(parent, allowedRoots))
+            {
+                log.warn("拒绝访问白名单之外的本地路径: {}", id);
+                return Result.error("该路径不在允许访问的范围内");
+            }
+
+            File[] files = parent.listFiles();
             if (files != null)
             {
                 for (File file : files)
                 {
                     if (file.isDirectory() && !file.isHidden())
                     {
+                        String currentPath = file.getAbsolutePath().replace("\\", "/");
                         Map<String, Object> map = new HashMap<>();
-                        String currentPath = file.getAbsolutePath();
-                        currentPath = currentPath.replace("\\", "/");
-
                         map.put("id", currentPath);
                         map.put("pId", id);
-                        map.put("name", isRoot ? file.getPath() : file.getName());
+                        map.put("name", file.getName());
                         map.put("title", file.getPath());
                         map.put("isParent", true);
                         trees.add(map);
@@ -141,21 +175,32 @@ public class OpenlistPathRestController extends BaseController
             log.error("获取本地目录失败", e);
         }
 
-        if (isRoot && trees.isEmpty())
+        return Result.success(trees);
+    }
+
+    /**
+     * 校验目标路径是否落在允许访问的根目录白名单内。
+     * 按规范化后的路径做包含关系判断（Path#startsWith），而非简单的字符串前缀比较，
+     * 避免 "/data-other" 这类同前缀但实际不同目录的绕过，也避免 ".." 路径穿越。
+     */
+    private boolean isPathAllowed(File target, List<String> allowedRoots)
+    {
+        try
         {
-            File root = new File("/");
-            if (root.exists())
+            Path targetPath = target.getCanonicalFile().toPath();
+            for (String rootStr : allowedRoots)
             {
-                Map<String, Object> map = new HashMap<>();
-                map.put("id", "/");
-                map.put("pId", "");
-                map.put("name", "/");
-                map.put("title", "系统根目录");
-                map.put("isParent", true);
-                trees.add(map);
+                Path rootPath = new File(rootStr).getCanonicalFile().toPath();
+                if (targetPath.equals(rootPath) || targetPath.startsWith(rootPath))
+                {
+                    return true;
+                }
             }
         }
-
-        return Result.success(trees);
+        catch (Exception e)
+        {
+            log.warn("路径规范化校验失败: {}", target, e);
+        }
+        return false;
     }
 }

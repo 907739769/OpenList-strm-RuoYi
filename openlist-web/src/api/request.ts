@@ -11,10 +11,13 @@ const service: AxiosInstance = axios.create({
 })
 
 let isRefreshing = false
-let retryQueue: Array<(token: string) => void> = []
+let retryQueue: Array<{ resolve: (token: string) => void; reject: (reason: Error) => void }> = []
 
-const subscribeRequest = (callback: (token: string) => void) => {
-  retryQueue.push(callback)
+const subscribeRequest = (
+  resolve: (token: string) => void,
+  reject: (reason: Error) => void
+) => {
+  retryQueue.push({ resolve, reject })
 }
 
 /**
@@ -24,26 +27,20 @@ async function handleTokenRefresh(originalRequest: InternalAxiosRequestConfig & 
   if (originalRequest._retry) {
     return Promise.reject(new Error('Already retried'))
   }
+  originalRequest._retry = true
 
   if (isRefreshing) {
-    try {
-      await new Promise<void>((resolve) => {
-        subscribeRequest((token: string) => {
-          originalRequest.headers.Authorization = `Bearer ${token}`
-          resolve()
-        })
-      })
-      return service(originalRequest)
-    } catch (refreshError) {
-      const userStore = useUserStore()
-      userStore.clearToken()
-      window.location.href = '/login'
-      return Promise.reject(refreshError)
-    }
+    // 刷新失败时由 reject 唤醒，避免排队请求永久挂起；跳转登录页统一由发起刷新的那一方负责
+    await new Promise<void>((resolve, reject) => {
+      subscribeRequest((token: string) => {
+        originalRequest.headers.Authorization = `Bearer ${token}`
+        resolve()
+      }, reject)
+    })
+    return service(originalRequest)
   }
 
   isRefreshing = true
-  originalRequest._retry = true
 
   try {
     const userStore = useUserStore()
@@ -59,17 +56,20 @@ async function handleTokenRefresh(originalRequest: InternalAxiosRequestConfig & 
     const data = await refreshApi(refreshTokenValue) as LoginResponse
 
     const userStore2 = useUserStore()
-    userStore2.setToken(data.token, data.expireTime)
+    userStore2.setToken(data.token, data.refreshExpireTime)
     userStore2.setRefreshToken(data.refreshToken, data.refreshExpireTime)
 
-    retryQueue.forEach(callback => callback(data.token))
+    retryQueue.forEach(({ resolve }) => resolve(data.token))
     retryQueue = []
 
     originalRequest.headers.Authorization = `Bearer ${data.token}`
     return service(originalRequest)
   } catch (refreshError) {
-    // 刷新失败：清空队列（所有排队请求将随登录跳转一起丢弃）
+    // 刷新失败：唤醒排队请求让其自行 reject，否则它们会永久挂起
+    const queued = retryQueue
     retryQueue = []
+    const reason = refreshError instanceof Error ? refreshError : new Error('登录已过期')
+    queued.forEach(({ reject }) => reject(reason))
 
     const userStore = useUserStore()
     userStore.clearToken()

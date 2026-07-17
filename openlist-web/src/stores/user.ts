@@ -26,10 +26,12 @@ export const useUserStore = defineStore('user', () => {
   const permissions = ref<string[]>([])
   const routes = ref<MenuRoute[]>([])
 
-  const setToken = (newToken: string, expireTime?: number) => {
+  // cookie 仅作存储介质，有效期跟随 refresh token；access token 自身的 exp 才是安全边界。
+  // 若 cookie 与 access token 同时过期，路由守卫会在任何请求发出前就跳登录页，刷新逻辑将永远不被触发。
+  const setToken = (newToken: string, refreshExpireTime?: number) => {
     token.value = newToken
-    const cookieOpts = expireTime
-      ? { expires: new Date(expireTime) }
+    const cookieOpts = refreshExpireTime
+      ? { expires: new Date(refreshExpireTime) }
       : { expires: 7 }
     Cookies.set('token', newToken, cookieOpts)
   }
@@ -59,14 +61,14 @@ export const useUserStore = defineStore('user', () => {
       throw new Error('No refresh token')
     }
     const data = await refreshApi(rt) as LoginResponse
-    setToken(data.token, data.expireTime)
+    setToken(data.token, data.refreshExpireTime)
     setRefreshToken(data.refreshToken, data.refreshExpireTime)
     return data
   }
 
   const login = async (loginForm: LoginRequest) => {
     const data = await loginApi(loginForm) as LoginResponse
-    setToken(data.token, data.expireTime)
+    setToken(data.token, data.refreshExpireTime)
     setRefreshToken(data.refreshToken, data.refreshExpireTime)
     userInfo.value = {
       userId: data.userId,

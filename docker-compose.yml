@@ -9,6 +9,9 @@ services:
       - .env
     environment:
       MYSQL_DATABASE: ${MYSQL_DATABASE:-osr}
+      # 应用专用最小权限账号：MySQL 官方镜像会自动创建该用户，并仅授予 MYSQL_DATABASE 库的权限
+      MYSQL_USER: ${DB_USERNAME:-osr_app}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
       MYSQL_CHARSET: utf8mb4
       MYSQL_COLLATION: utf8mb4_general_ci
       TZ: Asia/Shanghai
@@ -40,7 +43,9 @@ services:
     environment:
       DB_HOST: mysql
       DB_PORT: 3306
-      DB_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      # 后端使用应用专用账号连库，不再复用 MySQL root 密码
+      DB_USERNAME: ${DB_USERNAME:-osr_app}
+      DB_PASSWORD: ${DB_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
       TZ: Asia/Shanghai
     depends_on:
