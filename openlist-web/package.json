@@ -27,6 +27,8 @@
     "@playwright/test": "^1.59.1",
     "@types/js-cookie": "^3.0.6",
     "@types/nprogress": "^0.2.3",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^6.21.0",
     "@vitejs/plugin-vue": "^5.0.4",
     "eslint": "^8.57.0",
     "eslint-plugin-vue": "^9.23.0",

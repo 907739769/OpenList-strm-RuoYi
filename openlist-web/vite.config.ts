@@ -12,7 +12,9 @@ export default defineConfig({
     AutoImport({
       resolvers: [ElementPlusResolver()],
       imports: ['vue', 'vue-router', 'pinia'],
-      dts: 'src/auto-imports.d.ts'
+      dts: 'src/auto-imports.d.ts',
+      // 生成 ESLint 全局声明，否则自动导入的 ref/computed/ElMessage 会被报未定义
+      eslintrc: { enabled: true, filepath: './.eslintrc-auto-import.json' }
     }),
     Components({
       resolvers: [ElementPlusResolver()],
