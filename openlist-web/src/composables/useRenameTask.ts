@@ -103,35 +103,6 @@ export function useRenameTask() {
     base.getList()
   }
 
-  // 移动端 - 全文对话框
-  const fullTextVisible = ref(false)
-  const fullTextTitle = ref('')
-  const fullTextContent = ref('')
-
-  const showFullText = (content: string, title: string) => {
-    fullTextTitle.value = title
-    fullTextContent.value = content
-    fullTextVisible.value = true
-  }
-
-  const copyToClipboard = async (text: string) => {
-    try {
-      await navigator.clipboard.writeText(text)
-      ElMessage.success('已复制到剪贴板')
-    } catch {
-      // navigator.clipboard 需要安全上下文，HTTP 下走降级方案
-      const textarea = document.createElement('textarea')
-      textarea.value = text
-      textarea.style.position = 'fixed'
-      textarea.style.opacity = '0'
-      document.body.appendChild(textarea)
-      textarea.select()
-      document.execCommand('copy')
-      document.body.removeChild(textarea)
-      ElMessage.success('已复制到剪贴板')
-    }
-  }
-
   // 移动端 - 搜索面板折叠
   const searchCollapsed = ref(true)
 
@@ -183,8 +154,6 @@ export function useRenameTask() {
     toggleSelect, handleCardClick, clearSelection,
     // 移动端分页
     totalPages, prevPage, nextPage, handleSizeChange,
-    // 全文对话框
-    fullTextVisible, fullTextTitle, fullTextContent, showFullText, copyToClipboard,
     // 搜索面板
     searchCollapsed,
     // 重命名测试
