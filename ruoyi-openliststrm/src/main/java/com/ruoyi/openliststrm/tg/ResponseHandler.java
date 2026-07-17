@@ -31,7 +31,7 @@ public class ResponseHandler {
             strmService.strmDir(parameter);
             sender.execute(SendMessage.builder().chatId(chatId).replyToMessageId(messageId).text("==执行指定路径strm任务完成==").build());
         } catch (Exception e) {
-            log.error("", e);
+            log.error("Telegram Bot执行strm任务异常", e);
         }
     }
 
@@ -49,9 +49,8 @@ public class ResponseHandler {
             copyService.syncFiles(strings[0], strings[1]);
             sender.execute(SendMessage.builder().chatId(chatId).replyToMessageId(messageId).text("==执行指定路径sync任务完成==").build());
         } catch (Exception e) {
-            log.error("", e);
+            log.error("Telegram Bot执行sync任务异常", e);
         }
     }
-
 
 }

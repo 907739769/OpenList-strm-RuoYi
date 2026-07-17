@@ -14,6 +14,14 @@ public interface ICopyService {
     void syncFiles(String srcDir, String dstDir, String relativePath);
 
     /**
+     * 增量同步：只同步 lastSyncTime 之后修改的文件
+     * @param srcDir 源目录
+     * @param dstDir 目标目录
+     * @param lastSyncTime 上次同步时间（为 null 时走全量同步）
+     */
+    void syncFilesIncremental(String srcDir, String dstDir, java.util.Date lastSyncTime);
+
+    /**
      * 批量删除网盘文件并更新记录
      */
     void batchRemoveNetDisk(List<String> idList);

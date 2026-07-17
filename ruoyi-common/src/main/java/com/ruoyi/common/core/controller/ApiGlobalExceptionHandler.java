@@ -114,7 +114,7 @@ public class ApiGlobalExceptionHandler
     public Result<Void> handleRuntimeException(RuntimeException e)
     {
         log.error("系统运行时异常: {}", e.getMessage(), e);
-        return Result.error(500, e.getMessage());
+        return Result.error(500, "系统内部错误");
     }
 
     /**

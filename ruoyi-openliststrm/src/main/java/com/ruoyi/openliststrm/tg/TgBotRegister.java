@@ -32,14 +32,14 @@ public class TgBotRegister implements CommandLineRunner {
         try {
             telegramBotsApi = new TelegramBotsApi(DefaultBotSession.class);
         } catch (TelegramApiException e) {
-            log.error("" , e);
+            log.error("初始化TelegramBotsApi失败", e);
             return;
         }
         try {
             StrmBot bot = new StrmBot(config.getOpenListTgToken(), config.getOpenListTgUserId());
             telegramBotsApi.registerBot(bot);
         } catch (TelegramApiException e) {
-            log.error("" , e);
+            log.error("注册Telegram Bot失败", e);
         }
     }
 }

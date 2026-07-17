@@ -18,7 +18,6 @@ import com.ruoyi.common.core.domain.PageResult;
 import com.ruoyi.common.core.domain.Result;
 import com.ruoyi.common.core.page.PageDomain;
 import com.ruoyi.common.core.page.TableSupport;
-import com.ruoyi.common.annotation.Anonymous;
 import com.ruoyi.common.core.domain.entity.SysDictData;
 import com.ruoyi.common.core.domain.entity.SysDictType;
 import com.ruoyi.system.service.ISysDictDataService;
@@ -31,7 +30,6 @@ import com.ruoyi.system.service.ISysDictTypeService;
  */
 @RestController
 @RequestMapping("/api/system/dict/type")
-@Anonymous
 @CrossOrigin(origins = "*")
 public class SysDictTypeApiController extends BaseController
 {

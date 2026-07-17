@@ -73,32 +73,45 @@ public class OpenlistConfig {
 
     // STRM输出目录 (默认: /data/strm)
     public String getOpenListStrmOutputDir() {
-        return "/data/strm";
-//        return sysConfigService.selectConfigByKey("openlist.strm.outputdir");
+        String value = sysConfigService.selectConfigByKey("openlist.strm.outputdir");
+        return (value != null && !value.isBlank()) ? value : "/data/strm";
     }
 
     // STRM路径编码开关 (默认: 0-不编码)
     public String getOpenListStrmEncode() {
-        return "0";
-//        return sysConfigService.selectConfigByKey("openlist.strm.encode");
+        String value = sysConfigService.selectConfigByKey("openlist.strm.encode");
+        return (value != null && !value.isBlank()) ? value : "0";
     }
 
     // STRM下载字幕开关 (默认: 0-不下载)
     public String getOpenListStrmDownloadSub() {
-        return "0";
-//        return sysConfigService.selectConfigByKey("openlist.strm.downloadsub");
+        String value = sysConfigService.selectConfigByKey("openlist.strm.downloadsub");
+        return (value != null && !value.isBlank()) ? value : "0";
     }
 
     // API refresh开关 (默认: 1-开启)
     public String getOpenListApiRefresh() {
-        return "1";
-//        return sysConfigService.selectConfigByKey("openlist.api.refresh");
+        String value = sysConfigService.selectConfigByKey("openlist.api.refresh");
+        return (value != null && !value.isBlank()) ? value : "1";
     }
 
     // TMDb图片语言偏好 (默认: zh)
     public String getTmdbImageLanguage() {
-        return "zh";
-//        return sysConfigService.selectConfigByKey("openlist.tmdb.image.language");
+        String value = sysConfigService.selectConfigByKey("openlist.tmdb.image.language");
+        return (value != null && !value.isBlank()) ? value : "zh";
+    }
+
+    /**
+     * 获取最小文件大小（字节）。
+     * 配置项存储的是 MB 值，此方法将其转换为字节。
+     * 默认值：1 MB
+     */
+    public long getMinFileSizeBytes() {
+        try {
+            return Long.parseLong(getOpenListMinFileSize()) * 1024 * 1024;
+        } catch (Exception e) {
+            return 1L * 1024 * 1024;
+        }
     }
 
 }

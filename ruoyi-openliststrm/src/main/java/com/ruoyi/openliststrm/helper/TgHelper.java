@@ -11,9 +11,8 @@ import com.ruoyi.openliststrm.tg.TgSendMsg;
  */
 public class TgHelper {
 
-    private static OpenlistConfig config = SpringUtils.getBean(OpenlistConfig.class);
-
     public static void sendMsg(String msg) {
+        OpenlistConfig config = SpringUtils.getBean(OpenlistConfig.class);
         TgSendMsg sendMsg = new TgSendMsg(config.getOpenListTgToken(), config.getOpenListTgUserId());
         sendMsg.sendMsg(msg);
     }

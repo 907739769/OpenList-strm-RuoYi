@@ -79,92 +79,50 @@ public class CategoryRule {
         return true;
     }
 
-    // helper extractors -- these attempt to read extended TMDb fields stored in MediaInfo via reflection or map
+    // helper extractors -- read extended TMDb fields from MediaInfo, with metadata map fallback
     private List<String> getGenreIdsFromInfo(MediaInfo info) {
-        try {
-            // try a getter first
-            java.lang.reflect.Method m = info.getClass().getMethod("getGenreIds");
-            Object res = m.invoke(info);
-            if (res instanceof List) {
-                List<?> l = (List<?>) res;
+        List<String> genres = info.getGenreIds();
+        if (genres != null && !genres.isEmpty()) return genres;
+        // fallback to metadata map
+        Map<String, Object> meta = info.getMetadata();
+        if (meta != null) {
+            Object g = meta.get("genre_ids");
+            if (g instanceof List) {
                 List<String> out = new ArrayList<>();
-                for (Object o : l) out.add(String.valueOf(o));
+                for (Object o : (List<?>) g) out.add(String.valueOf(o));
                 return out;
             }
-        } catch (NoSuchMethodException e) {
-            log.debug("No getGenreIds method found on MediaInfo, trying fallback for rule: {}", name);
-        } catch (Exception e) {
-            log.warn("Failed to extract genreIds from MediaInfo getter for rule: {}", name, e);
-        }
-        // try map style: maybe MediaInfo has a metadata map
-        try {
-            java.lang.reflect.Method m2 = info.getClass().getMethod("getMetadata");
-            Object meta = m2.invoke(info);
-            if (meta instanceof Map) {
-                Object g = ((Map<?, ?>) meta).get("genre_ids");
-                if (g instanceof List) {
-                    List<String> out = new ArrayList<>();
-                    for (Object o : (List<?>) g) out.add(String.valueOf(o));
-                    return out;
-                }
-            }
-        } catch (Exception e) {
-            log.warn("Failed to extract genreIds from MediaInfo via reflection for rule: {}", name, e);
         }
         return Collections.emptyList();
     }
 
     private String getOriginalLanguageFromInfo(MediaInfo info) {
-        try {
-            java.lang.reflect.Method m = info.getClass().getMethod("getOriginalLanguage");
-            Object res = m.invoke(info);
-            if (res != null) return String.valueOf(res);
-        } catch (Exception e) {
-            log.warn("Failed to extract originalLanguage from MediaInfo getter for rule: {}", name, e);
-        }
-        // fallback to metadata
-        try {
-            java.lang.reflect.Method m2 = info.getClass().getMethod("getMetadata");
-            Object meta = m2.invoke(info);
-            if (meta instanceof Map) {
-                Object ol = ((Map<?, ?>) meta).get("original_language");
-                if (ol != null) return String.valueOf(ol);
-            }
-        } catch (Exception e) {
-            log.warn("Failed to extract originalLanguage from MediaInfo metadata for rule: {}", name, e);
+        String lang = info.getOriginalLanguage();
+        if (lang != null) return lang;
+        // fallback to metadata map
+        Map<String, Object> meta = info.getMetadata();
+        if (meta != null) {
+            Object ol = meta.get("original_language");
+            if (ol != null) return String.valueOf(ol);
         }
         return null;
     }
 
     private List<String> getOriginCountriesFromInfo(MediaInfo info) {
-        try {
-            java.lang.reflect.Method m = info.getClass().getMethod("getOriginCountries");
-            Object res = m.invoke(info);
-            if (res instanceof List) {
-                List<?> l = (List<?>) res;
+        List<String> countries = info.getOriginCountries();
+        if (countries != null && !countries.isEmpty()) return countries;
+        // fallback to metadata map
+        Map<String, Object> meta = info.getMetadata();
+        if (meta != null) {
+            Object oc = meta.get("origin_country");
+            if (oc instanceof List) {
                 List<String> out = new ArrayList<>();
-                for (Object o : l) out.add(String.valueOf(o));
+                for (Object o : (List<?>) oc) out.add(String.valueOf(o));
                 return out;
             }
-        } catch (Exception e) {
-            log.warn("Failed to extract originCountries from MediaInfo getter for rule: {}", name, e);
-        }
-        try {
-            java.lang.reflect.Method m2 = info.getClass().getMethod("getMetadata");
-            Object meta = m2.invoke(info);
-            if (meta instanceof Map) {
-                Object oc = ((Map<?, ?>) meta).get("origin_country");
-                if (oc instanceof List) {
-                    List<String> out = new ArrayList<>();
-                    for (Object o : (List<?>) oc) out.add(String.valueOf(o));
-                    return out;
-                }
-                if (oc instanceof String) {
-                    return Arrays.asList(((String) oc).split(","));
-                }
+            if (oc instanceof String) {
+                return Arrays.asList(((String) oc).split(","));
             }
-        } catch (Exception e) {
-            log.warn("Failed to extract originCountries from MediaInfo metadata for rule: {}", name, e);
         }
         return Collections.emptyList();
     }

@@ -1,18 +1,13 @@
 package com.ruoyi.openliststrm.controller.api;
 
-import com.ruoyi.common.core.controller.BaseController;
-import com.ruoyi.common.core.domain.PageResult;
 import com.ruoyi.common.core.domain.Result;
-import com.ruoyi.common.annotation.Anonymous;
 import com.ruoyi.common.core.text.Convert;
-import com.ruoyi.openliststrm.enums.CopyStatusEnum;
 import com.ruoyi.openliststrm.mybatisplus.domain.OpenlistCopyPlus;
 import com.ruoyi.openliststrm.mybatisplus.service.IOpenlistCopyPlusService;
 import com.ruoyi.openliststrm.service.ICopyService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -24,94 +19,10 @@ import java.util.stream.Collectors;
  */
 @RestController
 @RequestMapping("/api/openliststrm/copy-records")
-@Anonymous
-@CrossOrigin
-public class OpenlistCopyRestController extends BaseController
+public class OpenlistCopyRestController extends BaseCrudRestController<IOpenlistCopyPlusService, OpenlistCopyPlus>
 {
     @Autowired
-    private IOpenlistCopyPlusService openlistCopyPlusService;
-
-    @Autowired
     private ICopyService copyService;
-
-    /**
-     * 查询文件同步复制记录列表（分页）- 支持 /copy-records 和 /copy-records/list
-     */
-    @GetMapping({ "", "/list" })
-    public Result<PageResult<OpenlistCopyPlus>> list(OpenlistCopyPlus openlistCopy)
-    {
-        return Result.success(selectPage(openlistCopyPlusService.getBaseMapper(), buildQueryWrapper(openlistCopy)));
-    }
-
-    /**
-     * 根据ID获取文件同步复制记录
-     */
-    @GetMapping("/{id}")
-    public Result<OpenlistCopyPlus> getById(@PathVariable("id") Integer id)
-    {
-        OpenlistCopyPlus record = openlistCopyPlusService.getById(id);
-        if (record == null)
-        {
-            return Result.error("记录不存在");
-        }
-        return Result.success(record);
-    }
-
-    /**
-     * 新增文件同步复制记录
-     */
-    @PostMapping
-    public Result<Void> add(@RequestBody OpenlistCopyPlus openlistCopy)
-    {
-        boolean result = openlistCopyPlusService.save(openlistCopy);
-        if (result)
-        {
-            return Result.success();
-        }
-        return Result.error("新增失败");
-    }
-
-    /**
-     * 修改文件同步复制记录
-     */
-    @PutMapping
-    public Result<Void> edit(@RequestBody OpenlistCopyPlus openlistCopy)
-    {
-        if (openlistCopy.getCopyId() == null)
-        {
-            return Result.error("记录ID不能为空");
-        }
-        OpenlistCopyPlus existing = openlistCopyPlusService.getById(openlistCopy.getCopyId());
-        if (existing == null)
-        {
-            return Result.error("记录不存在");
-        }
-        boolean result = openlistCopyPlusService.updateById(openlistCopy);
-        if (result)
-        {
-            return Result.success();
-        }
-        return Result.error("修改失败");
-    }
-
-    /**
-     * 删除文件同步复制记录
-     */
-    @DeleteMapping("/{id}")
-    public Result<Void> delete(@PathVariable("id") Integer id)
-    {
-        OpenlistCopyPlus existing = openlistCopyPlusService.getById(id);
-        if (existing == null)
-        {
-            return Result.error("记录不存在");
-        }
-        boolean result = openlistCopyPlusService.removeById(id);
-        if (result)
-        {
-            return Result.success();
-        }
-        return Result.error("删除失败");
-    }
 
     /**
      * 批量删除文件同步复制记录
@@ -124,7 +35,7 @@ public class OpenlistCopyRestController extends BaseController
             return Result.error("请选择要删除的记录");
         }
         List<String> idList = Arrays.stream(Convert.toStrArray(ids)).collect(Collectors.toList());
-        boolean result = openlistCopyPlusService.removeByIds(idList);
+        boolean result = service.removeByIds(idList);
         if (result)
         {
             return Result.success();
@@ -138,7 +49,7 @@ public class OpenlistCopyRestController extends BaseController
     @PostMapping("/retry/{id}")
     public Result<Void> retry(@PathVariable("id") Integer id)
     {
-        OpenlistCopyPlus record = openlistCopyPlusService.getById(id);
+        var record = service.getById(id);
         if (record == null)
         {
             return Result.error("记录不存在");
@@ -182,7 +93,8 @@ public class OpenlistCopyRestController extends BaseController
     /**
      * 构建查询条件
      */
-    private com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<OpenlistCopyPlus> buildQueryWrapper(OpenlistCopyPlus openlistCopy)
+    @Override
+    protected com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<OpenlistCopyPlus> buildQueryWrapper(OpenlistCopyPlus openlistCopy)
     {
         com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<OpenlistCopyPlus> wrapper = new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<>();
         if (openlistCopy != null)

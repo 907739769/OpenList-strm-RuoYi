@@ -34,16 +34,16 @@
       <!-- Action Bar -->
       <div class="action-bar">
         <div class="action-left">
-          <el-button type="primary" @click="handleAdd">
+          <el-button type="primary" @click="handleAdd('新增文件同步任务')">
             <el-icon><Plus /></el-icon> 新增
           </el-button>
-          <el-button type="success" :disabled="single" @click="handleUpdate()">
+          <el-button type="success" :disabled="single" @click="handleUpdate(undefined, '修改文件同步任务')">
             <el-icon><Edit /></el-icon> 修改
           </el-button>
-          <el-button type="danger" :disabled="multiple" @click="handleDelete()">
+          <el-button type="danger" :disabled="multiple" @click="handleDelete(undefined, `是否确认删除文件同步任务编号为“${selectedIds}”的数据项？`)">
             <el-icon><Delete /></el-icon> 删除
           </el-button>
-          <el-button type="warning" :disabled="multiple" @click="handleExecute()">
+          <el-button type="warning" :disabled="multiple" @click="handleExecute('是否确认执行选中的文件同步任务？')">
             <el-icon><VideoPlay /></el-icon> 批量执行
           </el-button>
         </div>
@@ -75,13 +75,13 @@
         <el-table-column label="创建时间" prop="createTime" width="170" align="center" />
         <el-table-column label="操作" align="center" width="220" fixed="right">
           <template #default="scope">
-            <el-button link type="primary" @click="handleUpdate(scope.row)">
+            <el-button link type="primary" @click="handleUpdate(scope.row, '修改文件同步任务')">
               <el-icon><Edit /></el-icon> 修改
             </el-button>
             <el-button link type="danger" @click="handleDelete(scope.row)">
               <el-icon><Delete /></el-icon> 删除
             </el-button>
-            <el-button link type="primary" @click="handleExecuteOne(scope.row)">
+            <el-button link type="primary" @click="handleExecuteOne(scope.row, `是否确认执行文件同步任务“${scope.row.copyTaskSrc} → ${scope.row.copyTaskDst}”？`)">
               <el-icon><VideoPlay /></el-icon> 执行
             </el-button>
           </template>
@@ -114,13 +114,13 @@
             </div>
           </div>
           <div class="mobile-card-actions">
-            <el-button link type="primary" size="small" @click="handleUpdate(item)">
+            <el-button link type="primary" size="small" @click="handleUpdate(item, '修改文件同步任务')">
               <el-icon><Edit /></el-icon> 修改
             </el-button>
             <el-button link type="danger" size="small" @click="handleDelete(item)">
               <el-icon><Delete /></el-icon> 删除
             </el-button>
-            <el-button link type="primary" size="small" @click="handleExecuteOne(item)">
+            <el-button link type="primary" size="small" @click="handleExecuteOne(item, `是否确认执行文件同步任务“${item.copyTaskSrc} → ${item.copyTaskDst}”？`)">
               <el-icon><VideoPlay /></el-icon> 执行
             </el-button>
           </div>
@@ -170,143 +170,34 @@
 </template>
 
 <script setup lang="ts">
-defineOptions({ name: 'CopyTask' })
-import { ref, reactive } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Refresh, Plus, Edit, Delete, VideoPlay, Filter } from '@element-plus/icons-vue'
+import { ref, watch } from 'vue'
+import { useCopyTask } from '@/composables/useCopyTask'
+import { useDebounce } from '@/composables/useDebounce'
 import DirectoryTreeSelect from '@/components/DirectoryTreeSelect/index.vue'
-import { getCopyTaskListApi, addCopyTaskApi, updateCopyTaskApi, deleteCopyTaskApi, executeCopyTaskApi } from '@/api/openlist/copyTask'
 import { useAppStore } from '@/stores/app'
-import type { SearchParams, PageResult } from '@/types'
 
 const appStore = useAppStore()
 const showSearch = ref(window.innerWidth >= 768)
 
-const taskList = ref<any[]>([])
-const loading = ref(true)
-const total = ref(0)
-const single = ref(true)
-const multiple = ref(true)
-const selectedIds = ref<number[]>([])
+const {
+  taskList, loading, total, queryParams, queryRef,
+  getList, handleQuery, resetQuery,
+  selectedIds, single, multiple, handleSelectionChange,
+  open, dialogTitle, submitLoading, formRef, form, rules,
+  handleAdd, handleUpdate, submitForm,
+  handleDelete, handleExecuteOne, handleExecute
+} = useCopyTask()
 
-const queryParams = reactive<SearchParams & { copyTaskSrc?: string; copyTaskDst?: string; monitorDir?: string; copyTaskStatus?: string }>({
-  pageNum: 1,
-  pageSize: 10,
-  copyTaskSrc: undefined,
-  copyTaskDst: undefined,
-  monitorDir: undefined,
-  copyTaskStatus: undefined
-})
+// 搜索输入防抖：输入停止 300ms 后自动触发搜索
+const debouncedSearch = useDebounce(() => {
+  queryParams.pageNum = 1
+  getList()
+}, 300)
 
-const getList = async () => {
-  loading.value = true
-  try {
-    const res = await getCopyTaskListApi(queryParams) as PageResult
-    taskList.value = res.records
-    total.value = res.total
-  } finally {
-    loading.value = false
-  }
-}
-
-const handleQuery = () => { queryParams.pageNum = 1; getList() }
-const resetQuery = () => { (queryRef.value as any).resetFields(); handleQuery() }
-const handleSelectionChange = (selection: any[]) => { single.value = selection.length !== 1; multiple.value = !selection.length; selectedIds.value = selection.map((item: any) => item.copyTaskId) }
-
-// Dialog state
-const open = ref(false)
-const dialogTitle = ref('')
-const submitLoading = ref(false)
-
-const initForm = (): any => ({
-  copyTaskId: undefined,
-  copyTaskSrc: undefined,
-  copyTaskDst: undefined,
-  monitorDir: undefined,
-  copyTaskStatus: '1'
-})
-
-const form = ref<any>(initForm())
-const formRef = ref<any>()
-
-const rules = reactive({
-  copyTaskSrc: [{ required: true, message: '源目录不能为空', trigger: 'blur' }],
-  copyTaskDst: [{ required: true, message: '目标目录不能为空', trigger: 'blur' }]
-})
-
-const handleAdd = () => {
-  dialogTitle.value = '新增文件同步任务'
-  form.value = initForm()
-  open.value = true
-}
-
-const handleUpdate = (row?: any) => {
-  const id = row?.copyTaskId || selectedIds.value[0]
-  if (!id) {
-    ElMessage.warning('请选择数据项')
-    return
-  }
-  dialogTitle.value = '修改文件同步任务'
-  getCopyTaskListApi({ ...queryParams, pageNum: 1, pageSize: 100 }).then((res: PageResult) => {
-    const task = res.records.find((t: any) => t.copyTaskId === id)
-    if (task) {
-      form.value = { ...task }
-      open.value = true
-    } else {
-      ElMessage.error('任务不存在')
-    }
-  })
-}
-
-const submitForm = async () => {
-  if (!formRef.value) return
-  await formRef.value.validate()
-  submitLoading.value = true
-  try {
-    if (form.value.copyTaskId) {
-      await updateCopyTaskApi(form.value)
-      ElMessage.success('修改成功')
-    } else {
-      await addCopyTaskApi(form.value)
-      ElMessage.success('新增成功')
-    }
-    open.value = false
-    getList()
-  } finally {
-    submitLoading.value = false
-  }
-}
-
-const handleDelete = async (row?: any) => {
-  const ids = row?.copyTaskId ? [row.copyTaskId] : selectedIds.value
-  try {
-    await ElMessageBox.confirm(`是否确认删除文件同步任务编号为"${ids}"的数据项？`, '警告', { type: 'warning' })
-    await deleteCopyTaskApi(ids[0])
-    ElMessage.success('删除成功')
-    getList()
-  } catch (e) { if (e !== 'cancel') console.error(e) }
-}
-
-const handleExecute = async () => {
-  try {
-    await ElMessageBox.confirm(`是否确认执行选中的文件同步任务？`, '警告', { type: 'warning' })
-    await executeCopyTaskApi(selectedIds.value)
-    ElMessage.success('执行成功')
-    getList()
-  } catch (e) { if (e !== 'cancel') console.error(e) }
-}
-
-const handleExecuteOne = async (row: any) => {
-  try {
-    await ElMessageBox.confirm(`是否确认执行文件同步任务"${row.copyTaskSrc} → ${row.copyTaskDst}"？`, '警告', { type: 'warning' })
-    await executeCopyTaskApi([row.copyTaskId])
-    ElMessage.success('执行成功')
-    getList()
-  } catch (e) { if (e !== 'cancel') console.error(e) }
-}
-
-const queryRef = ref<any>()
-getList()
+watch(
+  () => [queryParams.copyTaskSrc, queryParams.copyTaskDst, queryParams.monitorDir, queryParams.copyTaskStatus],
+  () => debouncedSearch()
+)
 </script>
 
 <style scoped lang="scss">

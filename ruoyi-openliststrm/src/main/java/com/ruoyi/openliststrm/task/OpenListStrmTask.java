@@ -10,9 +10,11 @@ import com.ruoyi.openliststrm.mybatisplus.service.IRenameTaskPlusService;
 import com.ruoyi.openliststrm.rename.RenameTaskManager;
 import com.ruoyi.openliststrm.service.ICopyService;
 import com.ruoyi.openliststrm.service.IStrmService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.util.Date;
 import java.util.List;
 
 /**
@@ -20,6 +22,7 @@ import java.util.List;
  * @Date 2025/7/17 18:46
  * @Version 1.0.0
  */
+@Slf4j
 @Component("openListStrmTask")
 public class OpenListStrmTask {
 
@@ -46,7 +49,34 @@ public class OpenListStrmTask {
         wrapper.eq(OpenlistCopyTaskPlus::getCopyTaskStatus, "1");
         List<OpenlistCopyTaskPlus> taskList = copyTaskPlusService.list(wrapper);
         taskList.forEach(task -> {
+            Date lastSyncTime = task.getLastSyncTime();
+            if (lastSyncTime != null) {
+                // 增量同步
+                log.info("执行增量复制任务 ID={}, 基准时间={}", task.getCopyTaskId(), lastSyncTime);
+                copyService.syncFilesIncremental(task.getCopyTaskSrc(), task.getCopyTaskDst(), lastSyncTime);
+            } else {
+                // 首次全量同步
+                log.info("执行全量复制任务 ID={}", task.getCopyTaskId());
+                copyService.syncFiles(task.getCopyTaskSrc(), task.getCopyTaskDst());
+            }
+            // 更新同步时间
+            task.setLastSyncTime(new Date());
+            copyTaskPlusService.updateById(task);
+        });
+    }
+
+    /**
+     * 强制全量同步（忽略 last_sync_time）
+     */
+    public void copyFull() {
+        LambdaQueryWrapper<OpenlistCopyTaskPlus> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(OpenlistCopyTaskPlus::getCopyTaskStatus, "1");
+        List<OpenlistCopyTaskPlus> taskList = copyTaskPlusService.list(wrapper);
+        taskList.forEach(task -> {
+            log.info("执行全量复制任务 ID={}", task.getCopyTaskId());
             copyService.syncFiles(task.getCopyTaskSrc(), task.getCopyTaskDst());
+            task.setLastSyncTime(new Date());
+            copyTaskPlusService.updateById(task);
         });
     }
 

@@ -1,33 +1,16 @@
 package com.ruoyi.openliststrm.controller.api;
 
-import com.ruoyi.common.core.controller.BaseController;
-import com.ruoyi.common.core.domain.PageResult;
 import com.ruoyi.common.core.domain.Result;
-import com.ruoyi.common.annotation.Anonymous;
-import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.framework.manager.AsyncManager;
-import com.ruoyi.openliststrm.enums.StrmStatusEnum;
 import com.ruoyi.openliststrm.mybatisplus.domain.RenameDetailPlus;
-import com.ruoyi.openliststrm.mybatisplus.domain.RenameTaskPlus;
 import com.ruoyi.openliststrm.mybatisplus.service.IRenameDetailPlusService;
-import com.ruoyi.openliststrm.mybatisplus.service.IRenameTaskPlusService;
 import com.ruoyi.openliststrm.rename.RenameTaskManager;
-import com.ruoyi.openliststrm.scrape.ScrapeService;
-import com.ruoyi.openliststrm.rename.model.MediaInfo;
-import com.ruoyi.openliststrm.rename.MediaParser;
-import com.ruoyi.openliststrm.rename.RenameClientProvider;
-import com.ruoyi.openliststrm.config.OpenlistConfig;
-import com.ruoyi.openliststrm.helper.OpenListHelper;
-import com.ruoyi.openliststrm.rename.RenameEventListener;
-import com.ruoyi.openliststrm.monitor.processor.MediaRenameProcessor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.time.LocalDate;
-import java.util.*;
+import java.util.Arrays;
+import java.util.List;
 import java.util.stream.Collectors;
 
 /**
@@ -38,109 +21,10 @@ import java.util.stream.Collectors;
  */
 @RestController
 @RequestMapping("/api/openliststrm/rename-details")
-@Anonymous
-@CrossOrigin
-public class RenameDetailRestController extends BaseController
+public class RenameDetailRestController extends BaseCrudRestController<IRenameDetailPlusService, RenameDetailPlus>
 {
     @Autowired
     private RenameTaskManager renameTaskManager;
-
-    @Autowired
-    private IRenameDetailPlusService renameDetailPlusService;
-
-    @Autowired
-    private IRenameTaskPlusService renameTaskPlusService;
-
-    @Autowired
-    private ScrapeService scrapeService;
-
-    @Autowired
-    private RenameClientProvider clientProvider;
-
-    @Autowired
-    private OpenListHelper openListHelper;
-
-    @Autowired
-    private OpenlistConfig config;
-
-    /**
-     * 查询重命名明细列表（分页）- 支持 /rename-details 和 /rename-details/list
-     */
-    @GetMapping({ "", "/list" })
-    public Result<PageResult<RenameDetailPlus>> list(RenameDetailPlus renameDetail)
-    {
-        return Result.success(selectPage(renameDetailPlusService.getBaseMapper(), buildQueryWrapper(renameDetail)));
-    }
-
-    /**
-     * 根据ID获取重命名明细
-     */
-    @GetMapping("/{id}")
-    public Result<RenameDetailPlus> getById(@PathVariable("id") Integer id)
-    {
-        RenameDetailPlus detail = renameDetailPlusService.getById(id);
-        if (detail == null)
-        {
-            return Result.error("重命名明细不存在");
-        }
-        return Result.success(detail);
-    }
-
-    /**
-     * 新增重命名明细
-     */
-    @PostMapping
-    public Result<Void> add(@RequestBody RenameDetailPlus renameDetail)
-    {
-        boolean result = renameDetailPlusService.save(renameDetail);
-        if (result)
-        {
-            return Result.success();
-        }
-        return Result.error("新增失败");
-    }
-
-    /**
-     * 修改重命名明细
-     */
-    @PutMapping
-    public Result<Void> edit(@RequestBody RenameDetailPlus renameDetail)
-    {
-        if (renameDetail.getId() == null)
-        {
-            return Result.error("重命名明细ID不能为空");
-        }
-        RenameDetailPlus existing = renameDetailPlusService.getById(renameDetail.getId());
-        if (existing == null)
-        {
-            return Result.error("重命名明细不存在");
-        }
-        boolean result = renameDetailPlusService.updateById(renameDetail);
-        if (result)
-        {
-            return Result.success();
-        }
-        return Result.error("修改失败");
-    }
-
-    /**
-     * 删除重命名明细
-     */
-    @DeleteMapping("/{id}")
-    public Result<Void> delete(@PathVariable("id") Integer id)
-    {
-        RenameDetailPlus existing = renameDetailPlusService.getById(id);
-        if (existing == null)
-        {
-            return Result.error("重命名明细不存在");
-        }
-        boolean result = renameDetailPlusService.removeById(id);
-        if (result)
-        {
-            return Result.success();
-        }
-        return Result.error("删除失败");
-    }
 
     /**
      * 批量删除重命名明细
@@ -153,7 +37,7 @@ public class RenameDetailRestController extends BaseController
             return Result.error("请选择要删除的重命名明细");
         }
         List<String> idList = Arrays.stream(ids.split(",")).map(String::trim).filter(s -> !s.isEmpty()).collect(Collectors.toList());
-        boolean result = renameDetailPlusService.removeByIds(idList);
+        boolean result = service.removeByIds(idList);
         if (result)
         {
             return Result.success();
@@ -209,126 +93,10 @@ public class RenameDetailRestController extends BaseController
     }
 
     /**
-     * 重新刮削单条记录（默认全部刮削：NFO+图片）
-     */
-    @PostMapping("/scrape/{id}")
-    public Result<Void> scrape(@PathVariable("id") Integer id)
-    {
-        if (id == null)
-        {
-            return Result.error("ID 为空");
-        }
-        RenameDetailPlus detail = renameDetailPlusService.getById(id);
-        if (detail == null)
-        {
-            return Result.error("重命名明细不存在");
-        }
-        logger.info("开始重新刮削（全部），ID：{}", id);
-        final int detailId = id;
-        final String newName = detail.getNewName();
-        final String mediaType = detail.getMediaType();
-        
-        AsyncManager.me().execute(() -> {
-            try {
-                // 解析媒体信息
-                MediaParser parser = new MediaParser(clientProvider.tmdb(), clientProvider.openAI());
-                MediaInfo info = parser.parse(newName);
-                
-                // 查找目标文件
-                Path destFile = Paths.get(detail.getNewPath(), newName);
-                Path outputDir = destFile.getParent();
-                
-                // 默认全部刮削：NFO + 图片，强制覆盖
-                scrapeService.scrapeAsync(
-                        detailId, info, mediaType, destFile, outputDir,
-                        "1", "1", "1", true
-                );
-                
-                logger.info("刮削任务已启动，ID：{}", id);
-            } catch (Exception e) {
-                logger.error("刮削失败，ID：{}", id, e);
-            }
-        });
-        return Result.success();
-    }
-
-    /**
-     * 批量重新刮削
-     */
-    @PostMapping("/scrape")
-    public Result<Void> batchScrape(@RequestParam("ids") String ids)
-    {
-        if (ids == null || ids.trim().isEmpty())
-        {
-            return Result.error("请选择要刮削的记录");
-        }
-        List<Integer> idList = Arrays.stream(ids.split(",")).map(String::trim).filter(s -> !s.isEmpty()).map(Integer::parseInt).collect(Collectors.toList());
-        for (Integer id : idList)
-        {
-            logger.info("开始批量刮削，ID：{}", id);
-            final int detailId = id;
-            AsyncManager.me().execute(() -> {
-                try {
-                    RenameDetailPlus detail = renameDetailPlusService.getById(detailId);
-                    if (detail != null) {
-                        scrape(detail.getId());
-                    }
-                } catch (Exception e) {
-                    logger.error("批量刮削失败，ID：{}", detailId, e);
-                }
-            });
-        }
-        return Result.success();
-    }
-
-    /**
-     * 删除单条记录的刮削文件（NFO + 图片）
-     */
-    @PostMapping("/scrape/delete/{id}")
-    public Result<Void> deleteScrapeFiles(@PathVariable("id") Integer id)
-    {
-        if (id == null)
-        {
-            return Result.error("ID 为空");
-        }
-        RenameDetailPlus detail = renameDetailPlusService.getById(id);
-        if (detail == null)
-        {
-            return Result.error("重命名明细不存在");
-        }
-        int deleted = scrapeService.deleteScrapeFiles(detail);
-        logger.info("删除刮削文件完成，ID：{}，删除数量：{}", id, deleted);
-        return Result.success();
-    }
-
-    /**
-     * 批量删除刮削文件
-     */
-    @PostMapping("/scrape/batch")
-    public Result<Void> batchDeleteScrapeFiles(@RequestParam("ids") String ids)
-    {
-        if (ids == null || ids.trim().isEmpty())
-        {
-            return Result.error("请选择要删除刮削文件的记录");
-        }
-        List<Integer> idList = Arrays.stream(ids.split(",")).map(String::trim).filter(s -> !s.isEmpty()).map(Integer::parseInt).collect(Collectors.toList());
-        int totalDeleted = 0;
-        for (Integer id : idList)
-        {
-            RenameDetailPlus detail = renameDetailPlusService.getById(id);
-            if (detail != null)
-            {
-                totalDeleted += scrapeService.deleteScrapeFiles(detail);
-            }
-        }
-        logger.info("批量删除刮削文件完成，记录数：{}，删除文件数：{}", idList.size(), totalDeleted);
-        return Result.success();
-    }
-
-    /**
      * 构建查询条件
      */
-    private com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<RenameDetailPlus> buildQueryWrapper(RenameDetailPlus renameDetail)
+    @Override
+    protected com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<RenameDetailPlus> buildQueryWrapper(RenameDetailPlus renameDetail)
     {
         com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<RenameDetailPlus> wrapper = new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<>();
         if (renameDetail != null)

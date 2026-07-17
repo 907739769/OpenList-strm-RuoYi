@@ -1,9 +1,6 @@
 package com.ruoyi.openliststrm.controller.api;
 
-import com.ruoyi.common.core.controller.BaseController;
-import com.ruoyi.common.core.domain.PageResult;
 import com.ruoyi.common.core.domain.Result;
-import com.ruoyi.common.annotation.Anonymous;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.framework.manager.AsyncManager;
 import com.ruoyi.openliststrm.config.OpenlistConfig;
@@ -27,14 +24,9 @@ import java.util.stream.Collectors;
  */
 @RestController
 @RequestMapping("/api/openliststrm/rename-tasks")
-@Anonymous
-@CrossOrigin
-public class RenameTaskRestController extends BaseController
+public class RenameTaskRestController extends BaseCrudRestController<IRenameTaskPlusService, RenameTaskPlus>
 {
     private static final String DEFAULT_FILENAME_TEMPLATE = "{{ title }} {% if year %} ({{ year }}) {% endif %}/{% if season %}Season {{ season }}/{% endif %}{{ title }} {% if year and not season %} ({{ year }}) {% endif %}{% if season %}S{{ season }}{% endif %}{% if episode %}E{{ episode }}{% endif %}{% if resolution %} - {{ resolution }}{% endif %}{% if source %}.{{ source }}{% endif %}{% if videoCodec %}.{{ videoCodec }}{% endif %}{% if audioCodec %}.{{ audioCodec }}{% endif %}{% if tags is not empty %}.{{ tags|join('.') }}{% endif %}{% if releaseGroup %}-{{ releaseGroup }}{% endif %}.{{ extension }}";
-
-    @Autowired
-    private IRenameTaskPlusService renameTaskPlusService;
 
     @Autowired
     private RenameTaskManager renameTaskManager;
@@ -44,85 +36,6 @@ public class RenameTaskRestController extends BaseController
 
     @Autowired
     private OpenlistConfig config;
-
-    /**
-     * 查询重命名任务配置列表（分页）- 支持 /rename-tasks 和 /rename-tasks/list
-     */
-    @GetMapping({ "", "/list" })
-    public Result<PageResult<RenameTaskPlus>> list(RenameTaskPlus renameTask)
-    {
-        return Result.success(selectPage(renameTaskPlusService.getBaseMapper(), buildQueryWrapper(renameTask)));
-    }
-
-    /**
-     * 根据ID获取重命名任务配置
-     */
-    @GetMapping("/{id}")
-    public Result<RenameTaskPlus> getById(@PathVariable("id") Integer id)
-    {
-        RenameTaskPlus task = renameTaskPlusService.getById(id);
-        if (task == null)
-        {
-            return Result.error("任务不存在");
-        }
-        return Result.success(task);
-    }
-
-    /**
-     * 新增重命名任务配置
-     */
-    @PostMapping
-    public Result<Void> add(@RequestBody RenameTaskPlus renameTask)
-    {
-        boolean result = renameTaskPlusService.save(renameTask);
-        if (result)
-        {
-            return Result.success();
-        }
-        return Result.error("新增失败");
-    }
-
-    /**
-     * 修改重命名任务配置
-     */
-    @PutMapping
-    public Result<Void> edit(@RequestBody RenameTaskPlus renameTask)
-    {
-        if (renameTask.getId() == null)
-        {
-            return Result.error("任务ID不能为空");
-        }
-        RenameTaskPlus existing = renameTaskPlusService.getById(renameTask.getId());
-        if (existing == null)
-        {
-            return Result.error("任务不存在");
-        }
-        boolean result = renameTaskPlusService.updateById(renameTask);
-        if (result)
-        {
-            return Result.success();
-        }
-        return Result.error("修改失败");
-    }
-
-    /**
-     * 删除重命名任务配置
-     */
-    @DeleteMapping("/{id}")
-    public Result<Void> delete(@PathVariable("id") Integer id)
-    {
-        RenameTaskPlus existing = renameTaskPlusService.getById(id);
-        if (existing == null)
-        {
-            return Result.error("任务不存在");
-        }
-        boolean result = renameTaskPlusService.removeById(id);
-        if (result)
-        {
-            return Result.success();
-        }
-        return Result.error("删除失败");
-    }
 
     /**
      * 批量删除重命名任务配置
@@ -135,7 +48,7 @@ public class RenameTaskRestController extends BaseController
             return Result.error("请选择要删除的任务");
         }
         List<String> idList = Arrays.stream(ids.split(",")).map(String::trim).filter(s -> !s.isEmpty()).collect(Collectors.toList());
-        boolean result = renameTaskPlusService.removeByIds(idList);
+        boolean result = service.removeByIds(idList);
         if (result)
         {
             return Result.success();
@@ -149,7 +62,7 @@ public class RenameTaskRestController extends BaseController
     @PostMapping("/execute/{id}")
     public Result<Void> execute(@PathVariable("id") Integer id)
     {
-        RenameTaskPlus task = renameTaskPlusService.getById(id);
+        RenameTaskPlus task = service.getById(id);
         if (task == null)
         {
             return Result.error("任务不存在");
@@ -171,7 +84,7 @@ public class RenameTaskRestController extends BaseController
         }
         for (Integer id : ids)
         {
-            RenameTaskPlus task = renameTaskPlusService.getById(id);
+            RenameTaskPlus task = service.getById(id);
             if (task != null)
             {
                 logger.info("开始执行重命名任务，任务ID：{}", id);
@@ -195,7 +108,7 @@ public class RenameTaskRestController extends BaseController
             return Result.error("文件名不能为空");
         }
 
-        RenameTaskPlus task = renameTaskPlusService.getById(id);
+        RenameTaskPlus task = service.getById(id);
         if (task == null)
         {
             return Result.error("任务不存在");
@@ -266,7 +179,8 @@ public class RenameTaskRestController extends BaseController
     /**
      * 构建查询条件
      */
-    private com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<RenameTaskPlus> buildQueryWrapper(RenameTaskPlus renameTask)
+    @Override
+    protected com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<RenameTaskPlus> buildQueryWrapper(RenameTaskPlus renameTask)
     {
         com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<RenameTaskPlus> wrapper = new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<>();
         if (renameTask != null)

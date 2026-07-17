@@ -8,6 +8,8 @@ import com.ruoyi.common.mybatisplus.BaseEntity;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.Date;
+
 /**
  * <p>
  * 文件同步任务
@@ -52,4 +54,10 @@ public class OpenlistCopyTaskPlus extends BaseEntity {
      */
     @TableField("copy_task_status")
     private String copyTaskStatus;
+
+    /**
+     * 上次同步完成时间（增量同步基准）
+     */
+    @TableField("last_sync_time")
+    private Date lastSyncTime;
 }

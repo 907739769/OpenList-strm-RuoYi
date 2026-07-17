@@ -274,68 +274,32 @@ public class TMDbClient {
             info.setOriginalLanguage(d.get("original_language").asText());
         }
 
-        // origin countries: tv uses origin_country (array of codes); movie uses production_countries
-        if (type.equals("tv")) {
+        // origin countries
+        extractOriginCountries(d, type, info);
+
+        // images (shared by tv/movie, different API)
+        String label = "tv".equals(type) ? "剧集" : "电影";
+        fetchAndStore(api, info, "images", label, () ->
+                "tv".equals(type) ? api.getTvImages(apiKey, id) : api.getMovieImages(apiKey, id));
+
+        // external_ids (same API for both)
+        fetchAndStore(api, info, "external_ids", label, () -> api.getExternalIds(apiKey, type, id));
+
+        // type-specific additional metadata
+        if ("tv".equals(type)) {
+            fetchAndStore(api, info, "content_ratings", label, () -> api.getTvContentRatings(apiKey, id));
+            fetchSeasonImagesIfNeeded(api, info, id);
+        } else {
+            fetchAndStore(api, info, "release_dates", label, () -> api.getMovieReleaseDates(apiKey, id));
+        }
+    }
+
+    private void extractOriginCountries(JsonNode d, String type, MediaInfo info) {
+        if ("tv".equals(type)) {
             JsonNode oc = d.path("origin_country");
             if (oc.isArray()) {
                 info.getOriginCountries().clear();
                 for (JsonNode c : oc) info.getOriginCountries().add(c.asText());
-            }
-
-            // TV: 额外获取 images 数据 (posters, backdrops, logos)
-            try {
-                String imagesJson = api.getTvImages(apiKey, id);
-                if (imagesJson != null) {
-                    JsonNode images = mapper.readTree(imagesJson);
-                    info.getMetadata().put("images", images);
-                    log.debug("获取剧集 images 成功: tvId={}, posters={}, backdrops={}, logos={}",
-                            id,
-                            images.path("posters").size(),
-                            images.path("backdrops").size(),
-                            images.path("logos").size());
-                }
-            } catch (Exception e) {
-                log.warn("获取剧集 images 失败: tvId={}, error={}", id, e.getMessage());
-            }
-
-            // TV: 获取外部 ID (IMDb, TVDb)
-            try {
-                String extJson = api.getExternalIds(apiKey, type, id);
-                if (extJson != null) {
-                    JsonNode extIds = mapper.readTree(extJson);
-                    info.getMetadata().put("external_ids", extIds);
-                    log.debug("获取剧集 external_ids 成功: tvId={}", id);
-                }
-            } catch (Exception e) {
-                log.warn("获取剧集 external_ids 失败: tvId={}, error={}", id, e.getMessage());
-            }
-
-            // TV: 获取内容分级
-            try {
-                String crJson = api.getTvContentRatings(apiKey, id);
-                if (crJson != null) {
-                    JsonNode cr = mapper.readTree(crJson);
-                    info.getMetadata().put("content_ratings", cr);
-                    log.debug("获取剧集 content_ratings 成功: tvId={}", id);
-                }
-            } catch (Exception e) {
-                log.warn("获取剧集 content_ratings 失败: tvId={}, error={}", id, e.getMessage());
-            }
-
-            // TV: 获取季级别图片
-            if (info.getSeason() != null) {
-                try {
-                    int seasonNum = Integer.parseInt(info.getSeason().replaceAll("\\D", ""));
-                    String seasonImagesJson = api.getTvSeasonImages(apiKey, id, seasonNum);
-                    if (seasonImagesJson != null) {
-                        JsonNode seasonImages = mapper.readTree(seasonImagesJson);
-                        info.getMetadata().put("season_images", seasonImages);
-                        log.debug("获取季 images 成功: tvId={}, season={}, posters={}",
-                                id, seasonNum, seasonImages.path("posters").size());
-                    }
-                } catch (Exception e) {
-                    log.warn("获取季 images 失败: tvId={}, error={}", id, e.getMessage());
-                }
             }
         } else {
             JsonNode pcs = d.path("production_countries");
@@ -345,46 +309,39 @@ public class TMDbClient {
                     if (pc.has("iso_3166_1")) info.getOriginCountries().add(pc.get("iso_3166_1").asText());
                 }
             }
+        }
+    }
 
-            // Movie: 额外获取 images 数据 (posters, backdrops, logos)
-            try {
-                String imagesJson = api.getMovieImages(apiKey, id);
-                if (imagesJson != null) {
-                    JsonNode images = mapper.readTree(imagesJson);
-                    info.getMetadata().put("images", images);
-                    log.debug("获取电影 images 成功: movieId={}, posters={}, backdrops={}, logos={}",
-                            id,
-                            images.path("posters").size(),
-                            images.path("backdrops").size(),
-                            images.path("logos").size());
-                }
-            } catch (Exception e) {
-                log.warn("获取电影 images 失败: movieId={}, error={}", id, e.getMessage());
+    /**
+     * 通用元数据获取：调用 API 获取 JSON 并存入 metadata，自动处理异常和日志。
+     */
+    private void fetchAndStore(TMDbApiService api, MediaInfo info, String key, String label,
+                               java.util.function.Supplier<String> apiCall) {
+        try {
+            String json = apiCall.get();
+            if (json != null) {
+                JsonNode node = mapper.readTree(json);
+                info.getMetadata().put(key, node);
+                log.debug("获取{} {} 成功: {}", label, key, node);
             }
+        } catch (Exception e) {
+            log.warn("获取{} {} 失败: {}", label, key, e.getMessage());
+        }
+    }
 
-            // Movie: 获取外部 ID (IMDb, TVDb)
-            try {
-                String extJson = api.getExternalIds(apiKey, type, id);
-                if (extJson != null) {
-                    JsonNode extIds = mapper.readTree(extJson);
-                    info.getMetadata().put("external_ids", extIds);
-                    log.debug("获取电影 external_ids 成功: movieId={}", id);
-                }
-            } catch (Exception e) {
-                log.warn("获取电影 external_ids 失败: movieId={}, error={}", id, e.getMessage());
+    private void fetchSeasonImagesIfNeeded(TMDbApiService api, MediaInfo info, int tvId) {
+        if (info.getSeason() == null) return;
+        try {
+            int seasonNum = Integer.parseInt(info.getSeason().replaceAll("\\D", ""));
+            String seasonImagesJson = api.getTvSeasonImages(apiKey, tvId, seasonNum);
+            if (seasonImagesJson != null) {
+                JsonNode seasonImages = mapper.readTree(seasonImagesJson);
+                info.getMetadata().put("season_images", seasonImages);
+                log.debug("获取季 images 成功: tvId={}, season={}, posters={}",
+                        tvId, seasonNum, seasonImages.path("posters").size());
             }
-
-            // Movie: 获取上映/分级信息
-            try {
-                String rdJson = api.getMovieReleaseDates(apiKey, id);
-                if (rdJson != null) {
-                    JsonNode rd = mapper.readTree(rdJson);
-                    info.getMetadata().put("release_dates", rd);
-                    log.debug("获取电影 release_dates 成功: movieId={}", id);
-                }
-            } catch (Exception e) {
-                log.warn("获取电影 release_dates 失败: movieId={}, error={}", id, e.getMessage());
-            }
+        } catch (Exception e) {
+            log.warn("获取季 images 失败: tvId={}, error={}", tvId, e.getMessage());
         }
     }
 

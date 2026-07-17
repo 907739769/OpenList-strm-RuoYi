@@ -2,7 +2,6 @@ package com.ruoyi.web.controller.api.monitor;
 
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -13,7 +12,6 @@ import com.ruoyi.common.core.domain.PageResult;
 import com.ruoyi.common.core.domain.Result;
 import com.ruoyi.common.core.page.PageDomain;
 import com.ruoyi.common.core.page.TableSupport;
-import com.ruoyi.common.annotation.Anonymous;
 import com.ruoyi.quartz.domain.SysJobLog;
 import com.ruoyi.quartz.service.ISysJobLogService;
 
@@ -24,8 +22,6 @@ import com.ruoyi.quartz.service.ISysJobLogService;
  */
 @RestController
 @RequestMapping("/api/monitor/jobLog")
-@Anonymous
-@CrossOrigin(origins = "*")
 public class MonitorJobLogApiController extends BaseController
 {
     @Autowired

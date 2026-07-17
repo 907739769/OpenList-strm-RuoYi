@@ -1,0 +1,183 @@
+import { ref, reactive } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import type { SearchParams, PageResult } from '@/types'
+
+export interface TaskListApiConfig<TQuery extends SearchParams = SearchParams> {
+  /** 获取列表 API */
+  listApi: (params: SearchParams) => Promise<any>
+  /** 新增 API */
+  addApi: (data: any) => Promise<any>
+  /** 修改 API */
+  updateApi: (data: any) => Promise<any>
+  /** 删除 API（单条） */
+  deleteApi: (id: number) => Promise<any>
+  /** 执行 API */
+  executeApi: (ids: number[]) => Promise<any>
+  /** ID 字段名 */
+  idField: string
+  /** 创建初始表单数据的函数 */
+  initForm: () => any
+  /** 表单校验规则 */
+  rules: Record<string, any>
+  /** 默认查询参数（除 pageNum/pageSize 外的搜索字段） */
+  defaultQuery?: Partial<TQuery>
+}
+
+/**
+ * 通用任务列表 CRUD composable
+ * 适用于 strmTask、copyTask 等具有相同模式的页面
+ */
+export function useTaskList<TQuery extends SearchParams = SearchParams>(config: TaskListApiConfig<TQuery>) {
+  const { listApi, addApi, updateApi, deleteApi, executeApi, idField, initForm, rules, defaultQuery } = config
+
+  // --- 列表 & 分页 ---
+  const taskList = ref<any[]>([])
+  const loading = ref(true)
+  const total = ref(0)
+
+  const queryParams = reactive<SearchParams>({
+    pageNum: 1,
+    pageSize: 10,
+    ...(defaultQuery || {})
+  }) as TQuery
+
+  const getList = async () => {
+    loading.value = true
+    try {
+      const res = await listApi(queryParams) as PageResult
+      taskList.value = res.records || []
+      total.value = res.total || 0
+    } finally {
+      loading.value = false
+    }
+  }
+
+  // --- 选择 ---
+  const selectedIds = ref<number[]>([])
+  const single = ref(true)
+  const multiple = ref(true)
+
+  const handleSelectionChange = (selection: any[]) => {
+    single.value = selection.length !== 1
+    multiple.value = !selection.length
+    selectedIds.value = selection.map((item: any) => item[idField])
+  }
+
+  // --- 搜索 ---
+  const queryRef = ref<any>()
+
+  const handleQuery = () => {
+    queryParams.pageNum = 1
+    getList()
+  }
+
+  const resetQuery = () => {
+    if (queryRef.value) (queryRef.value as any).resetFields()
+    handleQuery()
+  }
+
+  // --- 对话框 ---
+  const open = ref(false)
+  const dialogTitle = ref('')
+  const submitLoading = ref(false)
+  const formRef = ref<any>()
+  const form = ref<any>(initForm())
+
+  const handleAdd = (title: string) => {
+    dialogTitle.value = title
+    form.value = initForm()
+    open.value = true
+  }
+
+  const handleUpdate = (row?: any, title?: string) => {
+    const id = row?.[idField] || selectedIds.value[0]
+    if (!id) {
+      ElMessage.warning('请选择数据项')
+      return
+    }
+    if (title) dialogTitle.value = title
+    listApi({ ...queryParams, pageNum: 1, pageSize: 100 }).then((res: PageResult) => {
+      const task = res.records.find((t: any) => t[idField] === id)
+      if (task) {
+        form.value = { ...task }
+        open.value = true
+      } else {
+        ElMessage.error('任务不存在')
+      }
+    })
+  }
+
+  const submitForm = async () => {
+    if (!formRef.value) return
+    await formRef.value.validate()
+    submitLoading.value = true
+    try {
+      if (form.value[idField]) {
+        await updateApi(form.value)
+        ElMessage.success('修改成功')
+      } else {
+        await addApi(form.value)
+        ElMessage.success('新增成功')
+      }
+      open.value = false
+      getList()
+    } finally {
+      submitLoading.value = false
+    }
+  }
+
+  // --- 删除 ---
+  const handleDelete = async (row?: any, confirmMsg?: string) => {
+    const id = row?.[idField]
+    if (!id) {
+      // PC 端批量删除
+      const ids = selectedIds.value
+      if (!ids.length) return
+      try {
+        await ElMessageBox.confirm(confirmMsg || `是否确认删除编号为"${ids}"的数据项？`, '警告', { type: 'warning' })
+        await deleteApi(ids[0])
+        ElMessage.success('删除成功')
+        getList()
+      } catch (e) { if (e !== 'cancel') console.error(e) }
+      return
+    }
+    try {
+      await ElMessageBox.confirm(confirmMsg || `是否确认删除该数据项？`, '警告', { type: 'warning' })
+      await deleteApi(id)
+      ElMessage.success('删除成功')
+      getList()
+    } catch (e) { if (e !== 'cancel') console.error(e) }
+  }
+
+  // --- 执行 ---
+  const handleExecuteOne = async (row: any, confirmMsg: string) => {
+    try {
+      await ElMessageBox.confirm(confirmMsg, '提示', { type: 'warning' })
+      await executeApi([row[idField]])
+      ElMessage.success('执行成功')
+      getList()
+    } catch (e) { if (e !== 'cancel') console.error(e) }
+  }
+
+  const handleExecute = async (confirmMsg: string) => {
+    try {
+      await ElMessageBox.confirm(confirmMsg, '警告', { type: 'warning' })
+      await executeApi(selectedIds.value)
+      ElMessage.success('执行成功')
+      getList()
+    } catch (e) { if (e !== 'cancel') console.error(e) }
+  }
+
+  return {
+    // 列表 & 分页
+    taskList, loading, total, queryParams,
+    getList, handleQuery, resetQuery, queryRef,
+    // 选择
+    selectedIds, single, multiple, handleSelectionChange,
+    // 对话框
+    open, dialogTitle, submitLoading, formRef, form, rules,
+    handleAdd, handleUpdate, submitForm,
+    // 删除 & 执行
+    handleDelete, handleExecuteOne, handleExecute
+  }
+}

@@ -67,7 +67,7 @@
     </div>
 
     <!-- Add Button (FAB) -->
-    <el-button class="fab-add" type="primary" size="large" round @click="handleAdd">
+    <el-button class="fab-add" type="primary" size="large" round @click="handleAdd('新增文件同步任务')">
       <el-icon><Plus /></el-icon> 新增
     </el-button>
 
@@ -111,13 +111,13 @@
           </div>
         </div>
         <div class="card-actions" @click.stop>
-          <el-button link type="primary" size="small" :icon="Edit" @click="handleUpdate(task)">
+          <el-button link type="primary" size="small" :icon="Edit" @click="handleUpdate(task, '修改文件同步任务')">
             修改
           </el-button>
           <el-button link type="danger" size="small" :icon="Delete" @click="handleDelete(task)">
             删除
           </el-button>
-          <el-button link type="primary" size="small" :icon="VideoPlay" @click="handleExecuteOne(task)">
+          <el-button link type="primary" size="small" :icon="VideoPlay" @click="handleExecuteOne(task, `是否确认执行同步任务“${task.copyTaskSrc}”？`)">
             执行
           </el-button>
         </div>
@@ -214,229 +214,39 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { watch } from 'vue'
 import {
   Search, ArrowDown, ArrowLeft, ArrowRight,
   Location, Clock, VideoPlay, Filter, CopyDocument, Plus, Edit, Delete
 } from '@element-plus/icons-vue'
 import DirectoryTreeSelect from '@/components/DirectoryTreeSelect/index.vue'
-import {
-  getCopyTaskListApi,
-  addCopyTaskApi,
-  updateCopyTaskApi,
-  deleteCopyTaskApi,
-  executeCopyTaskApi
-} from '@/api/openlist/copyTask'
-import type { SearchParams, PageResult } from '@/types'
+import { useCopyTask } from '@/composables/useCopyTask'
+import { useDebounce } from '@/composables/useDebounce'
 
-const taskList = ref<any[]>([])
-const loading = ref(true)
-const total = ref(0)
-const selectedIds = ref<number[]>([])
-const searchCollapsed = ref(true)
-const queryRef = ref<any>()
+const {
+  taskList, loading, total, queryParams, queryRef,
+  getList, handleQuery, resetQuery,
+  selectedIds,
+  open, dialogTitle, submitLoading, formRef, form, rules,
+  handleAdd, handleUpdate, submitForm,
+  handleDelete, handleExecuteOne,
+  toggleSelect, handleCardClick, clearSelection,
+  totalPages, prevPage, nextPage, handleSizeChange,
+  fullTextVisible, fullTextTitle, fullTextContent,
+  showFullText, copyToClipboard,
+  searchCollapsed, handleBatchExecute
+} = useCopyTask()
 
-// Full text dialog
-const fullTextVisible = ref(false)
-const fullTextTitle = ref('')
-const fullTextContent = ref('')
-
-const showFullText = (content: string, title: string) => {
-  fullTextTitle.value = title
-  fullTextContent.value = content
-  fullTextVisible.value = true
-}
-
-const copyToClipboard = async (text: string) => {
-  try {
-    await navigator.clipboard.writeText(text)
-    ElMessage.success('已复制到剪贴板')
-  } catch {
-    const textarea = document.createElement('textarea')
-    textarea.value = text
-    textarea.style.position = 'fixed'
-    textarea.style.opacity = '0'
-    document.body.appendChild(textarea)
-    textarea.select()
-    document.execCommand('copy')
-    document.body.removeChild(textarea)
-    ElMessage.success('已复制到剪贴板')
-  }
-}
-
-const totalPages = computed(() => Math.ceil(total.value / queryParams.pageSize) || 1)
-
-const queryParams = reactive<SearchParams & {
-  copyTaskSrc?: string
-  copyTaskDst?: string
-  monitorDir?: string
-  copyTaskStatus?: string
-}>({
-  pageNum: 1,
-  pageSize: 10,
-  copyTaskStatus: undefined
-})
-
-const getList = async () => {
-  loading.value = true
-  try {
-    const res = await getCopyTaskListApi(queryParams) as PageResult
-    taskList.value = res.records || []
-    total.value = res.total || 0
-  } finally {
-    loading.value = false
-  }
-}
-
-const handleQuery = () => {
+// 搜索输入防抖：输入停止 300ms 后自动触发搜索
+const debouncedSearch = useDebounce(() => {
   queryParams.pageNum = 1
   getList()
-}
+}, 300)
 
-const resetQuery = () => {
-  if (queryRef.value) (queryRef.value as any).resetFields()
-  handleQuery()
-}
-
-const toggleSelect = (id: number) => {
-  const idx = selectedIds.value.indexOf(id)
-  if (idx > -1) {
-    selectedIds.value.splice(idx, 1)
-  } else {
-    selectedIds.value.push(id)
-  }
-}
-
-const handleCardClick = (event: Event, id: number) => {
-  const target = event.target as HTMLElement
-  if (target.closest('.card-checkbox')) return
-  toggleSelect(id)
-}
-
-const clearSelection = () => {
-  selectedIds.value = []
-}
-
-const prevPage = () => {
-  if (queryParams.pageNum > 1) {
-    queryParams.pageNum--
-    getList()
-  }
-}
-
-const nextPage = () => {
-  if (queryParams.pageNum < totalPages.value) {
-    queryParams.pageNum++
-    getList()
-  }
-}
-
-const handleSizeChange = () => {
-  queryParams.pageNum = 1
-  getList()
-}
-
-// --- Actions ---
-
-const handleExecuteOne = async (row: any) => {
-  try {
-    await ElMessageBox.confirm(`是否确认执行同步任务"${row.copyTaskSrc}"？`, '提示', { type: 'warning' })
-    await executeCopyTaskApi([row.copyTaskId])
-    ElMessage.success('执行成功')
-    getList()
-  } catch (e) { if (e !== 'cancel') console.error(e) }
-}
-
-const handleBatchExecute = async () => {
-  try {
-    await ElMessageBox.confirm(`是否确认批量执行选中的 ${selectedIds.value.length} 个同步任务？`, '提示', { type: 'warning' })
-    await executeCopyTaskApi(selectedIds.value)
-    ElMessage.success('批量执行成功')
-    getList()
-  } catch (e) { if (e !== 'cancel') console.error(e) }
-}
-
-// --- Dialog State ---
-
-const open = ref(false)
-const dialogTitle = ref('')
-const submitLoading = ref(false)
-const formRef = ref<any>()
-
-const initForm = (): any => ({
-  copyTaskId: undefined,
-  copyTaskSrc: undefined,
-  copyTaskDst: undefined,
-  monitorDir: undefined,
-  copyTaskStatus: '1'
-})
-
-const form = ref<any>(initForm())
-
-const rules = reactive({
-  copyTaskSrc: [{ required: true, message: '源目录不能为空', trigger: 'blur' }],
-  copyTaskDst: [{ required: true, message: '目标目录不能为空', trigger: 'blur' }]
-})
-
-const handleAdd = () => {
-  dialogTitle.value = '新增文件同步任务'
-  form.value = initForm()
-  open.value = true
-}
-
-const handleUpdate = (row?: any) => {
-  const id = row?.copyTaskId
-  if (!id) {
-    ElMessage.warning('请选择数据项')
-    return
-  }
-  dialogTitle.value = '修改文件同步任务'
-  getCopyTaskListApi({ ...queryParams, pageNum: 1, pageSize: 100 }).then((res: PageResult) => {
-    const task = res.records.find((t: any) => t.copyTaskId === id)
-    if (task) {
-      form.value = { ...task }
-      open.value = true
-    } else {
-      ElMessage.error('任务不存在')
-    }
-  })
-}
-
-const submitForm = async () => {
-  if (!formRef.value) return
-  await formRef.value.validate()
-  submitLoading.value = true
-  try {
-    if (form.value.copyTaskId) {
-      await updateCopyTaskApi(form.value)
-      ElMessage.success('修改成功')
-    } else {
-      await addCopyTaskApi(form.value)
-      ElMessage.success('新增成功')
-    }
-    open.value = false
-    getList()
-  } finally {
-    submitLoading.value = false
-  }
-}
-
-const handleDelete = async (row?: any) => {
-  const id = row?.copyTaskId
-  if (!id) {
-    ElMessage.warning('请选择数据项')
-    return
-  }
-  try {
-    await ElMessageBox.confirm(`是否确认删除文件同步任务"${row.copyTaskSrc} → ${row.copyTaskDst}"？`, '警告', { type: 'warning' })
-    await deleteCopyTaskApi(id)
-    ElMessage.success('删除成功')
-    getList()
-  } catch (e) { if (e !== 'cancel') console.error(e) }
-}
-
-getList()
+watch(
+  () => [queryParams.copyTaskSrc, queryParams.copyTaskDst, queryParams.monitorDir, queryParams.copyTaskStatus],
+  () => debouncedSearch()
+)
 </script>
 
 <style scoped lang="scss">

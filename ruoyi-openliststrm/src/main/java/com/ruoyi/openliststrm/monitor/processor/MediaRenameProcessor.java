@@ -156,11 +156,38 @@ public class MediaRenameProcessor implements FileProcessor {
     }
 
     private void handleFileIfReady(Path file, String title, String year, String season, String episode) throws IOException {
+        // Step 1: 验证文件是否就绪
         Path p = file.toAbsolutePath().normalize();
-        if (!Files.exists(p) || Files.isDirectory(p)) return; // nothing to do => treat as finished
+        if (!validateFile(p)) return;
 
+        // Step 2: 解析媒体信息
+        MediaParser parser = new MediaParser(clientProvider.tmdb(), clientProvider.openAI());
+        MediaInfo info = parseMediaInfo(parser, p, title, year, season, episode);
+        if (info == null) return;
+
+        String mediaType = (info.getSeason() != null || info.getEpisode() != null) ? "tv" : "movie";
+        if (info.getTmdbId() == null || info.getTmdbId().trim().isEmpty()) {
+            log.info("未找到 tmdbId，跳过文件处理：{} ; parsed info title={}", p, info.getTitle());
+            notifyFailed(p, info, mediaType, "tmdbId not found");
+            return;
+        }
+
+        // Step 3: 构建目标路径
+        Path[] destResult = buildDestPath(p, info, mediaType, parser);
+        Path finalDestDir = destResult[0];
+        Path destFile = destResult[1];
+
+        // Step 4: 复制文件
+        if (!copyFileToDest(p, destFile, finalDestDir, file.getFileName().toString())) return;
+
+        // Step 5: 通知和刮削
+        notifyAndScrape(p, destFile, info, mediaType, finalDestDir);
+    }
+
+    /** Step 1: 验证文件存在、类型和大小 */
+    private boolean validateFile(Path p) throws IOException {
+        if (!Files.exists(p) || Files.isDirectory(p)) return false;
         long size = Files.size(p);
-
         String filename = p.getFileName().toString();
 
         if (openListHelper != null) {
@@ -168,59 +195,44 @@ public class MediaRenameProcessor implements FileProcessor {
             boolean isVideo = openListHelper.isVideo(filename);
             if (!isStrm && !isVideo) {
                 log.debug("Skipping non-video file {}", p);
-                return;
+                return false;
             }
-            // if not a .strm file, enforce minimum size; .strm files are processed regardless of size
             if (!isStrm && size < minFileSizeBytes) {
                 log.debug("Skipping small file {} ({} bytes)", p, size);
-                return;
+                return false;
             }
-        } else {
-            // legacy behavior when helper not available: enforce size threshold
-            if (size < minFileSizeBytes) {
-                log.debug("跳过小文件 {} ({} bytes)", p, size);
-                return;
-            }
+        } else if (size < minFileSizeBytes) {
+            log.debug("跳过小文件 {} ({} bytes)", p, size);
+            return false;
         }
-        //判断文件是否还在写入中
+
         if (!isFileStable(p)) {
             log.debug("文件仍在写入，稍后再试：{}", p);
-            return;
+            return false;
         }
+        return true;
+    }
 
-        MediaParser parser = new MediaParser(clientProvider.tmdb(), clientProvider.openAI());
-        MediaInfo info = parser.parse(filename, title, year);
-        if (StringUtils.isNotEmpty(season)) {
-            info.setSeason(season);
-        }
-        if (StringUtils.isNotEmpty(episode)) {
-            info.setEpisode(episode);
-        }
+    /** Step 2: 解析媒体信息 */
+    private MediaInfo parseMediaInfo(MediaParser parser, Path p, String title, String year, String season, String episode) {
+        MediaInfo info = parser.parse(p.getFileName().toString(), title, year);
+        if (StringUtils.isNotEmpty(season)) info.setSeason(season);
+        if (StringUtils.isNotEmpty(episode)) info.setEpisode(episode);
+        return info;
+    }
 
-        String mediaType = (info.getSeason() != null || info.getEpisode() != null) ? "tv" : "movie";
-        if ((info.getTmdbId() == null || info.getTmdbId().trim().isEmpty())) {
-            log.info("未找到 tmdbId，跳过文件处理：{} ; parsed info title={}", p, info.getTitle());
-            if (renameListener != null) {
-                try {
-                    renameListener.onRenameFailed(p, targetRoot, info, mediaType, "tmdbId not found");
-                } catch (Exception e) {
-                    log.warn("renameListener.onRenameFailed failed: {}", e.getMessage());
-                }
-            }
-            return;
-        }
-
+    /** Step 3: 构建目标路径，返回 [finalDestDir, destFile] */
+    private Path[] buildDestPath(Path p, MediaInfo info, String mediaType, MediaParser parser) throws IOException {
         String category = classify(info, mediaType);
         if (category == null) category = "未分类";
 
-        // 第一层目录使用中文：电影 / 电视剧
         String topLevel = "movie".equals(mediaType) ? "电影" : "电视剧";
         Path destDir = targetRoot.resolve(topLevel).resolve(category);
         Files.createDirectories(destDir);
 
         String rendered = parser.render(info, DEFAULT_FILENAME_TEMPLATE);
-        String newFilename = rendered == null || rendered.trim().isEmpty() ? filename : rendered.trim();
-        // Normalize separators to forward slash for template-produced paths.
+        String filename = p.getFileName().toString();
+        String newFilename = (rendered == null || rendered.trim().isEmpty()) ? filename : rendered.trim();
         newFilename = newFilename.replace('\\', '/');
 
         Path finalDestDir = destDir;
@@ -231,9 +243,7 @@ public class MediaRenameProcessor implements FileProcessor {
             for (String part : parts) {
                 if (part == null) continue;
                 part = part.trim();
-                if (part.isEmpty()) continue; // skip empty segments
-                // prevent directory traversal or relative segments
-                if (".".equals(part) || "..".equals(part)) continue;
+                if (part.isEmpty() || ".".equals(part) || "..".equals(part)) continue;
                 cleanParts.add(sanitizeForPath(part));
             }
             if (cleanParts.isEmpty()) {
@@ -249,44 +259,59 @@ public class MediaRenameProcessor implements FileProcessor {
         }
 
         Files.createDirectories(finalDestDir);
+        return new Path[]{finalDestDir, finalDestDir.resolve(fileNameOnly)};
+    }
 
-        Path destFile = finalDestDir.resolve(fileNameOnly);
-        // 获取当前文件的锁对象
+    /** Step 4: 复制文件到目标路径（含文件锁保护） */
+    private boolean copyFileToDest(Path source, Path destFile, Path finalDestDir, String originalFilename) throws IOException {
         String lockKey = destFile.toAbsolutePath().normalize().toString();
         Object lock = FILE_LOCKS.computeIfAbsent(lockKey, k -> new Object());
-        synchronized (lock) {
-            Path tmpFile = finalDestDir.resolve(fileNameOnly + ".tmp");
-            try {
-                if (openListHelper.isStrm(filename)) {
-                    Files.copy(p, destFile, REPLACE_EXISTING);
-                } else {
-                    Files.copy(p, tmpFile, REPLACE_EXISTING);
-                    Files.move(tmpFile, destFile, StandardCopyOption.ATOMIC_MOVE);
+        try {
+            synchronized (lock) {
+                Path tmpFile = finalDestDir.resolve(destFile.getFileName().toString() + ".tmp");
+                try {
+                    if (openListHelper.isStrm(originalFilename)) {
+                        Files.copy(source, destFile, REPLACE_EXISTING);
+                    } else {
+                        Files.copy(source, tmpFile, REPLACE_EXISTING);
+                        Files.move(tmpFile, destFile, StandardCopyOption.ATOMIC_MOVE);
+                    }
+                    log.info("已复制并重命名 {} -> {}", source, destFile);
+                } finally {
+                    Files.deleteIfExists(tmpFile);
                 }
-                log.info("已复制并重命名 {} -> {}", p, destFile);
-            } finally {
-                Files.deleteIfExists(tmpFile);
             }
+        } finally {
+            FILE_LOCKS.remove(lockKey, lock);
         }
-        FILE_LOCKS.remove(lockKey, lock);
+        return true;
+    }
 
-        // notify listener if present
+    /** Step 5: 通知监听器并触发刮削 */
+    private void notifyAndScrape(Path source, Path destFile, MediaInfo info, String mediaType, Path outputDir) {
         Integer detailId = null;
         if (renameListener != null) {
             try {
-                detailId = renameListener.onRename(p, destFile, info, mediaType);
+                detailId = renameListener.onRename(source, destFile, info, mediaType);
             } catch (Exception e) {
                 log.warn("renameListener failed: {}", e.getMessage());
             }
         }
-
-        // 异步刮削：NFO + 图片
         try {
-            scrapeAsyncFile(destFile, info, mediaType, finalDestDir, detailId);
+            scrapeAsyncFile(destFile, info, mediaType, outputDir, detailId);
         } catch (Exception e) {
             log.warn("启动刮削失败: {}", e.getMessage());
         }
+    }
 
+    private void notifyFailed(Path p, MediaInfo info, String mediaType, String reason) {
+        if (renameListener != null) {
+            try {
+                renameListener.onRenameFailed(p, targetRoot, info, mediaType, reason);
+            } catch (Exception e) {
+                log.warn("renameListener.onRenameFailed failed: {}", e.getMessage());
+            }
+        }
     }
 
     /**

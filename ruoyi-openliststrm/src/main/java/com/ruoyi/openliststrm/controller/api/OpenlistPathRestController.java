@@ -4,7 +4,6 @@ import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.Result;
-import com.ruoyi.common.annotation.Anonymous;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.openliststrm.api.OpenlistApi;
 import org.slf4j.Logger;
@@ -25,8 +24,6 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/openliststrm/path")
-@Anonymous
-@CrossOrigin
 public class OpenlistPathRestController extends BaseController
 {
     private static final Logger log = LoggerFactory.getLogger(OpenlistPathRestController.class);

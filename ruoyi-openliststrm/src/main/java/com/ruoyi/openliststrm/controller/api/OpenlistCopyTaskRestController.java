@@ -3,7 +3,6 @@ package com.ruoyi.openliststrm.controller.api;
 import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.PageResult;
 import com.ruoyi.common.core.domain.Result;
-import com.ruoyi.common.annotation.Anonymous;
 import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.framework.manager.AsyncManager;
 import com.ruoyi.openliststrm.mybatisplus.domain.OpenlistCopyTaskPlus;
@@ -24,8 +23,6 @@ import java.util.stream.Collectors;
  */
 @RestController
 @RequestMapping("/api/openliststrm/copy-tasks")
-@Anonymous
-@CrossOrigin
 public class OpenlistCopyTaskRestController extends BaseController
 {
     @Autowired

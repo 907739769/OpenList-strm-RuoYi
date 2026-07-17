@@ -18,11 +18,18 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionTemplate;
 
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayDeque;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 import java.util.Queue;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -31,6 +38,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @Service
 @Slf4j
 public class CopyServiceImpl implements ICopyService {
+
+    /** 复制文件处理并发度控制，最多10个虚拟线程同时处理 */
+    private static final Semaphore COPY_SEMAPHORE = new Semaphore(10);
 
     @Autowired
     private OpenListHelper openListHelper;
@@ -53,13 +63,8 @@ public class CopyServiceImpl implements ICopyService {
     @Autowired
     private IOpenlistStrmPlusService openlistStrmPlusService;
 
-    private long getMinFileSizeBytes() {
-        try {
-            return Long.parseLong(config.getOpenListMinFileSize()) * 1024 * 1024;
-        } catch (Exception e) {
-            return 1 * 1024 * 1024;
-        }
-    }
+    @Autowired
+    private TransactionTemplate transactionTemplate;
 
     /**
      * 目录遍历任务（极轻量）
@@ -74,8 +79,10 @@ public class CopyServiceImpl implements ICopyService {
 
     /**
      * 队列方式同步目录（完全替代递归）
+     *
+     * @param incrementalAfter 增量基准时间，为 null 时全量同步
      */
-    private void syncFilesByQueue(String srcDir, String dstDir, String startRelativePath) {
+    private void syncFilesByQueue(String srcDir, String dstDir, String startRelativePath, Date incrementalAfter) {
         log.info("开始同步目录: {} {} {}", srcDir, dstDir, startRelativePath);
         if (StringUtils.isAnyBlank(srcDir, dstDir)) {
             return;
@@ -115,6 +122,14 @@ public class CopyServiceImpl implements ICopyService {
                 // 非目录 & 非视频文件，直接跳过
                 if (!isDir && !openListHelper.isVideo(name)) {
                     continue;
+                }
+
+                // 增量同步：跳过修改时间早于基准的文件
+                if (!isDir && incrementalAfter != null) {
+                    Date modified = parseModified(content.getString("modified"));
+                    if (modified != null && !modified.after(incrementalAfter)) {
+                        continue;
+                    }
                 }
 
                 String childRelativePath =
@@ -177,7 +192,7 @@ public class CopyServiceImpl implements ICopyService {
                 // 目标不存在 & 视频文件 & 体积满足
                 if ((dstExistResp == null || dstExistResp.getInteger("code") != 200)
                         && openListHelper.isVideo(fileName)
-                        && fileSize >= getMinFileSizeBytes()) {
+                        && fileSize >= config.getMinFileSizeBytes()) {
 
                     JSONObject resp = openlistApi.copyOpenlist(
                             copySrcPath,
@@ -245,7 +260,7 @@ public class CopyServiceImpl implements ICopyService {
                 log.warn("本地文件不存在{}/{}", srcDir, relativePath);
                 return;
             }
-            if (srcResp.getJSONObject("data").getLong("size") >= getMinFileSizeBytes()) {
+            if (srcResp.getJSONObject("data").getLong("size") >= config.getMinFileSizeBytes()) {
 
                 openlistApi.mkdir(copyDstPath);
                 JSONObject resp = openlistApi.copyOpenlist(
@@ -275,7 +290,7 @@ public class CopyServiceImpl implements ICopyService {
 
     @Override
     public void syncFiles(String srcDir, String dstDir, String relativePath) {
-        syncFilesByQueue(srcDir, dstDir, relativePath);
+        syncFilesByQueue(srcDir, dstDir, relativePath, null);
         asynHelper.isCopyDone(dstDir, relativePath);
     }
 
@@ -285,23 +300,36 @@ public class CopyServiceImpl implements ICopyService {
     }
 
     @Override
+    public void syncFilesIncremental(String srcDir, String dstDir, Date lastSyncTime) {
+        log.info("开始增量同步目录: {} -> {}, 基准时间: {}", srcDir, dstDir, lastSyncTime);
+        syncFilesByQueue(srcDir, dstDir, "", lastSyncTime);
+        asynHelper.isCopyDone(dstDir, "");
+    }
+
+    @Override
     public void batchRemoveNetDisk(List<String> idList) {
         if (idList == null || idList.isEmpty()) return;
         List<OpenlistCopyPlus> copyList = openlistCopyPlusService.listByIds(idList);
-        Runnable action = () -> copyList.forEach(copy -> {
+        // 外部API调用在事务外执行
+        Runnable externalAction = () -> copyList.forEach(copy -> {
             openlistApi.fsRemove(copy.getCopyDstPath(), Collections.singletonList(copy.getCopyDstFileName()));
-            openlistStrmPlusService.remove(new LambdaQueryWrapper<OpenlistStrmPlus>()
-                    .eq(OpenlistStrmPlus::getStrmFileName, copy.getCopyDstFileName())
-                    .eq(OpenlistStrmPlus::getStrmPath, copy.getCopyDstPath()));
         });
+        // 数据库操作在事务内执行
+        Runnable dbAction = () -> {
+            copyList.forEach(copy ->
+                openlistStrmPlusService.remove(new LambdaQueryWrapper<OpenlistStrmPlus>()
+                        .eq(OpenlistStrmPlus::getStrmFileName, copy.getCopyDstFileName())
+                        .eq(OpenlistStrmPlus::getStrmPath, copy.getCopyDstPath())));
+            openlistCopyPlusService.removeBatchByIds(idList);
+        };
         if (idList.size() > 20) {
             AsyncManager.me().execute(() -> {
-                    action.run();
-                    openlistCopyPlusService.removeBatchByIds(idList);
-                });
+                externalAction.run();
+                transactionTemplate.executeWithoutResult(status -> dbAction.run());
+            });
         } else {
-            action.run();
-            openlistCopyPlusService.removeBatchByIds(idList);
+            externalAction.run();
+            transactionTemplate.executeWithoutResult(status -> dbAction.run());
         }
     }
 
@@ -314,14 +342,51 @@ public class CopyServiceImpl implements ICopyService {
             copy.setCopyTaskId("");
         });
         openlistCopyPlusService.updateBatchById(copyList);
-        Runnable action = () -> copyList.forEach(copy ->
-                syncOneFile(copy.getCopySrcPath(), copy.getCopyDstPath(), copy.getCopySrcFileName()));
+        Runnable action = () -> {
+            try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+                List<CompletableFuture<Void>> futures = copyList.stream()
+                    .map(copy -> CompletableFuture.runAsync(() -> {
+                        try {
+                            COPY_SEMAPHORE.acquire();
+                            try {
+                                syncOneFile(copy.getCopySrcPath(), copy.getCopyDstPath(), copy.getCopySrcFileName());
+                            } finally {
+                                COPY_SEMAPHORE.release();
+                            }
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                        }
+                    }, executor))
+                    .toList();
+                CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+            }
+        };
         if (idList.size() > 20) {
-            AsyncManager.me().execute(() -> {
-                    action.run();
-                });
+            AsyncManager.me().execute(action);
         } else {
             action.run();
+        }
+    }
+
+    /**
+     * 解析 AList 返回的 modified 字段（ISO-8601 格式或 yyyy-MM-dd HH:mm:ss）
+     */
+    private Date parseModified(String modifiedStr) {
+        if (StringUtils.isBlank(modifiedStr)) {
+            return null;
+        }
+        // AList 可能返回多种格式，优先尝试 ISO-8601（去掉 T 和时区后缀）
+        String normalized = modifiedStr
+                .replace("T", " ")
+                .replaceAll("\\+\\d{2}:\\d{2}$", "")
+                .replaceAll("Z$", "")
+                .trim();
+        try {
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+            return sdf.parse(normalized);
+        } catch (ParseException e) {
+            log.debug("无法解析 modified 字段: {}", modifiedStr);
+            return null;
         }
     }
 }

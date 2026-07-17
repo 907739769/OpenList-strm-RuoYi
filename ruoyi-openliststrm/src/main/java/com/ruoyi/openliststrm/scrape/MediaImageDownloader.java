@@ -8,6 +8,7 @@ import com.ruoyi.openliststrm.config.OpenlistConfig;
 import com.ruoyi.openliststrm.rename.model.MediaInfo;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.*;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -31,9 +32,10 @@ public class MediaImageDownloader {
     private final OkHttpClient client;
     private final OpenlistConfig config;
 
-    public MediaImageDownloader(OpenlistConfig config) {
+    public MediaImageDownloader(OpenlistConfig config,
+                                @Qualifier("sharedOkHttpClient") OkHttpClient sharedClient) {
         this.config = config;
-        this.client = new OkHttpClient.Builder()
+        this.client = sharedClient.newBuilder()
                 .connectTimeout(30, TimeUnit.SECONDS)
                 .readTimeout(60, TimeUnit.SECONDS)
                 .build();

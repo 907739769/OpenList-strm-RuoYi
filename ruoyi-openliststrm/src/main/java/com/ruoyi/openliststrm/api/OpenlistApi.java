@@ -6,6 +6,7 @@ import com.ruoyi.openliststrm.config.OpenlistConfig;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import jakarta.annotation.PostConstruct;
@@ -19,6 +20,10 @@ public class OpenlistApi {
     @Autowired
     private OpenlistConfig config;
 
+    @Autowired
+    @Qualifier("sharedOkHttpClient")
+    private OkHttpClient sharedClient;
+
     private OkHttpClient client;
     private static final MediaType JSON_MEDIA_TYPE = MediaType.parse("application/json");
     private static final int MAX_RETRY = 3;
@@ -26,11 +31,10 @@ public class OpenlistApi {
 
     @PostConstruct
     public void init() {
-        client = new OkHttpClient.Builder()
+        client = sharedClient.newBuilder()
                 .connectTimeout(90, TimeUnit.SECONDS)
                 .readTimeout(90, TimeUnit.SECONDS)
                 .writeTimeout(90, TimeUnit.SECONDS)
-                .connectionPool(new ConnectionPool(5, 5, TimeUnit.SECONDS))
                 .build();
         log.debug("OkHttpClient initialized successfully.");
     }

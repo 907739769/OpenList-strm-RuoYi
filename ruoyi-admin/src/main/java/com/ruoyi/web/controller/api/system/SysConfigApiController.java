@@ -3,7 +3,6 @@ package com.ruoyi.web.controller.api.system;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -18,7 +17,6 @@ import com.ruoyi.common.core.domain.PageResult;
 import com.ruoyi.common.core.domain.Result;
 import com.ruoyi.common.core.page.PageDomain;
 import com.ruoyi.common.core.page.TableSupport;
-import com.ruoyi.common.annotation.Anonymous;
 import com.ruoyi.system.domain.SysConfig;
 import com.ruoyi.system.service.ISysConfigService;
 
@@ -29,8 +27,6 @@ import com.ruoyi.system.service.ISysConfigService;
  */
 @RestController
 @RequestMapping("/api/system/config")
-@Anonymous
-@CrossOrigin(origins = "*")
 public class SysConfigApiController extends BaseController
 {
     @Autowired

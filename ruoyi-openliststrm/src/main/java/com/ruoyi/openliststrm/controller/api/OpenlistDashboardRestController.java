@@ -1,6 +1,5 @@
 package com.ruoyi.openliststrm.controller.api;
 
-import com.ruoyi.common.annotation.Anonymous;
 import com.ruoyi.common.core.domain.Result;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.openliststrm.enums.CopyStatusEnum;
@@ -14,7 +13,6 @@ import com.ruoyi.openliststrm.mybatisplus.service.IRenameDetailPlusService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -33,8 +31,6 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
  */
 @RestController
 @RequestMapping("/api/openliststrm/dashboard")
-@Anonymous
-@CrossOrigin
 public class OpenlistDashboardRestController {
 
     private static final Logger log = LoggerFactory.getLogger(OpenlistDashboardRestController.class);
