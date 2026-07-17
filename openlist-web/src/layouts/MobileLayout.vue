@@ -117,10 +117,10 @@ import { useAppStore } from '@/stores/app'
 import { useUserStore } from '@/stores/user'
 import {
   Menu, Close, Odometer, VideoCamera, Files, EditPen,
-  Setting, SwitchButton, Monitor, Document, Picture
+  Setting, SwitchButton
 } from '@element-plus/icons-vue'
-import type { Component } from 'vue'
 import ChangePasswordDialog from '@/components/ChangePasswordDialog.vue'
+import { getIconComponent } from '@/composables/useMenuIcon'
 
 const route = useRoute()
 const router = useRouter()
@@ -128,38 +128,6 @@ const appStore = useAppStore()
 const userStore = useUserStore()
 const menuOpen = ref(false)
 const showPasswordDialog = ref(false)
-
-// Map Font Awesome icon classes to Element Plus icons
-const iconMap: Record<string, Component> = {
-  'fa fa-gear': Setting,
-  'fa fa-cog': Setting,
-  'fa fa-bookmark-o': Document,
-  'fa fa-sun-o': Picture,
-  'fa fa-video-camera': Monitor,
-  'fa fa-tasks': Monitor,
-  'fa fa-calendar': Odometer,
-  'fa fa-picture-o': Picture,
-  'fa fa-yen': Files,
-  'fa fa-send-o': Files,
-  'fa fa-diamond': EditPen,
-  'fa fa-bars': Menu,
-  'fa fa-list-ul': Menu,
-  'fa fa-list': Menu,
-  'fa fa-file-code-o': Document,
-  'fa fa-folder-open-o': Files,
-  'fa fa-play-circle-o': VideoCamera,
-  'fa fa-video-play': VideoCamera,
-  'fa fa-copy': Monitor,
-  'fa fa-edit': EditPen,
-  'fa fa-magic': EditPen,
-}
-
-function getIconComponent(icon?: string): Component | undefined {
-  if (!icon) return undefined
-  if (iconMap[icon]) return iconMap[icon]
-  if (icon.includes('fa ')) return undefined
-  return undefined
-}
 
 const sidebarMenus = computed(() => userStore.routes)
 
