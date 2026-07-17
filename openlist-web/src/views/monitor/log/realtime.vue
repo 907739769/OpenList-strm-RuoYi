@@ -31,8 +31,7 @@
           :key="index"
           class="log-line"
           :class="getLineClass(line)"
-          v-html="escapeHtml(line.raw)"
-        />
+        >{{ line.raw }}</div>
       </div>
     </el-card>
   </div>
@@ -83,12 +82,6 @@ function getLineClass(line: { raw: string }): string {
   if (line.raw.includes('WARN')) return 'log-warn'
   if (line.raw.includes('DEBUG')) return 'log-debug'
   return 'log-info'
-}
-
-function escapeHtml(text: string): string {
-  const div = document.createElement('div')
-  div.textContent = text
-  return div.innerHTML
 }
 
 function scrollToBottom() {
@@ -153,11 +146,15 @@ function connectWebSocket() {
 
   ws.onmessage = (event) => {
     const rawLine = event.data
-    // The backend sends HTML-formatted lines like <div class='log-item log-info'>...</div>
-    // We strip HTML tags for clean display and re-apply our own styling
-    const tempDiv = document.createElement('div')
-    tempDiv.innerHTML = rawLine
-    const textContent = tempDiv.textContent || tempDiv.innerText || rawLine
+    // 后端推来的是 <div class='log-item log-info'>...</div> 这样的 HTML 行，
+    // 这里剥掉标签只取文本，再套用前端自己的样式。
+    //
+    // 必须用 DOMParser 而非 `div.innerHTML = rawLine`：后者即便元素未插入文档也会
+    // 解析并激活内容，<img src=x onerror=...> 会真的执行（已实测）。日志里含有来自
+    // 网盘的文件名等非可信数据，攻击者只需构造一个恶意文件名，就能在管理员打开实时
+    // 日志页时于其会话中执行任意脚本。DOMParser 产出的是惰性文档，不加载资源也不执行脚本。
+    const doc = new DOMParser().parseFromString(rawLine, 'text/html')
+    const textContent = doc.body.textContent || ''
 
     logLines.value.push({ raw: textContent })
 
