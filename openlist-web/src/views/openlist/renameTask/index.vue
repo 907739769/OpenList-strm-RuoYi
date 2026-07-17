@@ -203,180 +203,24 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ref } from 'vue'
 import { Search, Refresh, Plus, Edit, Delete, VideoPlay, MagicStick, Filter, InfoFilled } from '@element-plus/icons-vue'
 import DirectoryTreeSelect from '@/components/DirectoryTreeSelect/index.vue'
-import { getRenameTaskListApi, addRenameTaskApi, updateRenameTaskApi, deleteRenameTaskApi, executeRenameTaskApi, testParseRenameApi } from '@/api/openlist/renameTask'
 import { useAppStore } from '@/stores/app'
-import type { SearchParams, PageResult } from '@/types'
+import { useRenameTask } from '@/composables/useRenameTask'
 
 const appStore = useAppStore()
 const showSearch = ref(window.innerWidth >= 768)
 
-const taskList = ref<any[]>([])
-const loading = ref(true)
-const total = ref(0)
-const single = ref(true)
-const multiple = ref(true)
-const selectedIds = ref<number[]>([])
-
-const queryParams = reactive<SearchParams & { sourceFolder?: string; targetRoot?: string; status?: string }>({
-  pageNum: 1,
-  pageSize: 10
-})
-
-const getList = async () => {
-  loading.value = true
-  try {
-    const res = await getRenameTaskListApi(queryParams) as PageResult
-    taskList.value = res.records
-    total.value = res.total
-  } finally {
-    loading.value = false
-  }
-}
-
-const handleQuery = () => { queryParams.pageNum = 1; getList() }
-const resetQuery = () => { (queryRef.value as any).resetFields(); handleQuery() }
-const handleSelectionChange = (selection: any[]) => { single.value = selection.length !== 1; multiple.value = !selection.length; selectedIds.value = selection.map((item: any) => item.id) }
-
-// Dialog state
-const open = ref(false)
-const dialogTitle = ref('')
-const submitLoading = ref(false)
-
-const initForm = (): any => ({
-  id: undefined,
-  sourceFolder: undefined,
-  targetRoot: undefined,
-  status: '1',
-  scrapeEnabled: '0',
-  scrapeNfo: '0',
-  scrapeImages: '0'
-})
-
-const form = ref<any>(initForm())
-const formRef = ref<any>()
-
-const rules = reactive({
-  sourceFolder: [{ required: true, message: '源目录不能为空', trigger: 'blur' }],
-  targetRoot: [{ required: true, message: '目标目录不能为空', trigger: 'blur' }]
-})
-
-const handleAdd = () => {
-  dialogTitle.value = '新增重命名任务'
-  form.value = initForm()
-  open.value = true
-}
-
-const handleUpdate = (row?: any) => {
-  const id = row?.id || selectedIds.value[0]
-  if (!id) {
-    ElMessage.warning('请选择数据项')
-    return
-  }
-  dialogTitle.value = '修改重命名任务'
-  getRenameTaskListApi({ ...queryParams, pageNum: 1, pageSize: 100 }).then((res: PageResult) => {
-    const task = res.records.find((t: any) => t.id === id)
-    if (task) {
-      form.value = { ...task }
-      open.value = true
-    } else {
-      ElMessage.error('任务不存在')
-    }
-  })
-}
-
-const submitForm = async () => {
-  if (!formRef.value) return
-  await formRef.value.validate()
-  submitLoading.value = true
-  try {
-    if (form.value.id) {
-      await updateRenameTaskApi(form.value)
-      ElMessage.success('修改成功')
-    } else {
-      await addRenameTaskApi(form.value)
-      ElMessage.success('新增成功')
-    }
-    open.value = false
-    getList()
-  } finally {
-    submitLoading.value = false
-  }
-}
-
-const handleDelete = async (row?: any) => {
-  const ids = row?.id ? [row.id] : selectedIds.value
-  try {
-    await ElMessageBox.confirm(`是否确认删除重命名任务编号为"${ids}"的数据项？`, '警告', { type: 'warning' })
-    await deleteRenameTaskApi(ids[0])
-    ElMessage.success('删除成功')
-    getList()
-  } catch (e) { if (e !== 'cancel') console.error(e) }
-}
-
-const handleExecute = async () => {
-  try {
-    await ElMessageBox.confirm(`是否确认执行选中的重命名任务？`, '警告', { type: 'warning' })
-    await executeRenameTaskApi(selectedIds.value)
-    ElMessage.success('执行成功')
-    getList()
-  } catch (e) { if (e !== 'cancel') console.error(e) }
-}
-
-const handleExecuteOne = async (row: any) => {
-  try {
-    await ElMessageBox.confirm(`是否确认执行重命名任务"${row.sourceFolder}"？`, '警告', { type: 'warning' })
-    await executeRenameTaskApi([row.id])
-    ElMessage.success('执行成功')
-    getList()
-  } catch (e) { if (e !== 'cancel') console.error(e) }
-}
-
-const queryRef = ref<any>()
-getList()
-
-// Test dialog state
-const testOpen = ref(false)
-const testTitle = ref('文件名重命名测试')
-const testLoading = ref(false)
-const testResult = ref<any>(null)
-const testForm = reactive({ filename: '', template: '' })
-
-const handleTest = () => {
-  testTitle.value = '文件名重命名测试'
-  testForm.filename = ''
-  testForm.template = ''
-  testResult.value = null
-  testOpen.value = true
-}
-
-const handleTestOne = (row: any) => {
-  testTitle.value = `文件名重命名测试 - ${row.sourceFolder}`
-  testForm.filename = ''
-  testForm.template = ''
-  testResult.value = null
-  testOpen.value = true
-}
-
-const doTest = async () => {
-  if (!testForm.filename.trim()) {
-    ElMessage.warning('请输入文件名')
-    return
-  }
-  testLoading.value = true
-  try {
-    const res = await testParseRenameApi(testForm.filename, testForm.template || undefined) as any
-    testResult.value = res
-    ElMessage.success('分析成功')
-  } catch (e) {
-    ElMessage.error('请求失败')
-  } finally {
-    testLoading.value = false
-  }
-}
+const {
+  taskList, loading, total, queryParams,
+  getList, queryRef, handleQuery, resetQuery,
+  single, multiple, handleSelectionChange,
+  open, dialogTitle, submitLoading, formRef, form, rules,
+  handleAdd, handleUpdate, submitForm, handleDelete,
+  handleExecuteOne, handleBatchExecute: handleExecute,
+  testOpen, testTitle, testLoading, testResult, testForm, handleTest, handleTestOne, doTest
+} = useRenameTask()
 </script>
 
 <style scoped lang="scss">
