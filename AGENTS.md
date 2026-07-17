@@ -1,16 +1,18 @@
 # OpenList-strm-RuoYi 项目知识库
 
 ## OVERVIEW
-基于 RuoYi 4.8.1 二次开发的影视 STRM 管理系统。Java 25 (Spring Boot 4.0.6) + Vue 3 + Element Plus，Docker 双容器部署。核心功能：STRM 文件生成、文件夹同步、Telegram Bot 控制、第三方回调自动化。
+基于 RuoYi 4.8.1 二次开发的影视 STRM 管理系统。Java 25 (Spring Boot 4.0.6) + Vue 3 + Element Plus，Docker 双容器部署。核心功能：STRM 文件生成、文件夹同步、Telegram Bot 控制、TMDb 刮削/重命名、第三方回调自动化。
+
+> 本文件是本项目唯一的 AI 知识库，Claude Code 与 opencode 共用。根目录 `CLAUDE.md` 仅做引用，改动请直接改本文件。
 
 ## STRUCTURE
 ```
-├── ruoyi-admin/          # 启动模块 (Spring Boot main)
+├── ruoyi-admin/          # 启动模块 (Spring Boot main)，端口 6895
 ├── ruoyi-common/         # 通用工具 (annotation, utils, exception, mybatisplus)
 ├── ruoyi-framework/      # 框架配置 (security, shiro, config, websocket)
 ├── ruoyi-system/         # RuoYi 标准模块 (user/role/menu/dict domain)
 ├── ruoyi-quartz/         # 定时任务 (RuoYi job scheduler)
-├── ruoyi-openliststrm/   # ★ 核心业务 (16个子包: strm/sync/tg/rename/monitor...)
+├── ruoyi-openliststrm/   # ★ 核心业务，新功能几乎都写在这里 (16个子包，见下)
 ├── openlist-web/         # Vue 3 前端 (Vite + Pinia + Element Plus + PWA)
 ├── Dockerfile.backend    # Java 25 JRE + --enable-preview
 ├── Dockerfile.frontend   # Node 20 build → Nginx Alpine
@@ -18,12 +20,16 @@
 └── nginx.conf            # SPA + API proxy + WebSocket proxy
 ```
 
+`ruoyi-openliststrm` 按功能域分包：
+`api/ config/ controller/ enums/ helper/ monitor/ mybatisplus/ openai/ rename/ req/ scrape/ service/ task/ tg/ tmdb/ upload/`
+
 ## WHERE TO LOOK
 | 任务 | 位置 | 备注 |
 |------|------|------|
 | STRM 生成 | `ruoyi-openliststrm/src/main/java/com/ruoyi/openliststrm/` | task/, helper/, tmdb/, rename/ |
 | 文件夹同步 | `ruoyi-openliststrm/src/main/java/com/ruoyi/openliststrm/` | api/, upload/, service/ |
 | Telegram Bot | `ruoyi-openliststrm/src/main/java/com/ruoyi/openliststrm/tg/` | bot commands & handlers |
+| 刮削 | `ruoyi-openliststrm/src/main/java/com/ruoyi/openliststrm/scrape/` + `tmdb/` | TMDb 刮削、文件删除 |
 | 定时任务 | `ruoyi-openliststrm/src/main/java/com/ruoyi/openliststrm/task/` + `ruoyi-quartz/` | 自定义 task + RuoYi job |
 | 安全/认证 | `ruoyi-framework/src/main/java/com/ruoyi/framework/security/` + `shiro/` | Shiro + JWT |
 | 第三方回调 | `ruoyi-openliststrm/src/main/java/com/ruoyi/openliststrm/controller/` | 开放 API 端点 |
@@ -34,14 +40,16 @@
 | DB 脚本 | `ruoyi-common/src/main/resources/sql/` | 初始化 + 升级脚本 |
 | MyBatis Mapper | `ruoyi-system/src/main/resources/mapper/system/` + `ruoyi-openliststrm/src/main/resources/mapper/mybatisplus/` | XML 映射 |
 
+前端另有独立知识库 `openlist-web/src/AGENTS.md`，改前端前先读。
+
 ## CONVENTIONS
 - **包命名**: `com.ruoyi.{module}.{layer}` — controller/service/mapper/domain 分层
 - **OpenList-strm 模块**: 按功能域分包 (tg/, tmdb/, rename/, helper/, monitor/, mybatisplus/)
 - **MyBatis-Plus**: `ruoyi-openliststrm` 使用 MP 风格 (BaseMapper + IService)，`ruoyi-system` 使用传统 XML Mapper
 - **Shiro + JWT**: 无状态认证，Shiro 管理权限，JWT 传递 token
-- **Java 25 Preview**: 编译/运行带 `--enable-preview` (虚拟线程/结构化并发)
+- **Java 25 Preview**: 编译/测试/运行均带 `--enable-preview` (虚拟线程/结构化并发)
 - **FastJSON2**: 统一使用 FastJSON2 做 JSON 序列化
-- **密码加密**: 使用 Cipher 加密存储敏感配置 (DB_PASSWORD 等)
+- **密码加密**: 使用 Cipher 加密存储敏感配置 (DB_PASSWORD 等)；密钥与连接信息走 `.env` (见 `.env.example`)，不要硬编码或提交进仓库
 - **前端**: unplugin-auto-import + unplugin-vue-components 自动导入，`@` 指向 `src/`
 
 ## ANTI-PATTERNS
@@ -56,17 +64,20 @@
 # 后端构建
 mvn clean package -DskipTests
 
-# 前端构建
+# 前端开发 (端口 3000，/api 已代理到 localhost:6895)
+cd openlist-web && npm run dev
+
+# 前端构建 (含 vue-tsc 类型检查)
 cd openlist-web && npm run build
+
+# 前端 lint (自动修复)
+cd openlist-web && npm run lint
+
+# 前端 E2E 测试 (Playwright)
+cd openlist-web && npm run test:e2e
 
 # Docker 部署
 docker compose up -d --build
-
-# 前端开发
-cd openlist-web && npm run dev
-
-# 前端 E2E 测试
-cd openlist-web && npm run test:e2e
 ```
 
 ## NOTES
@@ -74,6 +85,6 @@ cd openlist-web && npm run test:e2e
 - 容器内 `/data` 目录挂载宿主机，存放 upload/logs/strm 文件
 - MySQL 默认数据库名 `osr`，连接信息通过 `.env` 注入
 - 数据库初始化由 `com.ruoyi.common.mybatisplus.MysqlDdl` 自动执行（ruoyi-common/src/main/resources/sql/）
-- 后端端口 6895，前端 Nginx 端口 80
-- API 路径统一 `/api/` 前缀，Nginx 代理到后端
+- 后端端口 6895，前端 Nginx 端口 80，前端 dev server 端口 3000
+- API 路径统一 `/api/` 前缀，生产由 Nginx、开发由 Vite proxy 转发到后端
 - WebSocket 路径 `/websocket/`，超时 86400s (长连接)

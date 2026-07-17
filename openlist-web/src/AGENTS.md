@@ -3,6 +3,8 @@
 ## OVERVIEW
 Vue 3 + Vite + Element Plus + Pinia 前端应用，支持 PWA。包含 PC 端 (`views/`) 和移动端 (`views-mobile/`) 两套界面。
 
+> 本文件是前端唯一的 AI 知识库，Claude Code 与 opencode 共用。同目录 `CLAUDE.md` 仅做引用，改动请直接改本文件。后端及全局约定见项目根目录 `AGENTS.md`。
+
 ## STRUCTURE
 ```
 src/
