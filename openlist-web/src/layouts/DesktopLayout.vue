@@ -91,46 +91,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed, type Component, ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useRoute } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import { useAppStore } from '@/stores/app'
 import { useUserStore } from '@/stores/user'
-import { Fold, Expand, Odometer, Setting, SwitchButton, ArrowDown, Document, Monitor, Calendar, Picture, Coin, Promotion, Tools, Watermelon, Menu as IconMenu, VideoPlay, RefreshRight, EditPen, FolderOpened, DocumentCopy, MagicStick } from '@element-plus/icons-vue'
+import { Fold, Expand, Odometer, Setting, SwitchButton, ArrowDown } from '@element-plus/icons-vue'
 import ChangePasswordDialog from '@/components/ChangePasswordDialog.vue'
-
-// Map Font Awesome icon classes to Element Plus icons
-const iconMap: Record<string, Component> = {
-  'fa fa-gear': Setting,
-  'fa fa-cog': Setting,
-  'fa fa-bookmark-o': Document,
-  'fa fa-sun-o': Picture,
-  'fa fa-video-camera': Monitor,
-  'fa fa-tasks': Tools,
-  'fa fa-calendar': Calendar,
-  'fa fa-picture-o': Picture,
-  'fa fa-yen': Coin,
-  'fa fa-send-o': Promotion,
-  'fa fa-diamond': Watermelon,
-  'fa fa-bars': IconMenu,
-  'fa fa-list-ul': IconMenu,
-  'fa fa-list': IconMenu,
-  'fa fa-file-code-o': DocumentCopy,
-  'fa fa-folder-open-o': FolderOpened,
-  'fa fa-play-circle-o': VideoPlay,
-  'fa fa-video-play': VideoPlay,
-  'fa fa-copy': RefreshRight,
-  'fa fa-edit': EditPen,
-  'fa fa-magic': MagicStick,
-}
-
-function getIconComponent(icon?: string): Component | undefined {
-  if (!icon) return undefined
-  if (iconMap[icon]) return iconMap[icon]
-  if (icon.includes('fa ')) return undefined
-  return undefined
-}
+import { getIconComponent } from '@/composables/useMenuIcon'
 
 const route = useRoute()
 const router = useRouter()

@@ -1,6 +1,7 @@
 import {
-  Setting, Monitor, Document, Picture,
-  Odometer, VideoCamera, Files, EditPen, Menu
+  Setting, Document, Picture, Monitor, Tools, Calendar, Coin, Promotion,
+  Watermelon, Menu as IconMenu, VideoPlay, RefreshRight, EditPen,
+  FolderOpened, DocumentCopy, MagicStick
 } from '@element-plus/icons-vue'
 import type { Component } from 'vue'
 
@@ -14,22 +15,22 @@ const iconMap: Record<string, Component> = {
   'fa fa-bookmark-o': Document,
   'fa fa-sun-o': Picture,
   'fa fa-video-camera': Monitor,
-  'fa fa-tasks': Monitor,
-  'fa fa-calendar': Odometer,
+  'fa fa-tasks': Tools,
+  'fa fa-calendar': Calendar,
   'fa fa-picture-o': Picture,
-  'fa fa-yen': Files,
-  'fa fa-send-o': Files,
-  'fa fa-diamond': EditPen,
-  'fa fa-bars': Menu,
-  'fa fa-list-ul': Menu,
-  'fa fa-list': Menu,
-  'fa fa-file-code-o': Document,
-  'fa fa-folder-open-o': Files,
-  'fa fa-play-circle-o': VideoCamera,
-  'fa fa-video-play': VideoCamera,
-  'fa fa-copy': Monitor,
+  'fa fa-yen': Coin,
+  'fa fa-send-o': Promotion,
+  'fa fa-diamond': Watermelon,
+  'fa fa-bars': IconMenu,
+  'fa fa-list-ul': IconMenu,
+  'fa fa-list': IconMenu,
+  'fa fa-file-code-o': DocumentCopy,
+  'fa fa-folder-open-o': FolderOpened,
+  'fa fa-play-circle-o': VideoPlay,
+  'fa fa-video-play': VideoPlay,
+  'fa fa-copy': RefreshRight,
   'fa fa-edit': EditPen,
-  'fa fa-magic': EditPen,
+  'fa fa-magic': MagicStick
 }
 
 export function getIconComponent(icon?: string): Component | undefined {
