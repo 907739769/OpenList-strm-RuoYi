@@ -10,6 +10,16 @@ const service: AxiosInstance = axios.create({
   timeout: 15000
 })
 
+/**
+ * 登录接口自己返回的 401 表示「用户名或密码错误」，不是 token 过期。
+ * 若把它交给刷新流程：此时用户尚未登录、没有 refreshToken，会被直接
+ * clearToken + window.location.href = '/login' 硬跳转，错误提示随页面刷新一起消失，
+ * 用户输错密码后只看到页面闪回登录页，得不到任何反馈。
+ */
+function isLoginRequest(url?: string): boolean {
+  return !!url && url.includes('/auth/login')
+}
+
 let isRefreshing = false
 let retryQueue: Array<{ resolve: (token: string) => void; reject: (reason: Error) => void }> = []
 
@@ -100,7 +110,7 @@ service.interceptors.response.use(
 
     if (code === 200) {
       return data as any
-    } else if (code === 401) {
+    } else if (code === 401 && !isLoginRequest(response.config.url)) {
       // body-level 401: token expired but HTTP was 200 (permitAll endpoints like /api/auth/info)
       // trigger the same refresh flow as HTTP 401
       return handleTokenRefresh(response.config as InternalAxiosRequestConfig & { _retry?: boolean })
@@ -114,7 +124,7 @@ service.interceptors.response.use(
     // 401=JWT过期, 403=Shiro未认证(前端JWT filter静默放行后Shiro拦截), 302=重定向
     const isAuthError = status === 401 || status === 403 || status === 302
 
-    if (isAuthError) {
+    if (isAuthError && !isLoginRequest(error.config?.url)) {
       const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean }
       return handleTokenRefresh(originalRequest)
     } else {

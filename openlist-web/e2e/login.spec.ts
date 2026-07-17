@@ -30,7 +30,12 @@ test.describe('Login Flow', () => {
     await page.locator('input[placeholder="用户名"]').fill('admin')
     await page.locator('input[placeholder="密码"]').fill('wrongpassword')
     await page.locator('text=登 录').click()
-    await expect(page.locator('text=登录失败，请检查用户名和密码')).toBeVisible({ timeout: 10000 })
+
+    // 提示来自后端 message，且只弹一条
+    await expect(page.locator('.el-message')).toHaveText(/用户名或密码错误/)
+    await expect(page.locator('.el-message')).toHaveCount(1)
+    // 登录失败不是 token 过期，不该被刷新流程带走
+    await expect(page).toHaveURL(/\/login/)
   })
 
   test('should redirect to root when already logged in', async ({ page }) => {

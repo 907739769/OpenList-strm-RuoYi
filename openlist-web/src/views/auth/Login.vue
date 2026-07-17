@@ -54,8 +54,9 @@ const handleLogin = async () => {
     ElMessage.success('登录成功')
     const redirect = (route.query.redirect as string) || '/'
     router.push(redirect)
-  } catch (error) {
-    ElMessage.error('登录失败，请检查用户名和密码')
+  } catch {
+    // 失败原因由 request 拦截器统一提示（会带上后端返回的具体原因，如「用户名或密码错误」），
+    // 这里再弹一次只会叠出两条重复消息
   } finally {
     loading.value = false
   }
