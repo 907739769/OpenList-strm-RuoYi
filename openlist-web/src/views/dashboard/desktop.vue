@@ -184,8 +184,6 @@ const loadRenameChart = async () => {
 }
 
 onMounted(async () => {
-  console.log('[Dashboard] onMounted started')
-
   // Load dashboard stats from API
   try {
     const statsData: any = await getDashboardStatsApi()
@@ -203,7 +201,6 @@ onMounted(async () => {
       { label: '失败数', value: failedCount, icon: CircleClose, type: 'warning' },
       { label: '处理中', value: processingCount, icon: Loading, type: 'primary' }
     ]
-    console.log('[Dashboard] statCards loaded from API:', statCards.value)
   } catch (e) {
     console.error('[Dashboard] Failed to load stat cards:', e)
     statCards.value = [
@@ -215,7 +212,6 @@ onMounted(async () => {
       { label: '处理中', value: '0', icon: Loading, type: 'primary' }
     ]
   }
-  console.log('[Dashboard] statCards set:', statCards.value.length)
 
   // Set chartData
   chartData.value = [
@@ -223,17 +219,14 @@ onMounted(async () => {
     { title: 'STRM 任务', range: 'today', load: loadStrmChart, chart: null },
     { title: 'Rename 任务', range: 'today', load: loadRenameChart, chart: null }
   ]
-  console.log('[Dashboard] chartData set:', chartData.value.length)
 
   // Wait for DOM to render
   await nextTick()
-  console.log('[Dashboard] DOM ready, containers:', chartContainers.map(c => c.value ? 'found' : 'MISSING'))
 
   // Load charts
   await loadCopyChart()
   await loadStrmChart()
   await loadRenameChart()
-  console.log('[Dashboard] All charts loaded')
 
   resizeHandler = () => {
     copyChart.value?.resize()
