@@ -55,6 +55,39 @@ test.describe('Mobile Responsive', () => {
     await expect(page).toHaveURL(/\/openliststrm\/copy/)
   })
 
+  // 列表页此前每次导航都被强制重挂载，返回时筛选条件、页码、滚动位置全部丢失，
+  // 并且要重新打一次接口。
+  test('list page should keep filter state when navigating away and back', async ({ page }) => {
+    await login(page)
+
+    let listRequests = 0
+    page.on('request', r => { if (r.url().includes('/copy-records')) listRequests++ })
+
+    await page.goto('/openliststrm/copy')
+    await expect(page.locator('.record-card').first()).toBeVisible()
+    expect(listRequests).toBe(1)
+
+    await page.locator('.search-panel-header').click()
+    const filter = page.locator('input[placeholder="请输入源目录"]')
+    await filter.fill('MY-FILTER')
+
+    await page.locator('.tabbar-item', { hasText: 'STRM记录' }).click()
+    await expect(page).toHaveURL(/\/openliststrm\/strm/)
+    await page.locator('.tabbar-item', { hasText: '同步记录' }).click()
+    await expect(page).toHaveURL(/\/openliststrm\/copy/)
+
+    // 状态来自缓存，既不重置也不重新请求
+    await expect(filter).toHaveValue('MY-FILTER')
+    expect(listRequests).toBe(1)
+  })
+
+  test('dashboard should not be cached', async ({ page }) => {
+    await login(page)
+    await page.goto('/openliststrm/copy')
+    await page.locator('.tabbar-item', { hasText: '首页' }).click()
+    await expect(page.locator('.mobile-dashboard')).toBeVisible()
+  })
+
   // 动态路由曾按首次导航时的 device 固化 PC/移动端组件，导致缩放后
   // 「移动端布局里套着 PC 页面」。这里守住双向切换。
   test('page component should follow the viewport, in both directions', async ({ page }) => {

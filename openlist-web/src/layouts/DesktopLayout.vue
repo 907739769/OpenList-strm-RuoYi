@@ -74,9 +74,12 @@
       <main class="main-content">
         <div style="height:16px;flex-shrink:0"></div>
         <div class="content-wrapper">
-          <router-view v-slot="{ Component }">
+          <router-view v-slot="{ Component, route: currentRoute }">
             <transition name="fade-slide" mode="out-in">
-              <component :is="Component" />
+              <keep-alive v-if="currentRoute.meta?.keepAlive" :max="6">
+                <component :is="Component" :key="currentRoute.path" />
+              </keep-alive>
+              <component v-else :is="Component" :key="currentRoute.path" />
             </transition>
           </router-view>
         </div>

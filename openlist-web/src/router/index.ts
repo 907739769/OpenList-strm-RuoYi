@@ -138,6 +138,19 @@ function normalizeComponentPath(component: string): string {
   return component
 }
 
+/**
+ * 需要缓存的列表页。这些页面都带筛选条件与分页，返回时若重新挂载会丢失
+ * 筛选、页码和滚动位置，并多打一次接口——移动端来回切换尤其明显。
+ */
+const KEEP_ALIVE_COMPONENTS = new Set([
+  'openlist/strmTask/index',
+  'openlist/strmRecord/index',
+  'openlist/copyTask/index',
+  'openlist/copyRecord/index',
+  'openlist/renameTask/index',
+  'openlist/renameDetail/index'
+])
+
 function convertMenuToRoute(menu: MenuRoute): RouteRecordRaw {
   const children = menu.children && menu.children.length > 0
     ? menu.children.map(child => convertMenuToRoute(child))
@@ -158,7 +171,8 @@ function convertMenuToRoute(menu: MenuRoute): RouteRecordRaw {
       title: menu.meta?.title || '',
       icon: menu.meta?.icon || '',
       hidden: menu.hidden || false,
-      isParentLayout: isLayout
+      isParentLayout: isLayout,
+      keepAlive: KEEP_ALIVE_COMPONENTS.has(componentPath)
     },
     children
   }

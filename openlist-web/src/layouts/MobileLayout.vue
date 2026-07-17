@@ -80,9 +80,12 @@
 
       <!-- Content -->
       <div class="mobile-content">
-        <router-view v-slot="{ Component }" :key="route.fullPath">
+        <router-view v-slot="{ Component, route: currentRoute }">
           <transition name="fade" mode="out-in">
-            <component :is="Component" />
+            <keep-alive v-if="currentRoute.meta?.keepAlive" :max="6">
+              <component :is="Component" :key="currentRoute.path" />
+            </keep-alive>
+            <component v-else :is="Component" :key="currentRoute.path" />
           </transition>
         </router-view>
       </div>
