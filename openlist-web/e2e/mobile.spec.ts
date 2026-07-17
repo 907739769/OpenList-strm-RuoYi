@@ -76,9 +76,10 @@ test.describe('Mobile Responsive', () => {
     await page.locator('.tabbar-item', { hasText: '同步记录' }).click()
     await expect(page).toHaveURL(/\/openliststrm\/copy/)
 
-    // 状态来自缓存，既不重置也不重新请求
+    // 组件从缓存恢复，筛选条件不被重置
     await expect(filter).toHaveValue('MY-FILTER')
-    expect(listRequests).toBe(1)
+    // 但要静默拉一次最新数据，避免看到离开时的旧列表
+    await expect.poll(() => listRequests).toBe(2)
   })
 
   test('dashboard should not be cached', async ({ page }) => {

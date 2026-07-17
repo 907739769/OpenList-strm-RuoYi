@@ -49,7 +49,7 @@
       <!-- Action Bar -->
       <div class="action-bar">
         <div class="action-left">
-          <el-button type="danger" :disabled="multiple" @click="handleDelete()">
+          <el-button type="danger" :disabled="multiple" @click="handleBatchDelete()">
             <el-icon><Delete /></el-icon> 批量删除
           </el-button>
           <el-button type="danger" :disabled="multiple" @click="handleBatchRemoveNetDisk()">
@@ -166,121 +166,23 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ref } from 'vue'
 import { Search, Refresh, Delete, Download, Filter } from '@element-plus/icons-vue'
-import { getCopyRecordListApi, retryCopyRecordApi, batchDeleteCopyRecordApi, batchRetryCopyRecordApi, batchRemoveCopyNetDiskApi } from '@/api/openlist/copyRecord'
 import { useAppStore } from '@/stores/app'
-import type { SearchParams, PageResult } from '@/types'
+import { useCopyRecord } from '@/composables/useCopyRecord'
 
 const appStore = useAppStore()
 const showSearch = ref(window.innerWidth >= 768)
 
-const recordList = ref<any[]>([])
-const loading = ref(true)
-const total = ref(0)
-const multiple = ref(true)
-const selectedIds = ref<number[]>([])
-const dateRange = ref<string[] | null>(null)
+const {
+  recordList, loading, total, queryParams,
+  getList, queryRef, dateRange, handleQuery, resetQuery,
+  multiple, handleSelectionChange,
+  handleRetryOne, handleBatchRetry, handleDeleteOne, handleBatchDelete,
+  handleRemoveNetDiskOne, handleBatchRemoveNetDisk,
+  getCopyStatusText, getCopyStatusType
+} = useCopyRecord()
 
-const queryParams = reactive<SearchParams & { copySrcPath?: string; copyDstPath?: string; copySrcFileName?: string; copyDstFileName?: string; copyStatus?: string }>({
-  pageNum: 1,
-  pageSize: 10,
-  copyStatus: undefined
-})
-
-const getList = async () => {
-  loading.value = true
-  try {
-    const res = await getCopyRecordListApi(queryParams) as PageResult
-    recordList.value = res.records
-    total.value = res.total
-  } finally {
-    loading.value = false
-  }
-}
-
-const handleQuery = () => {
-  queryParams.pageNum = 1
-  if (dateRange.value != null && dateRange.value.length === 2) {
-    queryParams.params = { beginTime: dateRange.value[0] + ' 00:00:00', endTime: dateRange.value[1] + ' 23:59:59' }
-  } else {
-    delete queryParams.params
-  }
-  getList()
-}
-const resetQuery = () => {
-  dateRange.value = null
-  if (queryRef.value) (queryRef.value as any).resetFields()
-  handleQuery()
-}
-const handleSelectionChange = (selection: any[]) => { multiple.value = !selection.length; selectedIds.value = selection.map((item: any) => item.copyId) }
-
-const getCopyStatusText = (status: string) => {
-  const map: Record<string, string> = { '1': '处理中', '2': '失败', '3': '成功', '4': '未知' }
-  return map[status] || '未知'
-}
-
-const getCopyStatusType = (status: string) => {
-  const map: Record<string, 'warning' | 'danger' | 'success' | 'info'> = { '1': 'warning', '2': 'danger', '3': 'success' }
-  return map[status] || 'info'
-}
-
-const handleDelete = async () => {
-  try {
-    await ElMessageBox.confirm(`是否确认删除复制记录编号为"${selectedIds.value}"的数据项？`, '警告', { type: 'warning' })
-    await batchDeleteCopyRecordApi(selectedIds.value)
-    ElMessage.success('删除成功')
-    getList()
-  } catch (e) { if (e !== 'cancel') console.error(e) }
-}
-
-const handleRetryOne = async (row: any) => {
-  try {
-    await ElMessageBox.confirm(`是否确认重试复制记录"${row.copyId}"？`, '警告', { type: 'warning' })
-    await retryCopyRecordApi(row.copyId)
-    ElMessage.success('重试成功')
-    getList()
-  } catch (e) { if (e !== 'cancel') console.error(e) }
-}
-
-const handleBatchRetry = async () => {
-  try {
-    await ElMessageBox.confirm(`是否确认批量重试选中的复制记录？`, '警告', { type: 'warning' })
-    await batchRetryCopyRecordApi(selectedIds.value)
-    ElMessage.success('批量重试成功')
-    getList()
-  } catch (e) { if (e !== 'cancel') console.error(e) }
-}
-
-const handleBatchRemoveNetDisk = async () => {
-  try {
-    await ElMessageBox.confirm(`危险操作：确认要从网盘中彻底删除选中的 ${selectedIds.value.length} 个目标文件吗？`, '警告', { type: 'error' })
-    await batchRemoveCopyNetDiskApi(selectedIds.value)
-    ElMessage.success('删除网盘文件成功')
-    getList()
-  } catch (e) { if (e !== 'cancel') console.error(e) }
-}
-
-const handleRemoveNetDiskOne = async (row: any) => {
-  try {
-    await ElMessageBox.confirm(`危险操作：确认要从网盘中彻底删除该目标文件吗？`, '警告', { type: 'error' })
-    await batchRemoveCopyNetDiskApi([row.copyId])
-    ElMessage.success('删除网盘文件成功')
-    getList()
-  } catch (e) { if (e !== 'cancel') console.error(e) }
-}
-
-const handleDeleteOne = async (row: any) => {
-  try {
-    await ElMessageBox.confirm(`是否确认删除复制记录编号为"${row.copyId}"的数据项？`, '警告', { type: 'warning' })
-    await batchDeleteCopyRecordApi([row.copyId])
-    ElMessage.success('删除成功')
-    getList()
-  } catch (e) { if (e !== 'cancel') console.error(e) }
-}
-
-const queryRef = ref<any>()
 getList()
 </script>
 

@@ -189,31 +189,27 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ref } from 'vue'
+import { ElMessage } from 'element-plus'
 import {
   Search, ArrowDown, ArrowLeft, ArrowRight,
   VideoCamera, Location, Clock,
   RefreshLeft, Refresh, Delete, Document, CopyDocument, Download
 } from '@element-plus/icons-vue'
-import {
-  getStrmRecordListApi,
-  retryStrmRecordApi,
-  batchDeleteStrmRecordApi,
-  batchRetryStrmRecordApi,
-  batchRemoveStrmNetDiskApi
-} from '@/api/openlist/strmRecord'
-import type { SearchParams, PageResult } from '@/types'
+import { useStrmRecord } from '@/composables/useStrmRecord'
 
-const recordList = ref<any[]>([])
-const loading = ref(true)
-const total = ref(0)
-const selectedIds = ref<number[]>([])
-const dateRange = ref<string[] | null>(null)
 const searchCollapsed = ref(true)
-const queryRef = ref<any>()
 
-// Full text dialog
+const {
+  recordList, loading, total, queryParams, totalPages,
+  getList, prevPage, nextPage, handleSizeChange,
+  queryRef, dateRange, handleQuery, resetQuery,
+  selectedIds, toggleSelect, handleCardClick, clearSelection,
+  handleRetryOne, handleBatchRetry, handleDeleteOne, handleBatchDelete,
+  handleRemoveNetDiskOne, handleBatchRemoveNetDisk
+} = useStrmRecord()
+
+// 全文弹窗：移动端路径与文件名会被截断，点开看全并支持复制
 const fullTextVisible = ref(false)
 const fullTextTitle = ref('')
 const fullTextContent = ref('')
@@ -229,6 +225,7 @@ const copyToClipboard = async (text: string) => {
     await navigator.clipboard.writeText(text)
     ElMessage.success('已复制到剪贴板')
   } catch {
+    // navigator.clipboard 需要安全上下文，HTTP 下走降级方案
     const textarea = document.createElement('textarea')
     textarea.value = text
     textarea.style.position = 'fixed'
@@ -241,148 +238,7 @@ const copyToClipboard = async (text: string) => {
   }
 }
 
-const totalPages = computed(() => Math.ceil(total.value / queryParams.pageSize) || 1)
-
-const queryParams = reactive<SearchParams & { strmFileName?: string; strmPath?: string; strmStatus?: string }>({
-  pageNum: 1,
-  pageSize: 10,
-  strmStatus: undefined
-})
-
-const getList = async () => {
-  loading.value = true
-  try {
-    const res = await getStrmRecordListApi(queryParams) as PageResult
-    recordList.value = res.records || []
-    total.value = res.total || 0
-  } catch (e) {
-    console.error('[STRM Record] API error:', e)
-    recordList.value = []
-    total.value = 0
-  } finally {
-    loading.value = false
-  }
-}
-
-const handleQuery = () => {
-  queryParams.pageNum = 1
-  if (dateRange.value != null && dateRange.value.length === 2) {
-    queryParams.params = {
-      beginTime: dateRange.value[0] + ' 00:00:00',
-      endTime: dateRange.value[1] + ' 23:59:59'
-    }
-  } else {
-    delete queryParams.params
-  }
-  getList()
-}
-
-const resetQuery = () => {
-  dateRange.value = null
-  if (queryRef.value) (queryRef.value as any).resetFields()
-  handleQuery()
-}
-
-const toggleSelect = (id: number) => {
-  const idx = selectedIds.value.indexOf(id)
-  if (idx > -1) {
-    selectedIds.value.splice(idx, 1)
-  } else {
-    selectedIds.value.push(id)
-  }
-}
-
-const handleCardClick = (event: Event, id: number) => {
-  const target = event.target as HTMLElement
-  // 如果点击的是 checkbox 或其子元素，跳过（由 checkbox 的 @change 处理）
-  if (target.closest('.card-checkbox')) return
-  toggleSelect(id)
-}
-
-const clearSelection = () => {
-  selectedIds.value = []
-}
-
-const prevPage = () => {
-  if (queryParams.pageNum > 1) {
-    queryParams.pageNum--
-    getList()
-  }
-}
-
-const nextPage = () => {
-  if (queryParams.pageNum < totalPages.value) {
-    queryParams.pageNum++
-    getList()
-  }
-}
-
-const handleSizeChange = () => {
-  queryParams.pageNum = 1
-  getList()
-}
-
-// --- Actions ---
-
-const handleRetryOne = async (row: any) => {
-  try {
-    await ElMessageBox.confirm(`是否确认重试STRM记录"${row.strmFileName}"？`, '提示', { type: 'warning' })
-    await retryStrmRecordApi(row.strmId)
-    ElMessage.success('重试成功')
-    getList()
-  } catch (e) { if (e !== 'cancel') console.error(e) }
-}
-
-const handleBatchRetry = async () => {
-  try {
-    await ElMessageBox.confirm(`是否确认批量重试选中的 ${selectedIds.value.length} 条记录？`, '提示', { type: 'warning' })
-    await batchRetryStrmRecordApi(selectedIds.value)
-    ElMessage.success('批量重试成功')
-    getList()
-  } catch (e) { if (e !== 'cancel') console.error(e) }
-}
-
-const handleBatchDelete = async () => {
-  try {
-    await ElMessageBox.confirm(`是否确认删除选中的 ${selectedIds.value.length} 条记录？`, '警告', { type: 'warning' })
-    await batchDeleteStrmRecordApi(selectedIds.value)
-    ElMessage.success('删除成功')
-    getList()
-  } catch (e) { if (e !== 'cancel') console.error(e) }
-}
-
-const handleDeleteOne = async (row: any) => {
-  try {
-    await ElMessageBox.confirm(`是否确认删除STRM记录"${row.strmFileName}"？`, '警告', { type: 'warning' })
-    await batchDeleteStrmRecordApi([row.strmId])
-    ElMessage.success('删除成功')
-    getList()
-  } catch (e) { if (e !== 'cancel') console.error(e) }
-}
-
-const handleBatchRemoveNetDisk = async () => {
-  try {
-    await ElMessageBox.confirm(`危险操作：确认要从网盘中彻底删除选中的 ${selectedIds.value.length} 个文件吗？`, '警告', { type: 'error' })
-    await batchRemoveStrmNetDiskApi(selectedIds.value)
-    ElMessage.success('删除网盘文件成功')
-    getList()
-  } catch (e) { if (e !== 'cancel') console.error(e) }
-}
-
-const handleRemoveNetDiskOne = async (row: any) => {
-  try {
-    await ElMessageBox.confirm(`危险操作：确认要从网盘中彻底删除该文件吗？`, '警告', { type: 'error' })
-    await batchRemoveStrmNetDiskApi([row.strmId])
-    ElMessage.success('删除网盘文件成功')
-    getList()
-  } catch (e) { if (e !== 'cancel') console.error(e) }
-}
-
-try {
-  getList()
-} catch (e) {
-  console.error('[STRM Record] Failed to load data on mount:', e)
-}
+getList()
 </script>
 
 <style scoped lang="scss">

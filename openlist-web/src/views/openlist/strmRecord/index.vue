@@ -41,7 +41,7 @@
       <!-- Action Bar -->
       <div class="action-bar">
         <div class="action-left">
-          <el-button type="danger" :disabled="multiple" @click="handleDelete()">
+          <el-button type="danger" :disabled="multiple" @click="handleBatchDelete()">
             <el-icon><Delete /></el-icon> 批量删除记录
           </el-button>
           <el-button type="danger" :disabled="multiple" @click="handleBatchRemoveNetDisk()">
@@ -142,111 +142,22 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ref } from 'vue'
 import { Search, Refresh, Delete, Download, Filter } from '@element-plus/icons-vue'
-import { getStrmRecordListApi, retryStrmRecordApi, batchDeleteStrmRecordApi, batchRetryStrmRecordApi, batchRemoveStrmNetDiskApi } from '@/api/openlist/strmRecord'
 import { useAppStore } from '@/stores/app'
-import type { SearchParams, PageResult } from '@/types'
+import { useStrmRecord } from '@/composables/useStrmRecord'
 
 const appStore = useAppStore()
 const showSearch = ref(window.innerWidth >= 768)
 
-const recordList = ref<any[]>([])
-const loading = ref(true)
-const total = ref(0)
-const multiple = ref(true)
-const selectedIds = ref<number[]>([])
-const dateRange = ref<string[] | null>(null)
+const {
+  recordList, loading, total, queryParams,
+  getList, queryRef, dateRange, handleQuery, resetQuery,
+  multiple, handleSelectionChange,
+  handleRetryOne, handleBatchRetry, handleDeleteOne, handleBatchDelete,
+  handleRemoveNetDiskOne, handleBatchRemoveNetDisk
+} = useStrmRecord()
 
-const queryParams = reactive<SearchParams & { strmFileName?: string; strmPath?: string; strmStatus?: string }>({
-  pageNum: 1,
-  pageSize: 10,
-  strmStatus: undefined
-})
-
-const getList = async () => {
-  loading.value = true
-  try {
-    const res = await getStrmRecordListApi(queryParams) as PageResult
-    recordList.value = res.records
-    total.value = res.total
-  } finally {
-    loading.value = false
-  }
-}
-
-const handleQuery = () => {
-  queryParams.pageNum = 1
-  if (dateRange.value != null && dateRange.value.length === 2) {
-    queryParams.params = { beginTime: dateRange.value[0] + ' 00:00:00', endTime: dateRange.value[1] + ' 23:59:59' }
-  } else {
-    delete queryParams.params
-  }
-  getList()
-}
-const resetQuery = () => {
-  dateRange.value = null
-  if (queryRef.value) (queryRef.value as any).resetFields()
-  handleQuery()
-}
-const handleSelectionChange = (selection: any[]) => { multiple.value = !selection.length; selectedIds.value = selection.map((item: any) => item.strmId) }
-
-const handleDelete = async () => {
-  try {
-    await ElMessageBox.confirm(`是否确认删除STRM记录编号为"${selectedIds.value}"的数据项？`, '警告', { type: 'warning' })
-    await batchDeleteStrmRecordApi(selectedIds.value)
-    ElMessage.success('删除成功')
-    getList()
-  } catch (e) { if (e !== 'cancel') console.error(e) }
-}
-
-const handleRetryOne = async (row: any) => {
-  try {
-    await ElMessageBox.confirm(`是否确认重试STRM记录"${row.strmId}"？`, '警告', { type: 'warning' })
-    await retryStrmRecordApi(row.strmId)
-    ElMessage.success('重试成功')
-    getList()
-  } catch (e) { if (e !== 'cancel') console.error(e) }
-}
-
-const handleBatchRetry = async () => {
-  try {
-    await ElMessageBox.confirm(`是否确认批量重试选中的STRM记录？`, '警告', { type: 'warning' })
-    await batchRetryStrmRecordApi(selectedIds.value)
-    ElMessage.success('批量重试成功')
-    getList()
-  } catch (e) { if (e !== 'cancel') console.error(e) }
-}
-
-const handleBatchRemoveNetDisk = async () => {
-  try {
-    await ElMessageBox.confirm(`危险操作：确认要从网盘中彻底删除选中的 ${selectedIds.value.length} 个文件吗？`, '警告', { type: 'error' })
-    await batchRemoveStrmNetDiskApi(selectedIds.value)
-    ElMessage.success('删除网盘文件成功')
-    getList()
-  } catch (e) { if (e !== 'cancel') console.error(e) }
-}
-
-const handleRemoveNetDiskOne = async (row: any) => {
-  try {
-    await ElMessageBox.confirm(`危险操作：确认要从网盘中彻底删除该文件吗？`, '警告', { type: 'error' })
-    await batchRemoveStrmNetDiskApi([row.strmId])
-    ElMessage.success('删除网盘文件成功')
-    getList()
-  } catch (e) { if (e !== 'cancel') console.error(e) }
-}
-
-const handleDeleteOne = async (row: any) => {
-  try {
-    await ElMessageBox.confirm(`是否确认删除STRM记录编号为"${row.strmId}"的数据项？`, '警告', { type: 'warning' })
-    await batchDeleteStrmRecordApi([row.strmId])
-    ElMessage.success('删除成功')
-    getList()
-  } catch (e) { if (e !== 'cancel') console.error(e) }
-}
-
-const queryRef = ref<any>()
 getList()
 </script>
 

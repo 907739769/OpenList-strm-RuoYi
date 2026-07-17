@@ -211,31 +211,28 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ref } from 'vue'
+import { ElMessage } from 'element-plus'
 import {
   Search, ArrowDown, ArrowLeft, ArrowRight,
   Files, Location, Clock,
   RefreshLeft, Refresh, Delete, Document, CopyDocument, Download
 } from '@element-plus/icons-vue'
-import {
-  getCopyRecordListApi,
-  retryCopyRecordApi,
-  batchDeleteCopyRecordApi,
-  batchRetryCopyRecordApi,
-  batchRemoveCopyNetDiskApi
-} from '@/api/openlist/copyRecord'
-import type { SearchParams, PageResult } from '@/types'
+import { useCopyRecord } from '@/composables/useCopyRecord'
 
-const recordList = ref<any[]>([])
-const loading = ref(true)
-const total = ref(0)
-const selectedIds = ref<number[]>([])
-const dateRange = ref<string[] | null>(null)
 const searchCollapsed = ref(true)
-const queryRef = ref<any>()
 
-// Full text dialog
+const {
+  recordList, loading, total, queryParams, totalPages,
+  getList, prevPage, nextPage, handleSizeChange,
+  queryRef, dateRange, handleQuery, resetQuery,
+  selectedIds, toggleSelect, handleCardClick, clearSelection,
+  handleRetryOne, handleBatchRetry, handleDeleteOne, handleBatchDelete,
+  handleRemoveNetDiskOne, handleBatchRemoveNetDisk,
+  getCopyStatusText, getCopyStatusType
+} = useCopyRecord()
+
+// 全文弹窗：移动端路径与文件名会被截断，点开看全并支持复制
 const fullTextVisible = ref(false)
 const fullTextTitle = ref('')
 const fullTextContent = ref('')
@@ -251,7 +248,7 @@ const copyToClipboard = async (text: string) => {
     await navigator.clipboard.writeText(text)
     ElMessage.success('已复制到剪贴板')
   } catch {
-    // Fallback for older browsers
+    // navigator.clipboard 需要安全上下文，HTTP 下走降级方案
     const textarea = document.createElement('textarea')
     textarea.value = text
     textarea.style.position = 'fixed'
@@ -262,158 +259,6 @@ const copyToClipboard = async (text: string) => {
     document.body.removeChild(textarea)
     ElMessage.success('已复制到剪贴板')
   }
-}
-
-const totalPages = computed(() => Math.ceil(total.value / queryParams.pageSize) || 1)
-
-const queryParams = reactive<SearchParams & {
-  copySrcPath?: string
-  copyDstPath?: string
-  copySrcFileName?: string
-  copyDstFileName?: string
-  copyStatus?: string
-}>({
-  pageNum: 1,
-  pageSize: 10,
-  copyStatus: undefined
-})
-
-const getCopyStatusType = (status: string) => {
-  if (status === '1') return 'warning'
-  if (status === '2') return 'danger'
-  if (status === '3') return 'success'
-  return 'info'
-}
-
-const getCopyStatusText = (status: string) => {
-  if (status === '1') return '处理中'
-  if (status === '2') return '失败'
-  if (status === '3') return '成功'
-  return '未知'
-}
-
-const getList = async () => {
-  loading.value = true
-  try {
-    const res = await getCopyRecordListApi(queryParams) as PageResult
-    recordList.value = res.records || []
-    total.value = res.total || 0
-  } finally {
-    loading.value = false
-  }
-}
-
-const handleQuery = () => {
-  queryParams.pageNum = 1
-  if (dateRange.value != null && dateRange.value.length === 2) {
-    queryParams.params = {
-      beginTime: dateRange.value[0] + ' 00:00:00',
-      endTime: dateRange.value[1] + ' 23:59:59'
-    }
-  } else {
-    delete queryParams.params
-  }
-  getList()
-}
-
-const resetQuery = () => {
-  dateRange.value = null
-  if (queryRef.value) (queryRef.value as any).resetFields()
-  handleQuery()
-}
-
-const toggleSelect = (id: number) => {
-  const idx = selectedIds.value.indexOf(id)
-  if (idx > -1) {
-    selectedIds.value.splice(idx, 1)
-  } else {
-    selectedIds.value.push(id)
-  }
-}
-
-const handleCardClick = (event: Event, id: number) => {
-  const target = event.target as HTMLElement
-  if (target.closest('.card-checkbox')) return
-  toggleSelect(id)
-}
-
-const clearSelection = () => {
-  selectedIds.value = []
-}
-
-const prevPage = () => {
-  if (queryParams.pageNum > 1) {
-    queryParams.pageNum--
-    getList()
-  }
-}
-
-const nextPage = () => {
-  if (queryParams.pageNum < totalPages.value) {
-    queryParams.pageNum++
-    getList()
-  }
-}
-
-const handleSizeChange = () => {
-  queryParams.pageNum = 1
-  getList()
-}
-
-// --- Actions ---
-
-const handleRetryOne = async (row: any) => {
-  try {
-    await ElMessageBox.confirm(`是否确认重试同步记录"${row.copySrcFileName}"？`, '提示', { type: 'warning' })
-    await retryCopyRecordApi(row.copyId)
-    ElMessage.success('重试成功')
-    getList()
-  } catch (e) { if (e !== 'cancel') console.error(e) }
-}
-
-const handleBatchRetry = async () => {
-  try {
-    await ElMessageBox.confirm(`是否确认批量重试选中的 ${selectedIds.value.length} 条记录？`, '提示', { type: 'warning' })
-    await batchRetryCopyRecordApi(selectedIds.value)
-    ElMessage.success('批量重试成功')
-    getList()
-  } catch (e) { if (e !== 'cancel') console.error(e) }
-}
-
-const handleBatchDelete = async () => {
-  try {
-    await ElMessageBox.confirm(`是否确认删除选中的 ${selectedIds.value.length} 条记录？`, '警告', { type: 'warning' })
-    await batchDeleteCopyRecordApi(selectedIds.value)
-    ElMessage.success('删除成功')
-    getList()
-  } catch (e) { if (e !== 'cancel') console.error(e) }
-}
-
-const handleDeleteOne = async (row: any) => {
-  try {
-    await ElMessageBox.confirm(`是否确认删除同步记录"${row.copySrcFileName}"？`, '警告', { type: 'warning' })
-    await batchDeleteCopyRecordApi([row.copyId])
-    ElMessage.success('删除成功')
-    getList()
-  } catch (e) { if (e !== 'cancel') console.error(e) }
-}
-
-const handleBatchRemoveNetDisk = async () => {
-  try {
-    await ElMessageBox.confirm(`危险操作：确认要从网盘中彻底删除选中的 ${selectedIds.value.length} 个文件吗？`, '警告', { type: 'error' })
-    await batchRemoveCopyNetDiskApi(selectedIds.value)
-    ElMessage.success('删除网盘文件成功')
-    getList()
-  } catch (e) { if (e !== 'cancel') console.error(e) }
-}
-
-const handleRemoveNetDiskOne = async (row: any) => {
-  try {
-    await ElMessageBox.confirm(`危险操作：确认要从网盘中彻底删除该文件吗？`, '警告', { type: 'error' })
-    await batchRemoveCopyNetDiskApi([row.copyId])
-    ElMessage.success('删除网盘文件成功')
-    getList()
-  } catch (e) { if (e !== 'cancel') console.error(e) }
 }
 
 getList()
