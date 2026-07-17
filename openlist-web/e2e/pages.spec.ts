@@ -1,5 +1,24 @@
 import { test, expect } from '@playwright/test'
 
+/**
+ * 与 sys_menu 中 C 类型菜单的 url 保持一致（见 ruoyi-common/src/main/resources/sql）。
+ * 此前这里列的是 /system/user、/monitor/server、/openlist/strm-task 等 RuoYi 模板里的
+ * 页面，本项目既没有对应菜单也没有对应组件；加上每个用例都用
+ * isVisible().catch(() => false) 包着，找不到就静默跳过，因此全部永远通过。
+ */
+const PAGES = [
+  { title: '字典管理', path: '/system/dict' },
+  { title: '参数设置', path: '/system/config' },
+  { title: '定时任务', path: '/monitor/job' },
+  { title: '实时日志', path: '/monitor/log' },
+  { title: '同步任务配置', path: '/openliststrm/task' },
+  { title: '同步任务记录', path: '/openliststrm/copy' },
+  { title: 'strm任务配置', path: '/openliststrm/strm_task' },
+  { title: 'STRM生成记录', path: '/openliststrm/strm' },
+  { title: '重命名任务配置', path: '/openliststrm/renameTask' },
+  { title: '重命名明细', path: '/openliststrm/renameDetail' }
+]
+
 test.beforeEach(async ({ page }) => {
   await page.goto('/login')
   await page.locator('input[placeholder="用户名"]').fill('admin')
@@ -16,98 +35,17 @@ test.describe('Dashboard', () => {
   })
 })
 
-test.describe('System Management Pages', () => {
-  test('should navigate to user management', async ({ page }) => {
-    const userLink = page.locator('text=用户管理').first()
-    if (await userLink.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await userLink.click()
-      await page.waitForURL(/\/system\/user/, { timeout: 10000 })
-      await expect(page.locator('text=用户管理')).toBeVisible()
-    }
-  })
+test.describe('Menu Pages', () => {
+  for (const { title, path } of PAGES) {
+    test(`should render ${title} (${path})`, async ({ page }) => {
+      await page.goto(path)
 
-  test('should navigate to role management', async ({ page }) => {
-    const roleLink = page.locator('text=角色管理').first()
-    if (await roleLink.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await roleLink.click()
-      await page.waitForURL(/\/system\/role/, { timeout: 10000 })
-      await expect(page.locator('text=角色管理')).toBeVisible()
-    }
-  })
-
-  test('should navigate to dept management', async ({ page }) => {
-    const deptLink = page.locator('text=部门管理').first()
-    if (await deptLink.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await deptLink.click()
-      await page.waitForURL(/\/system\/dept/, { timeout: 10000 })
-      await expect(page.locator('text=部门管理')).toBeVisible()
-    }
-  })
-
-  test('should navigate to menu management', async ({ page }) => {
-    const menuLink = page.locator('text=菜单管理').first()
-    if (await menuLink.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await menuLink.click()
-      await page.waitForURL(/\/system\/menu/, { timeout: 10000 })
-      await expect(page.locator('text=菜单管理')).toBeVisible()
-    }
-  })
-
-  test('should navigate to config management', async ({ page }) => {
-    const configLink = page.locator('text=参数设置').first()
-    if (await configLink.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await configLink.click()
-      await page.waitForURL(/\/system\/config/, { timeout: 10000 })
-      await expect(page.locator('text=参数设置')).toBeVisible()
-    }
-  })
-})
-
-test.describe('Monitor Pages', () => {
-  test('should navigate to server monitor', async ({ page }) => {
-    const serverLink = page.locator('text=服务监控').first()
-    if (await serverLink.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await serverLink.click()
-      await page.waitForURL(/\/monitor\/server/, { timeout: 10000 })
-      await expect(page.locator('text=服务监控')).toBeVisible()
-    }
-  })
-
-  test('should navigate to cache monitor', async ({ page }) => {
-    const cacheLink = page.locator('text=缓存监控').first()
-    if (await cacheLink.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await cacheLink.click()
-      await page.waitForURL(/\/monitor\/cache/, { timeout: 10000 })
-      await expect(page.locator('text=缓存监控')).toBeVisible()
-    }
-  })
-})
-
-test.describe('OpenList Pages', () => {
-  test('should navigate to STRM task', async ({ page }) => {
-    const strmLink = page.locator('text=STRM任务').first()
-    if (await strmLink.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await strmLink.click()
-      await page.waitForURL(/\/openlist\/strm-task/, { timeout: 10000 })
-      await expect(page.locator('text=STRM任务')).toBeVisible()
-    }
-  })
-
-  test('should navigate to copy task', async ({ page }) => {
-    const copyLink = page.locator('text=同步任务').first()
-    if (await copyLink.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await copyLink.click()
-      await page.waitForURL(/\/openlist\/copy-task/, { timeout: 10000 })
-      await expect(page.locator('text=同步任务')).toBeVisible()
-    }
-  })
-
-  test('should navigate to rename task', async ({ page }) => {
-    const renameLink = page.locator('text=重命名任务').first()
-    if (await renameLink.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await renameLink.click()
-      await page.waitForURL(/\/openlist\/rename-task/, { timeout: 10000 })
-      await expect(page.locator('text=重命名任务')).toBeVisible()
-    }
-  })
+      await expect(page).toHaveURL(new RegExp(path.replace(/\//g, '\\/')))
+      // 标题由路由守卫按菜单 meta.title 设置，能对上说明路由确实匹配到了这个菜单
+      await expect(page).toHaveTitle(new RegExp(title))
+      // componentMap 查不到组件时会回落到 404 视图（此时 meta.title 仍是菜单名，
+      // 光看标题发现不了），所以要单独确认渲染的不是 404
+      await expect(page.locator('.error-page')).toHaveCount(0)
+    })
+  }
 })
