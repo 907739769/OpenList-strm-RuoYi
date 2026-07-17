@@ -2,6 +2,7 @@ import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import NProgress from 'nprogress'
 import 'nprogress/nprogress.css'
 import Cookies from 'js-cookie'
+import { ElMessage } from 'element-plus'
 import type { MenuRoute } from '@/stores/user'
 import { useUserStore } from '@/stores/user'
 import { useAppStore } from '@/stores/app'
@@ -258,20 +259,57 @@ router.beforeEach(async (to, _from, next) => {
   }
 })
 
-router.afterEach(() => {
+// 记录上一次因 chunk 失效触发的硬刷新，避免刷新后仍失败时无限循环
+const CHUNK_RELOAD_KEY = 'osr:chunk-reload'
+const CHUNK_RELOAD_WINDOW = 30_000
+
+type ChunkReloadMark = { path: string; at: number }
+
+function readChunkReloadMark(): ChunkReloadMark | null {
+  try {
+    const raw = sessionStorage.getItem(CHUNK_RELOAD_KEY)
+    return raw ? JSON.parse(raw) as ChunkReloadMark : null
+  } catch {
+    return null
+  }
+}
+
+router.afterEach((to) => {
   NProgress.done()
+
+  // 目标路由已经能正常打开，说明硬刷新救回来了，清掉标记
+  const mark = readChunkReloadMark()
+  if (mark && mark.path === to.fullPath) {
+    sessionStorage.removeItem(CHUNK_RELOAD_KEY)
+  }
 })
 
 // 兜底拦截：旧版 JS Chunk 已失效时强制硬刷新，避免登录页卡死
 router.onError((error, to) => {
-  if (
+  const isChunkError =
     error.message.includes('Failed to fetch dynamically imported module') ||
     error.message.includes('Importing a module script failed') ||
     error.name === 'ChunkLoadError'
-  ) {
-    console.warn('[router] 检测到旧资源失效，强制刷新页面...')
-    window.location.href = to.fullPath
+
+  if (!isChunkError) return
+
+  // 刚为同一个路由刷新过却又失败，多半不是版本问题（断网 / 缓存损坏）。
+  // PWA standalone 下没有地址栏可以中止循环，这里必须主动停手。
+  const mark = readChunkReloadMark()
+  if (mark && mark.path === to.fullPath && Date.now() - mark.at < CHUNK_RELOAD_WINDOW) {
+    sessionStorage.removeItem(CHUNK_RELOAD_KEY)
+    console.error('[router] 刷新后仍无法加载页面资源，停止自动刷新', error)
+    ElMessage.error('页面资源加载失败，请检查网络后重试')
+    return
   }
+
+  console.warn('[router] 检测到旧资源失效，强制刷新页面...')
+  try {
+    sessionStorage.setItem(CHUNK_RELOAD_KEY, JSON.stringify({ path: to.fullPath, at: Date.now() }))
+  } catch {
+    // sessionStorage 不可用（隐私模式等）时仍然刷新，只是失去防循环能力
+  }
+  window.location.href = to.fullPath
 })
 
 export default router
