@@ -11,8 +11,8 @@ test.beforeEach(async ({ page }) => {
 test.describe('Dashboard', () => {
   test('should load dashboard', async ({ page }) => {
     await expect(page).toHaveURL(/\/dashboard/)
-    const mainContent = page.locator('.dashboard-container').first()
-    await expect(mainContent).toBeVisible()
+    // 首页按设备分流成两套实现，断言当前设备对应的那一套渲染出来即可
+    await expect(page.locator('.dashboard, .mobile-dashboard')).toBeVisible()
   })
 })
 

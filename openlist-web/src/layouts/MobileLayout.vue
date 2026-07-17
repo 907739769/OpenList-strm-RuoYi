@@ -110,10 +110,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
-import { useAppStore } from '@/stores/app'
 import { useUserStore } from '@/stores/user'
 import {
   Menu, Close, Odometer, VideoCamera, Files, EditPen,
@@ -124,7 +123,6 @@ import { getIconComponent } from '@/composables/useMenuIcon'
 
 const route = useRoute()
 const router = useRouter()
-const appStore = useAppStore()
 const userStore = useUserStore()
 const menuOpen = ref(false)
 const showPasswordDialog = ref(false)
@@ -168,13 +166,6 @@ const handleDropdownCommand = async (command: string) => {
   }
 }
 
-onMounted(() => {
-  appStore.toggleDevice('mobile')
-})
-
-onUnmounted(() => {
-  appStore.toggleDevice('desktop')
-})
 </script>
 
 <style scoped lang="scss">

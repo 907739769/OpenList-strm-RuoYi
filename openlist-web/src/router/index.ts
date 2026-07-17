@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
+import type { Component } from 'vue'
 import NProgress from 'nprogress'
 import 'nprogress/nprogress.css'
 import Cookies from 'js-cookie'
@@ -6,6 +7,7 @@ import { ElMessage } from 'element-plus'
 import type { MenuRoute } from '@/stores/user'
 import { useUserStore } from '@/stores/user'
 import { useAppStore } from '@/stores/app'
+import { createDeviceView } from './deviceView'
 
 NProgress.configure({ showSpinner: false })
 
@@ -48,7 +50,9 @@ export const constantRoutes: RouteRecordRaw[] = [
   }
 ]
 
-const componentMap: Record<string, () => Promise<any>> = {
+// PC 与移动端各有一套实现的页面，交给 createDeviceView 在运行时按 device 选择，
+// 路由表本身不再区分设备。
+const componentMap: Record<string, Component | (() => Promise<any>)> = {
   'Layout': () => import('@/layouts/DesktopLayout.vue'),
   'system/dict/type/index': () => import('@/views/system/dict/type/index.vue'),
   'system/dict/data/index': () => import('@/views/system/dict/data/index.vue'),
@@ -56,25 +60,30 @@ const componentMap: Record<string, () => Promise<any>> = {
   'system/config/index': () => import('@/views/system/config/index.vue'),
   'monitor/job/index': () => import('@/views/monitor/job/index.vue'),
   'monitor/log/index': () => import('@/views/monitor/log/realtime.vue'),
-  'openlist/strmTask/index': () => import('@/views/openlist/strmTask/index.vue'),
-  'openlist/strmRecord/index': () => import('@/views/openlist/strmRecord/index.vue'),
-  'openlist/copyTask/index': () => import('@/views/openlist/copyTask/index.vue'),
-  'openlist/copyRecord/index': () => import('@/views/openlist/copyRecord/index.vue'),
-  'openlist/renameTask/index': () => import('@/views/openlist/renameTask/index.vue'),
-  'openlist/renameDetail/index': () => import('@/views/openlist/renameDetail/index.vue'),
-  'openliststrm/task/index': () => import('@/views/openlist/copyTask/index.vue'),
-  'openliststrm/copy/index': () => import('@/views/openlist/copyRecord/index.vue'),
-  'openliststrm/strm_task/index': () => import('@/views/openlist/strmTask/index.vue'),
-  'openliststrm/strm/index': () => import('@/views/openlist/strmRecord/index.vue'),
-  'openliststrm/renameTask/index': () => import('@/views/openlist/renameTask/index.vue'),
-  'openliststrm/renameDetail/index': () => import('@/views/openlist/renameDetail/index.vue'),
-  'views-mobile/strmRecord/index': () => import('@/views-mobile/strmRecord/index.vue'),
-  'views-mobile/strmTask/index': () => import('@/views-mobile/strmTask/index.vue'),
-  'views-mobile/copyTask/index': () => import('@/views-mobile/copyTask/index.vue'),
-  'views-mobile/copyRecord/index': () => import('@/views-mobile/copyRecord/index.vue'),
-  'views-mobile/renameTask/index': () => import('@/views-mobile/renameTask/index.vue'),
-  'views-mobile/renameDetail/index': () => import('@/views-mobile/renameDetail/index.vue'),
-  'views-mobile/dashboard/index': () => import('@/views-mobile/dashboard/index.vue')
+  'openlist/strmTask/index': createDeviceView(
+    () => import('@/views/openlist/strmTask/index.vue'),
+    () => import('@/views-mobile/strmTask/index.vue')
+  ),
+  'openlist/strmRecord/index': createDeviceView(
+    () => import('@/views/openlist/strmRecord/index.vue'),
+    () => import('@/views-mobile/strmRecord/index.vue')
+  ),
+  'openlist/copyTask/index': createDeviceView(
+    () => import('@/views/openlist/copyTask/index.vue'),
+    () => import('@/views-mobile/copyTask/index.vue')
+  ),
+  'openlist/copyRecord/index': createDeviceView(
+    () => import('@/views/openlist/copyRecord/index.vue'),
+    () => import('@/views-mobile/copyRecord/index.vue')
+  ),
+  'openlist/renameTask/index': createDeviceView(
+    () => import('@/views/openlist/renameTask/index.vue'),
+    () => import('@/views-mobile/renameTask/index.vue')
+  ),
+  'openlist/renameDetail/index': createDeviceView(
+    () => import('@/views/openlist/renameDetail/index.vue'),
+    () => import('@/views-mobile/renameDetail/index.vue')
+  )
 }
 
 /**
@@ -134,16 +143,8 @@ function convertMenuToRoute(menu: MenuRoute): RouteRecordRaw {
     ? menu.children.map(child => convertMenuToRoute(child))
     : []
 
-  let componentPath = menu.component || ''
-
-  // 1. Normalize to canonical desktop format
-  componentPath = normalizeComponentPath(componentPath)
-
-  // 2. Convert to mobile view on mobile devices
-  const isMobile = useAppStore().device === 'mobile'
-  if (isMobile && componentPath.startsWith('openlist/')) {
-    componentPath = componentPath.replace('openlist/', 'views-mobile/')
-  }
+  // 归一化成 openlist/xxx/index 这一种写法后再查表；PC / 移动端的选择由组件自己负责
+  const componentPath = normalizeComponentPath(menu.component || '')
 
   const component = componentMap[componentPath] || (() => import('@/views/error/404.vue'))
 
@@ -237,9 +238,10 @@ router.beforeEach(async (to, _from, next) => {
           const menuRoutes = await userStore.getRouters()
           if (menuRoutes && (menuRoutes as any).length > 0) {
             addDynamicRoutes(menuRoutes as MenuRoute[])
-            // Routes were just added - use replace to force re-navigation
-            // next() does not trigger route matching for already-current path
-            router.replace(to.path)
+            // 动态路由刚注册完，重新触发一次导航让它生效。
+            // 必须走 next()，直接 router.replace() 后 return 会让本次守卫没有结局，
+            // vue-router 会抛 "Invalid navigation guard"。
+            next({ ...to, replace: true })
             return
           }
         }

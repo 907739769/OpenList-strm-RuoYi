@@ -54,4 +54,29 @@ test.describe('Mobile Responsive', () => {
     await page.locator('.stat-card.clickable').first().click()
     await expect(page).toHaveURL(/\/openliststrm\/copy/)
   })
+
+  // 动态路由曾按首次导航时的 device 固化 PC/移动端组件，导致缩放后
+  // 「移动端布局里套着 PC 页面」。这里守住双向切换。
+  test('page component should follow the viewport, in both directions', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 })
+    await page.goto('/login')
+    await page.locator('input[placeholder="用户名"]').fill('admin')
+    await page.locator('input[placeholder="密码"]').fill('admin123')
+    await page.locator('text=登 录').click()
+    await page.waitForURL(/\/dashboard/, { timeout: 15000 })
+
+    await page.goto('/openliststrm/copy')
+    await expect(page.locator('.page-container')).toBeVisible()
+    await expect(page.locator('.mobile-page')).toHaveCount(0)
+
+    await page.setViewportSize({ width: 375, height: 812 })
+    await expect(page.locator('.mobile-page')).toBeVisible()
+    await expect(page.locator('.page-container')).toHaveCount(0)
+    await expect(page.locator('.mobile-tabbar')).toBeVisible()
+
+    await page.setViewportSize({ width: 1280, height: 800 })
+    await expect(page.locator('.page-container')).toBeVisible()
+    await expect(page.locator('.mobile-page')).toHaveCount(0)
+    await expect(page.locator('.mobile-tabbar')).toHaveCount(0)
+  })
 })
