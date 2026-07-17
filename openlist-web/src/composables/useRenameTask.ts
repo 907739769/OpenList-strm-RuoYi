@@ -6,6 +6,7 @@ import {
   addRenameTaskApi,
   updateRenameTaskApi,
   deleteRenameTaskApi,
+  batchDeleteRenameTaskApi,
   executeRenameTaskApi,
   testParseRenameApi
 } from '@/api/openlist/renameTask'
@@ -27,6 +28,7 @@ export function useRenameTask() {
     addApi: addRenameTaskApi,
     updateApi: updateRenameTaskApi,
     deleteApi: deleteRenameTaskApi,
+    batchDeleteApi: batchDeleteRenameTaskApi,
     executeApi: executeRenameTaskApi,
     idField: 'id',
     initForm: () => ({

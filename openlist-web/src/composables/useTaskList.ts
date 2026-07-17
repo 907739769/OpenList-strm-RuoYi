@@ -11,6 +11,8 @@ export interface TaskListApiConfig<TQuery extends SearchParams = SearchParams> {
   updateApi: (data: any) => Promise<any>
   /** 删除 API（单条） */
   deleteApi: (id: number) => Promise<any>
+  /** 批量删除 API。不传则退化为逐条调用 deleteApi */
+  batchDeleteApi?: (ids: number[]) => Promise<any>
   /** 执行 API */
   executeApi: (ids: number[]) => Promise<any>
   /** ID 字段名 */
@@ -28,7 +30,7 @@ export interface TaskListApiConfig<TQuery extends SearchParams = SearchParams> {
  * 适用于 strmTask、copyTask 等具有相同模式的页面
  */
 export function useTaskList<TQuery extends SearchParams = SearchParams>(config: TaskListApiConfig<TQuery>) {
-  const { listApi, addApi, updateApi, deleteApi, executeApi, idField, initForm, rules, defaultQuery } = config
+  const { listApi, addApi, updateApi, deleteApi, batchDeleteApi, executeApi, idField, initForm, rules, defaultQuery } = config
 
   // --- 列表 & 分页 ---
   const taskList = ref<any[]>([])
@@ -135,7 +137,12 @@ export function useTaskList<TQuery extends SearchParams = SearchParams>(config: 
       if (!ids.length) return
       try {
         await ElMessageBox.confirm(confirmMsg || `是否确认删除编号为"${ids}"的数据项？`, '警告', { type: 'warning' })
-        await deleteApi(ids[0])
+        // 曾经这里是 deleteApi(ids[0])：选中多条时只会删掉第一条，却照样提示删除成功
+        if (batchDeleteApi) {
+          await batchDeleteApi(ids)
+        } else {
+          await Promise.all(ids.map(id => deleteApi(id)))
+        }
         ElMessage.success('删除成功')
         getList()
       } catch (e) { if (e !== 'cancel') console.error(e) }

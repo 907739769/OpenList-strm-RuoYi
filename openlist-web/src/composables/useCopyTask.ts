@@ -6,6 +6,7 @@ import {
   addCopyTaskApi,
   updateCopyTaskApi,
   deleteCopyTaskApi,
+  batchDeleteCopyTaskApi,
   executeCopyTaskApi
 } from '@/api/openlist/copyTask'
 import type { SearchParams } from '@/types'
@@ -27,6 +28,7 @@ export function useCopyTask() {
     addApi: addCopyTaskApi,
     updateApi: updateCopyTaskApi,
     deleteApi: deleteCopyTaskApi,
+    batchDeleteApi: batchDeleteCopyTaskApi,
     executeApi: executeCopyTaskApi,
     idField: 'copyTaskId',
     initForm: () => ({

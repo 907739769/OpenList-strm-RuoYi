@@ -6,6 +6,7 @@ import {
   addStrmTaskApi,
   updateStrmTaskApi,
   deleteStrmTaskApi,
+  batchDeleteStrmTaskApi,
   executeStrmTaskApi
 } from '@/api/openlist/strmTask'
 import type { SearchParams } from '@/types'
@@ -25,6 +26,7 @@ export function useStrmTask() {
     addApi: addStrmTaskApi,
     updateApi: updateStrmTaskApi,
     deleteApi: deleteStrmTaskApi,
+    batchDeleteApi: batchDeleteStrmTaskApi,
     executeApi: executeStrmTaskApi,
     idField: 'strmTaskId',
     initForm: () => ({
