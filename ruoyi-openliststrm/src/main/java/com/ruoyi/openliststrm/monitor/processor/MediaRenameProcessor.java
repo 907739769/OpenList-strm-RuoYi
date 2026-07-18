@@ -47,8 +47,38 @@ public class MediaRenameProcessor implements FileProcessor {
     private static final Map<String, List<CategoryRule>> rules = defaultRules();
     private static final String DEFAULT_FILENAME_TEMPLATE = "{{ title }} {% if year %} ({{ year }}) {% endif %}/{% if season %}Season {{ season }}/{% endif %}{{ title }} {% if year and not season %} ({{ year }}) {% endif %}{% if season %}S{{ season }}{% endif %}{% if episode %}E{{ episode }}{% endif %}{% if resolution %} - {{ resolution }}{% endif %}{% if source %}.{{ source }}{% endif %}{% if videoCodec %}.{{ videoCodec }}{% endif %}{% if audioCodec %}.{{ audioCodec }}{% endif %}{% if tags is not empty %}.{{ tags|join('.') }}{% endif %}{% if releaseGroup %}-{{ releaseGroup }}{% endif %}.{{ extension }}";
 
-    private static final ConcurrentMap<String, Object> FILE_LOCKS = new ConcurrentHashMap<>();
+    /** 按目标路径加锁，使用引用计数避免"释放后又被新线程复用同一把已失效锁"的竞态 */
+    private static final ConcurrentMap<String, LockEntry> FILE_LOCKS = new ConcurrentHashMap<>();
     private final Set<Path> processing = ConcurrentHashMap.newKeySet();
+
+    private static final class LockEntry {
+        private final java.util.concurrent.locks.ReentrantLock lock = new java.util.concurrent.locks.ReentrantLock();
+        private final java.util.concurrent.atomic.AtomicInteger refCount = new java.util.concurrent.atomic.AtomicInteger(0);
+    }
+
+    /**
+     * 按 key 加锁执行 action，锁对象在最后一个持有者退出时才从 map 中移除，
+     * 避免 computeIfAbsent+remove 模拟锁在并发场景下出现两把不同锁保护同一 key 的问题。
+     */
+    private static void withFileLock(String key, IOAction action) throws IOException {
+        LockEntry entry = FILE_LOCKS.compute(key, (k, v) -> {
+            if (v == null) v = new LockEntry();
+            v.refCount.incrementAndGet();
+            return v;
+        });
+        entry.lock.lock();
+        try {
+            action.run();
+        } finally {
+            entry.lock.unlock();
+            FILE_LOCKS.computeIfPresent(key, (k, v) -> v.refCount.decrementAndGet() <= 0 ? null : v);
+        }
+    }
+
+    @FunctionalInterface
+    private interface IOAction {
+        void run() throws IOException;
+    }
 
 
     public MediaRenameProcessor(
@@ -118,16 +148,22 @@ public class MediaRenameProcessor implements FileProcessor {
                 return;
             }
             IRenameDetailPlusService renameDetailPlusService = SpringUtils.getBean(IRenameDetailPlusService.class);
+            // 一次性批量查出该目录下已处理成功的文件，避免遍历时逐文件查询数据库
+            String sourceDirStr = sourceDir.toAbsolutePath().normalize().toString();
+            Set<String> processedKeys = renameDetailPlusService.lambdaQuery()
+                    .likeRight(RenameDetailPlus::getOriginalPath, sourceDirStr)
+                    .eq(RenameDetailPlus::getStatus, "1")
+                    .list()
+                    .stream()
+                    .map(r -> r.getOriginalPath() + " " + r.getOriginalName())
+                    .collect(java.util.stream.Collectors.toSet());
+
             Files.walkFileTree(sourceDir, new SimpleFileVisitor<Path>() {
                 @Override
                 public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
                     Path p = file.toAbsolutePath().normalize();
-                    //判断是否有处理成功的数据
-                    long count = renameDetailPlusService.lambdaQuery().eq(RenameDetailPlus::getOriginalPath, p.getParent().toString())
-                            .eq(RenameDetailPlus::getOriginalName, p.getFileName().toString())
-                            .eq(RenameDetailPlus::getStatus, "1")
-                            .count();
-                    if (count > 0) {
+                    String key = p.getParent().toString() + " " + p.getFileName().toString();
+                    if (processedKeys.contains(key)) {
                         return FileVisitResult.CONTINUE;
                     }
                     processing.add(p);
@@ -265,25 +301,20 @@ public class MediaRenameProcessor implements FileProcessor {
     /** Step 4: 复制文件到目标路径（含文件锁保护） */
     private boolean copyFileToDest(Path source, Path destFile, Path finalDestDir, String originalFilename) throws IOException {
         String lockKey = destFile.toAbsolutePath().normalize().toString();
-        Object lock = FILE_LOCKS.computeIfAbsent(lockKey, k -> new Object());
-        try {
-            synchronized (lock) {
-                Path tmpFile = finalDestDir.resolve(destFile.getFileName().toString() + ".tmp");
-                try {
-                    if (openListHelper.isStrm(originalFilename)) {
-                        Files.copy(source, destFile, REPLACE_EXISTING);
-                    } else {
-                        Files.copy(source, tmpFile, REPLACE_EXISTING);
-                        Files.move(tmpFile, destFile, StandardCopyOption.ATOMIC_MOVE);
-                    }
-                    log.info("已复制并重命名 {} -> {}", source, destFile);
-                } finally {
-                    Files.deleteIfExists(tmpFile);
+        withFileLock(lockKey, () -> {
+            Path tmpFile = finalDestDir.resolve(destFile.getFileName().toString() + ".tmp");
+            try {
+                if (openListHelper.isStrm(originalFilename)) {
+                    Files.copy(source, destFile, REPLACE_EXISTING);
+                } else {
+                    Files.copy(source, tmpFile, REPLACE_EXISTING);
+                    Files.move(tmpFile, destFile, StandardCopyOption.ATOMIC_MOVE);
                 }
+                log.info("已复制并重命名 {} -> {}", source, destFile);
+            } finally {
+                Files.deleteIfExists(tmpFile);
             }
-        } finally {
-            FILE_LOCKS.remove(lockKey, lock);
-        }
+        });
         return true;
     }
 

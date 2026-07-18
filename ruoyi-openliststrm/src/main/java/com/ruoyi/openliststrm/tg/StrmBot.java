@@ -159,10 +159,12 @@ public class StrmBot extends AbilityBot {
                         }
                         if (!parameter.contains("#")) {
                             silent.send("请输入正确的参数，例如：/阿里云盘/电影#/115网盘/电影", ctx.chatId());
+                            return;
                         }
                         String[] strings = parameter.split("#");
                         if (strings.length != 2) {
                             silent.send("请输入正确的参数，例如：/阿里云盘/电影#/115网盘/电影", ctx.chatId());
+                            return;
                         }
                         silent.send("==开始执行同步openlist指定目录任务==", ctx.chatId());
                         ICopyService copyService = SpringUtils.getBean("copyService");

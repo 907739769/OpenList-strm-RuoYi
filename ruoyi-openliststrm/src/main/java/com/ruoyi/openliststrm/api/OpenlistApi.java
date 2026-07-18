@@ -64,24 +64,25 @@ public class OpenlistApi {
     private JSONObject executeWithRetry(Request request, String logPrefix) {
         JSONObject jsonResponse = null;
         for (int i = 0; i < MAX_RETRY; i++) {
+            boolean lastAttempt = i == MAX_RETRY - 1;
             try (Response response = client.newCall(request).execute()) {
                 if (response.isSuccessful() && response.body() != null) {
                     jsonResponse = JSONObject.parseObject(response.body().string());
-                    if (jsonResponse != null && jsonResponse.getInteger("code") == 200) {
+                    if (jsonResponse != null && Integer.valueOf(200).equals(jsonResponse.getInteger("code"))) {
                         log.debug("{}成功", logPrefix);
                         return jsonResponse;
                     }
                     log.debug("Response Body: {}", jsonResponse != null ? jsonResponse.toJSONString() : "null");
                     log.warn("{}第{}次失败", logPrefix, i + 1);
-                    Threads.sleep(RETRY_INTERVAL_MS);
                 } else {
-                    log.warn("Request failed with code: {}", response.code());
-                    log.error("Request failed with response: {}", response);
-                    return jsonResponse;
+                    log.warn("{}第{}次失败，HTTP状态码: {}", logPrefix, i + 1, response.code());
                 }
             } catch (Exception e) {
-                log.error("{}失败", logPrefix);
-                log.error("", e);
+                log.error("{}第{}次异常", logPrefix, i + 1, e);
+            }
+            // 所有可重试路径（HTTP失败、业务失败、网络异常）统一走退避重试，避免无间隔连环重试
+            if (!lastAttempt) {
+                Threads.sleep(RETRY_INTERVAL_MS * (i + 1));
             }
         }
         return jsonResponse;
@@ -141,7 +142,7 @@ public class OpenlistApi {
         JSONObject body = new JSONObject();
         body.put("path", path);
         JSONObject result = executeJsonPost(config.getOpenListUrl() + "/api/fs/mkdir", body, "创建openlist目录" + path, false);
-        if (result != null && result.getInteger("code") == 200) {
+        if (result != null && Integer.valueOf(200).equals(result.getInteger("code"))) {
             log.debug("创建openlist目录完成{}", path);
         }
         return result;

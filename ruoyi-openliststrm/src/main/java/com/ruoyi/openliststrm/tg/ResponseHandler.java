@@ -39,10 +39,12 @@ public class ResponseHandler {
         try {
             if (!parameter.contains("#")) {
                 sender.execute(SendMessage.builder().chatId(chatId).replyToMessageId(messageId).text("请输入正确的参数，例如：/阿里云盘/电影#/115网盘/电影").build());
+                return;
             }
             String[] strings = parameter.split("#");
             if (strings.length != 2) {
                 sender.execute(SendMessage.builder().chatId(chatId).replyToMessageId(messageId).text("请输入正确的参数，例如：/阿里云盘/电影#/115网盘/电影").build());
+                return;
             }
             sender.execute(SendMessage.builder().chatId(chatId).replyToMessageId(messageId).text("==开始执行指定路径sync任务==").build());
             ICopyService copyService = SpringUtils.getBean("copyService");

@@ -29,6 +29,7 @@ import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
@@ -138,26 +139,40 @@ public class StrmServiceImpl implements IStrmService {
     public void batchRemoveNetDisk(List<String> idList) {
         if (idList == null || idList.isEmpty()) return;
         List<OpenlistStrmPlus> strmList = openlistStrmPlusService.listByIds(idList);
-        // 外部API调用在事务外执行
-        Runnable externalAction = () -> strmList.forEach(strm -> {
-            openListApi.fsRemove(strm.getStrmPath(), Collections.singletonList(strm.getStrmFileName()));
-        });
-        // 数据库操作在事务内执行
-        Runnable dbAction = () -> {
-            strmList.forEach(strm ->
-                openlistCopyPlusService.remove(new LambdaQueryWrapper<OpenlistCopyPlus>()
-                        .eq(OpenlistCopyPlus::getCopyDstFileName, strm.getStrmFileName())
-                        .eq(OpenlistCopyPlus::getCopyDstPath, strm.getStrmPath())));
-            openlistStrmPlusService.removeBatchByIds(idList);
+        Runnable action = () -> {
+            // 外部API调用在事务外执行，单条隔离失败，只清理网盘删除成功的记录，避免网盘/DB状态不一致
+            List<OpenlistStrmPlus> succeeded = new java.util.ArrayList<>();
+            for (OpenlistStrmPlus strm : strmList) {
+                try {
+                    JSONObject resp = openListApi.fsRemove(strm.getStrmPath(), Collections.singletonList(strm.getStrmFileName()));
+                    if (resp != null && Integer.valueOf(200).equals(resp.getInteger("code"))) {
+                        succeeded.add(strm);
+                    } else {
+                        log.warn("网盘文件删除失败，跳过对应记录清理：{}/{}", strm.getStrmPath(), strm.getStrmFileName());
+                    }
+                } catch (Exception e) {
+                    log.error("网盘文件删除异常，跳过对应记录清理：{}/{}", strm.getStrmPath(), strm.getStrmFileName(), e);
+                }
+            }
+            if (succeeded.isEmpty()) {
+                return;
+            }
+            List<Integer> succeededIds = succeeded.stream().map(OpenlistStrmPlus::getStrmId).toList();
+            transactionTemplate.executeWithoutResult(status -> {
+                // 合并为一条 OR 条件批量删除，避免逐条 DELETE
+                LambdaQueryWrapper<OpenlistCopyPlus> copyWrapper = new LambdaQueryWrapper<>();
+                for (OpenlistStrmPlus strm : succeeded) {
+                    copyWrapper.or(w -> w.eq(OpenlistCopyPlus::getCopyDstFileName, strm.getStrmFileName())
+                            .eq(OpenlistCopyPlus::getCopyDstPath, strm.getStrmPath()));
+                }
+                openlistCopyPlusService.remove(copyWrapper);
+                openlistStrmPlusService.removeBatchByIds(succeededIds);
+            });
         };
         if (idList.size() > 20) {
-            AsyncManager.me().execute(() -> {
-                externalAction.run();
-                transactionTemplate.executeWithoutResult(status -> dbAction.run());
-            });
+            AsyncManager.me().execute(action);
         } else {
-            externalAction.run();
-            transactionTemplate.executeWithoutResult(status -> dbAction.run());
+            action.run();
         }
     }
 
@@ -234,6 +249,16 @@ public class StrmServiceImpl implements IStrmService {
 
         log.info("BFS遍历完成，共收集到 {} 个待处理文件", fileEntries.size());
 
+        // 一次性批量查出该目录树下已处理成功的记录，避免每个文件单独查询数据库
+        Set<String> existingKeys = openlistStrmPlusService.lambdaQuery()
+                .likeRight(OpenlistStrmPlus::getStrmPath, rootPath)
+                .eq(OpenlistStrmPlus::getStrmStatus, "1")
+                .select(OpenlistStrmPlus::getStrmPath, OpenlistStrmPlus::getStrmFileName)
+                .list()
+                .stream()
+                .map(s -> s.getStrmPath() + " " + s.getStrmFileName())
+                .collect(java.util.stream.Collectors.toSet());
+
         // 第二阶段：虚拟线程并行处理文件
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             List<CompletableFuture<Void>> futures = fileEntries.stream()
@@ -241,7 +266,7 @@ public class StrmServiceImpl implements IStrmService {
                     try {
                         STRM_SEMAPHORE.acquire();
                         try {
-                            processFileEntry(entry);
+                            processFileEntry(entry, existingKeys);
                         } finally {
                             STRM_SEMAPHORE.release();
                         }
@@ -258,13 +283,13 @@ public class StrmServiceImpl implements IStrmService {
     /**
      * 处理单个文件条目（从 getData 中提取出的文件处理逻辑）
      */
-    private void processFileEntry(FileEntry entry) {
+    private void processFileEntry(FileEntry entry, Set<String> existingKeys) {
         String currentPath = entry.path();
         String currentLocalPath = entry.localPath();
         String rawName = entry.name();
         long size = entry.size();
 
-        if (strmHelper.existsStrm(currentPath, rawName)) {
+        if (existingKeys.contains(currentPath + " " + rawName)) {
             if (log.isDebugEnabled()) {
                 log.debug("文件已处理过，跳过处理 {} / {}", currentPath, rawName);
             }

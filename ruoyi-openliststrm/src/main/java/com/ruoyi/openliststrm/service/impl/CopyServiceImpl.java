@@ -25,12 +25,15 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayDeque;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Queue;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
 /**
  * 复制 openlist 文件（队列版，非递归，防内存泄漏）
@@ -110,9 +113,22 @@ public class CopyServiceImpl implements ICopyService {
             }
 
             JSONArray contents = listResp.getJSONObject("data").getJSONArray("content");
-            if (contents == null) {
+            if (contents == null || contents.isEmpty()) {
                 continue;
             }
+
+            // 一次性获取目标目录下已有的名称集合，避免对每个子项都单独调用 fs/get
+            String dstPath = dstDir + (StringUtils.isBlank(relativePath) ? "" : "/" + relativePath);
+            Set<String> dstExistingNames = listDstNames(dstPath);
+
+            // 一次性批量查询该目录下已处理过的文件，避免逐文件查询数据库
+            Set<String> processedFileNames = openlistCopyPlusService.lambdaQuery()
+                    .eq(OpenlistCopyPlus::getCopySrcPath, srcPath)
+                    .in(OpenlistCopyPlus::getCopyStatus, "1", "3")
+                    .list()
+                    .stream()
+                    .map(OpenlistCopyPlus::getCopySrcFileName)
+                    .collect(Collectors.toSet());
 
             for (Object obj : contents) {
                 JSONObject content = (JSONObject) obj;
@@ -134,13 +150,11 @@ public class CopyServiceImpl implements ICopyService {
 
                 String childRelativePath =
                         StringUtils.isBlank(relativePath) ? name : relativePath + "/" + name;
-
-                String dstCheckPath = dstDir + "/" + childRelativePath;
-                JSONObject dstExistResp = openlistApi.getFile(dstCheckPath);
+                boolean existsInDst = dstExistingNames.contains(name);
 
                 if (isDir) {
                     // 目录不存在则创建
-                    if (dstExistResp == null || dstExistResp.getInteger("code") != 200) {
+                    if (!existsInDst) {
                         openlistApi.mkdir(
                                 dstDir + (StringUtils.isBlank(relativePath) ? "" : "/" + relativePath)
                                         + "/" + name
@@ -148,17 +162,40 @@ public class CopyServiceImpl implements ICopyService {
                     }
                     queue.offer(new DirTask(childRelativePath));
                 } else {
+                    if (processedFileNames.contains(name)) {
+                        log.debug("文件已处理过，跳过处理 {}/{}", dstPath, name);
+                        continue;
+                    }
                     submitCopyTask(
                             srcDir,
                             dstDir,
                             relativePath,
                             name,
                             content.getLongValue("size"),
-                            dstExistResp
+                            existsInDst
                     );
                 }
             }
         }
+    }
+
+    /**
+     * 一次性列出目标目录下的所有名称，用于批量存在性判断
+     */
+    private Set<String> listDstNames(String dstPath) {
+        JSONObject resp = openlistApi.getOpenlist(dstPath);
+        if (resp == null || resp.getJSONObject("data") == null) {
+            return Collections.emptySet();
+        }
+        JSONArray contents = resp.getJSONObject("data").getJSONArray("content");
+        if (contents == null) {
+            return Collections.emptySet();
+        }
+        Set<String> names = new HashSet<>();
+        for (Object obj : contents) {
+            names.add(((JSONObject) obj).getString("name"));
+        }
+        return names;
     }
 
     /**
@@ -170,7 +207,7 @@ public class CopyServiceImpl implements ICopyService {
             String relativePath,
             String fileName,
             long fileSize,
-            JSONObject dstExistResp
+            boolean dstExists
     ) {
         final String copySrcPath =
                 srcDir + (StringUtils.isBlank(relativePath) ? "" : "/" + relativePath);
@@ -184,13 +221,8 @@ public class CopyServiceImpl implements ICopyService {
                 copy.setCopySrcFileName(fileName);
                 copy.setCopyDstFileName(fileName);
 
-                if (copyHelper.existsCopy(copy)) {
-                    log.debug("文件已处理过，跳过处理 {}/{}", copyDstPath, fileName);
-                    return;
-                }
-
                 // 目标不存在 & 视频文件 & 体积满足
-                if ((dstExistResp == null || dstExistResp.getInteger("code") != 200)
+                if (!dstExists
                         && openListHelper.isVideo(fileName)
                         && fileSize >= config.getMinFileSizeBytes()) {
 
@@ -200,13 +232,13 @@ public class CopyServiceImpl implements ICopyService {
                             Collections.singletonList(fileName)
                     );
 
-                    if (resp != null && resp.getInteger("code") == 200) {
+                    if (resp != null && Integer.valueOf(200).equals(resp.getInteger("code"))) {
                         JSONArray tasks = resp.getJSONObject("data").getJSONArray("tasks");
                         copy.setCopyTaskId(tasks.getJSONObject(0).getString("id"));
                         copy.setCopyStatus("1");
                         copyHelper.addCopy(copy);
                     }
-                } else if (dstExistResp != null && dstExistResp.getInteger("code") == 200) {
+                } else if (dstExists) {
                     copy.setCopyStatus("3");
                     copyHelper.addCopy(copy);
                 }
@@ -254,7 +286,7 @@ public class CopyServiceImpl implements ICopyService {
         AtomicBoolean flag = new AtomicBoolean(false);
         JSONObject dstExistResp = openlistApi.getFile(dstDir + "/" + relativePath);
 
-        if ((dstExistResp == null || dstExistResp.getInteger("code") != 200)) {
+        if (dstExistResp == null || !Integer.valueOf(200).equals(dstExistResp.getInteger("code"))) {
             JSONObject srcResp = openlistApi.getFile(srcDir + "/" + relativePath);
             if(null==srcResp||null==srcResp.getJSONObject("data")){
                 log.warn("本地文件不存在{}/{}", srcDir, relativePath);
@@ -269,7 +301,7 @@ public class CopyServiceImpl implements ICopyService {
                         Collections.singletonList(fileName)
                 );
 
-                if (resp != null && resp.getInteger("code") == 200) {
+                if (resp != null && Integer.valueOf(200).equals(resp.getInteger("code"))) {
                     flag.set(true);
                     JSONArray tasks = resp.getJSONObject("data").getJSONArray("tasks");
                     copy.setCopyTaskId(tasks.getJSONObject(0).getString("id"));
@@ -310,26 +342,40 @@ public class CopyServiceImpl implements ICopyService {
     public void batchRemoveNetDisk(List<String> idList) {
         if (idList == null || idList.isEmpty()) return;
         List<OpenlistCopyPlus> copyList = openlistCopyPlusService.listByIds(idList);
-        // 外部API调用在事务外执行
-        Runnable externalAction = () -> copyList.forEach(copy -> {
-            openlistApi.fsRemove(copy.getCopyDstPath(), Collections.singletonList(copy.getCopyDstFileName()));
-        });
-        // 数据库操作在事务内执行
-        Runnable dbAction = () -> {
-            copyList.forEach(copy ->
-                openlistStrmPlusService.remove(new LambdaQueryWrapper<OpenlistStrmPlus>()
-                        .eq(OpenlistStrmPlus::getStrmFileName, copy.getCopyDstFileName())
-                        .eq(OpenlistStrmPlus::getStrmPath, copy.getCopyDstPath())));
-            openlistCopyPlusService.removeBatchByIds(idList);
+        Runnable action = () -> {
+            // 外部API调用在事务外执行，单条隔离失败，只清理网盘删除成功的记录，避免网盘/DB状态不一致
+            List<OpenlistCopyPlus> succeeded = new java.util.ArrayList<>();
+            for (OpenlistCopyPlus copy : copyList) {
+                try {
+                    JSONObject resp = openlistApi.fsRemove(copy.getCopyDstPath(), Collections.singletonList(copy.getCopyDstFileName()));
+                    if (resp != null && Integer.valueOf(200).equals(resp.getInteger("code"))) {
+                        succeeded.add(copy);
+                    } else {
+                        log.warn("网盘文件删除失败，跳过对应记录清理：{}/{}", copy.getCopyDstPath(), copy.getCopyDstFileName());
+                    }
+                } catch (Exception e) {
+                    log.error("网盘文件删除异常，跳过对应记录清理：{}/{}", copy.getCopyDstPath(), copy.getCopyDstFileName(), e);
+                }
+            }
+            if (succeeded.isEmpty()) {
+                return;
+            }
+            List<Integer> succeededIds = succeeded.stream().map(OpenlistCopyPlus::getCopyId).toList();
+            transactionTemplate.executeWithoutResult(status -> {
+                // 合并为一条 OR 条件批量删除，避免逐条 DELETE
+                LambdaQueryWrapper<OpenlistStrmPlus> strmWrapper = new LambdaQueryWrapper<>();
+                for (OpenlistCopyPlus copy : succeeded) {
+                    strmWrapper.or(w -> w.eq(OpenlistStrmPlus::getStrmFileName, copy.getCopyDstFileName())
+                            .eq(OpenlistStrmPlus::getStrmPath, copy.getCopyDstPath()));
+                }
+                openlistStrmPlusService.remove(strmWrapper);
+                openlistCopyPlusService.removeBatchByIds(succeededIds);
+            });
         };
         if (idList.size() > 20) {
-            AsyncManager.me().execute(() -> {
-                externalAction.run();
-                transactionTemplate.executeWithoutResult(status -> dbAction.run());
-            });
+            AsyncManager.me().execute(action);
         } else {
-            externalAction.run();
-            transactionTemplate.executeWithoutResult(status -> dbAction.run());
+            action.run();
         }
     }
 

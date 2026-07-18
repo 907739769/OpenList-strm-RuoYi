@@ -49,7 +49,7 @@ public class OpenlistPathRestController extends BaseController
         try
         {
             JSONObject response = openlistApi.getOpenlist(path);
-            if (response != null && response.getInteger("code") == 200)
+            if (response != null && Integer.valueOf(200).equals(response.getInteger("code")))
             {
                 JSONObject data = response.getJSONObject("data");
                 JSONArray content = data.getJSONArray("content");
