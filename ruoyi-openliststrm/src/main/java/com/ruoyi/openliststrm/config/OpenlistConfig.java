@@ -145,6 +145,24 @@ public class OpenlistConfig {
     }
 
     /**
+     * 目录遍历（STRM 生成 / 文件同步）的并发度。遍历时每个目录一次 fs/list 网络请求，
+     * 并发列举可显著缩短大目录树的遍历时间。未配置或非法时默认 10，上限 64 以免压垮 AList。
+     */
+    public int getTraversalConcurrency() {
+        String value = sysConfigService.selectConfigByKey("openlist.api.traversal.concurrency");
+        if (value == null || value.isBlank()) {
+            return 10;
+        }
+        try {
+            int n = Integer.parseInt(value.trim());
+            if (n < 1) return 1;
+            return Math.min(n, 64);
+        } catch (NumberFormatException e) {
+            return 10;
+        }
+    }
+
+    /**
      * 复制任务状态监控的最长持续时间（分钟）。超过该时长仍未结束的任务会被强制标记为异常，
      * 停止继续调度，避免下游长期卡在非终态时，调度任务无限期堆积。
      * 未配置或配置非法时默认 600 分钟。

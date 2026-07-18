@@ -22,12 +22,14 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.ArrayDeque;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeParseException;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
@@ -70,17 +72,6 @@ public class CopyServiceImpl implements ICopyService {
     private TransactionTemplate transactionTemplate;
 
     /**
-     * 目录遍历任务（极轻量）
-     */
-    private static class DirTask {
-        String relativePath;
-
-        DirTask(String relativePath) {
-            this.relativePath = relativePath;
-        }
-    }
-
-    /**
      * 队列方式同步目录（完全替代递归）
      *
      * @param incrementalAfter 增量基准时间，为 null 时全量同步
@@ -95,26 +86,54 @@ public class CopyServiceImpl implements ICopyService {
             startRelativePath = startRelativePath.substring(1);
         }
 
-        srcDir = StringUtils.removeEnd(srcDir, "/");
-        dstDir = StringUtils.removeEnd(dstDir, "/");
+        final String rootSrcDir = StringUtils.removeEnd(srcDir, "/");
+        final String rootDstDir = StringUtils.removeEnd(dstDir, "/");
+        final Semaphore dirSemaphore = new Semaphore(config.getTraversalConcurrency());
 
-        Queue<DirTask> queue = new ArrayDeque<>();
-        queue.offer(new DirTask(startRelativePath));
+        // 逐层并行 BFS：同一层的目录并发列举（每目录含 fs/list + 目标列举 + 一次 DB 查询），
+        // 层与层之间用 join 做屏障，保证父目录已 mkdir 后子目录才被列举。
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            List<String> currentLevel = new java.util.ArrayList<>();
+            currentLevel.add(startRelativePath == null ? "" : startRelativePath);
 
-        while (!queue.isEmpty()) {
-            DirTask task = queue.poll();
-            String relativePath = task.relativePath;
+            while (!currentLevel.isEmpty()) {
+                List<CompletableFuture<List<String>>> futures = currentLevel.stream()
+                        .map(rel -> CompletableFuture.supplyAsync(
+                                () -> syncOneDir(rootSrcDir, rootDstDir, rel, incrementalAfter, dirSemaphore), executor))
+                        .toList();
 
+                List<String> nextLevel = new java.util.ArrayList<>();
+                for (CompletableFuture<List<String>> f : futures) {
+                    nextLevel.addAll(f.join());
+                }
+                currentLevel = nextLevel;
+            }
+        }
+    }
+
+    /**
+     * 同步单个目录：列举源目录、创建缺失的目标子目录、对满足条件的视频文件提交异步复制任务，
+     * 返回需要继续遍历的子目录相对路径列表。通过信号量限制并发列举数，避免压垮 AList。
+     */
+    private List<String> syncOneDir(String srcDir, String dstDir, String relativePath,
+                                    Date incrementalAfter, Semaphore dirSemaphore) {
+        try {
+            dirSemaphore.acquire();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return Collections.emptyList();
+        }
+        try {
             String srcPath = srcDir + (StringUtils.isBlank(relativePath) ? "" : "/" + relativePath);
             JSONObject listResp = openlistApi.getOpenlist(srcPath);
 
             if (listResp == null || listResp.getJSONObject("data") == null) {
-                continue;
+                return Collections.emptyList();
             }
 
             JSONArray contents = listResp.getJSONObject("data").getJSONArray("content");
             if (contents == null || contents.isEmpty()) {
-                continue;
+                return Collections.emptyList();
             }
 
             // 一次性获取目标目录下已有的名称集合，避免对每个子项都单独调用 fs/get
@@ -130,6 +149,7 @@ public class CopyServiceImpl implements ICopyService {
                     .map(OpenlistCopyPlus::getCopySrcFileName)
                     .collect(Collectors.toSet());
 
+            List<String> childDirs = new java.util.ArrayList<>();
             for (Object obj : contents) {
                 JSONObject content = (JSONObject) obj;
                 String name = content.getString("name");
@@ -155,12 +175,9 @@ public class CopyServiceImpl implements ICopyService {
                 if (isDir) {
                     // 目录不存在则创建
                     if (!existsInDst) {
-                        openlistApi.mkdir(
-                                dstDir + (StringUtils.isBlank(relativePath) ? "" : "/" + relativePath)
-                                        + "/" + name
-                        );
+                        openlistApi.mkdir(dstPath + "/" + name);
                     }
-                    queue.offer(new DirTask(childRelativePath));
+                    childDirs.add(childRelativePath);
                 } else {
                     if (processedFileNames.contains(name)) {
                         log.debug("文件已处理过，跳过处理 {}/{}", dstPath, name);
@@ -176,6 +193,9 @@ public class CopyServiceImpl implements ICopyService {
                     );
                 }
             }
+            return childDirs;
+        } finally {
+            dirSemaphore.release();
         }
     }
 
@@ -415,21 +435,33 @@ public class CopyServiceImpl implements ICopyService {
     }
 
     /**
-     * 解析 AList 返回的 modified 字段（ISO-8601 格式或 yyyy-MM-dd HH:mm:ss）
+     * 解析 AList 返回的 modified 字段。
+     * <p>
+     * AList 通常返回带时区偏移的 ISO-8601（如 {@code 2024-01-01T12:00:00+08:00} 或以 Z 结尾），
+     * 必须按偏移换算成绝对时刻再与基准时间比较；旧实现直接删掉偏移后缀会导致跨时区偏移，
+     * 使增量同步漏拷或重复拷。这里优先按带偏移的 ISO-8601 解析，无偏移时才回退到服务器本地时区。
      */
     private Date parseModified(String modifiedStr) {
         if (StringUtils.isBlank(modifiedStr)) {
             return null;
         }
-        // AList 可能返回多种格式，优先尝试 ISO-8601（去掉 T 和时区后缀）
-        String normalized = modifiedStr
-                .replace("T", " ")
-                .replaceAll("\\+\\d{2}:\\d{2}$", "")
-                .replaceAll("Z$", "")
-                .trim();
+        String s = modifiedStr.trim();
+        // 1) 带时区偏移或 Z 的 ISO-8601 —— 直接得到绝对时刻
         try {
-            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-            return sdf.parse(normalized);
+            return Date.from(OffsetDateTime.parse(s).toInstant());
+        } catch (DateTimeParseException ignore) {
+            // 继续尝试其他格式
+        }
+        // 2) 无时区信息的 ISO-8601（含 T），按服务器本地时区解释
+        try {
+            return Date.from(LocalDateTime.parse(s.replace(' ', 'T'))
+                    .atZone(ZoneId.systemDefault()).toInstant());
+        } catch (DateTimeParseException ignore) {
+            // 继续尝试兜底格式
+        }
+        // 3) 兜底：yyyy-MM-dd HH:mm:ss（本地时区）
+        try {
+            return new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").parse(s.replace('T', ' '));
         } catch (ParseException e) {
             log.debug("无法解析 modified 字段: {}", modifiedStr);
             return null;

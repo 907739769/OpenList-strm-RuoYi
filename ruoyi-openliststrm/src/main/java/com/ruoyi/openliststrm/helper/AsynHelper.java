@@ -53,11 +53,13 @@ public class AsynHelper {
     public void isCopyDone(String dstDir, String strmDir) {
         Instant deadline = Instant.now().plus(monitorDuration());
         // 首次延迟30秒后开始检查
+        String dstPrefix = StringUtils.removeEnd(dstDir, "/");
         scheduler.schedule(() -> {
             try {
-                // 获取当前正在进行的任务列表
+                // 仅获取本次目标目录子树下正在进行的任务，避免全表拉取导致多任务并发时互相干扰
                 List<OpenlistCopyPlus> copyList = openlistCopyPlusService.lambdaQuery()
                         .eq(OpenlistCopyPlus::getCopyStatus, "1")
+                        .likeRight(OpenlistCopyPlus::getCopyDstPath, dstPrefix)
                         .list();
 
                 if (copyList == null || copyList.isEmpty()) {

@@ -26,9 +26,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.Collections;
-import java.util.LinkedList;
 import java.util.List;
-import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
@@ -209,41 +207,26 @@ public class StrmServiceImpl implements IStrmService {
     }
 
     public void getData(String rootPath, String localRootPath) {
-        // 第一阶段：BFS遍历收集所有待处理文件
-        List<FileEntry> fileEntries = new java.util.ArrayList<>();
-        Queue<String> dirsQueue = new LinkedList<>();
-        dirsQueue.add(rootPath);
+        // 第一阶段：并行 BFS 遍历收集所有待处理文件。
+        // 目录列举是网络 IO（每目录一次 fs/list），逐层并发列举可显著缩短大目录树的遍历耗时。
+        List<FileEntry> fileEntries = Collections.synchronizedList(new java.util.ArrayList<>());
+        Semaphore dirSemaphore = new Semaphore(config.getTraversalConcurrency());
 
-        while (!dirsQueue.isEmpty()) {
-            String currentPath = dirsQueue.poll();
-            currentPath = StringUtils.removeEnd(currentPath, "/");
-            String currentLocalPath = localRootPath + File.separator + currentPath.replace("/", File.separator);
-            File currentDir = new File(currentLocalPath);
-            if (!currentDir.exists()) {
-                currentDir.mkdirs();
-            }
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            List<String> currentLevel = new java.util.ArrayList<>();
+            currentLevel.add(rootPath);
 
-            JSONObject jsonObject = openListApi.getOpenlist(currentPath);
-            if (jsonObject == null || jsonObject.getInteger("code") != 200) {
-                continue;
-            }
+            while (!currentLevel.isEmpty()) {
+                List<CompletableFuture<List<String>>> futures = currentLevel.stream()
+                        .map(path -> CompletableFuture.supplyAsync(
+                                () -> listDirCollect(path, localRootPath, fileEntries, dirSemaphore), executor))
+                        .toList();
 
-            JSONArray jsonArray = jsonObject.getJSONObject("data").getJSONArray("content");
-            if (jsonArray == null) {
-                continue;
-            }
-
-            for (Object obj : jsonArray) {
-                JSONObject object = (JSONObject) obj;
-                String rawName = object.getString("name");
-                boolean isDir = object.getBoolean("is_dir");
-                long size = object.getLongValue("size");
-
-                if (isDir) {
-                    dirsQueue.add(currentPath + "/" + rawName);
-                } else {
-                    fileEntries.add(new FileEntry(currentPath, currentLocalPath, rawName, size));
+                List<String> nextLevel = new java.util.ArrayList<>();
+                for (CompletableFuture<List<String>> f : futures) {
+                    nextLevel.addAll(f.join());
                 }
+                currentLevel = nextLevel;
             }
         }
 
@@ -278,6 +261,56 @@ public class StrmServiceImpl implements IStrmService {
             CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
         }
         log.info("STRM文件并行处理完成，共处理 {} 个文件", fileEntries.size());
+    }
+
+    /**
+     * 列举单个目录：创建对应本地目录、收集其中的文件条目、返回子目录路径列表（供下一层遍历）。
+     * 通过信号量限制并发列举数，避免压垮 AList。
+     */
+    private List<String> listDirCollect(String rawPath, String localRootPath,
+                                        List<FileEntry> fileEntries, Semaphore dirSemaphore) {
+        String currentPath = StringUtils.removeEnd(rawPath, "/");
+        String currentLocalPath = localRootPath + File.separator + currentPath.replace("/", File.separator);
+        File currentDir = new File(currentLocalPath);
+        if (!currentDir.exists()) {
+            currentDir.mkdirs();
+        }
+
+        try {
+            dirSemaphore.acquire();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return Collections.emptyList();
+        }
+        try {
+            JSONObject jsonObject = openListApi.getOpenlist(currentPath);
+            if (jsonObject == null || jsonObject.getInteger("code") != 200
+                    || jsonObject.getJSONObject("data") == null) {
+                return Collections.emptyList();
+            }
+
+            JSONArray jsonArray = jsonObject.getJSONObject("data").getJSONArray("content");
+            if (jsonArray == null) {
+                return Collections.emptyList();
+            }
+
+            List<String> childDirs = new java.util.ArrayList<>();
+            for (Object obj : jsonArray) {
+                JSONObject object = (JSONObject) obj;
+                String rawName = object.getString("name");
+                boolean isDir = object.getBoolean("is_dir");
+                long size = object.getLongValue("size");
+
+                if (isDir) {
+                    childDirs.add(currentPath + "/" + rawName);
+                } else {
+                    fileEntries.add(new FileEntry(currentPath, currentLocalPath, rawName, size));
+                }
+            }
+            return childDirs;
+        } finally {
+            dirSemaphore.release();
+        }
     }
 
     /**

@@ -9,6 +9,8 @@ import org.springframework.stereotype.Component;
 import jakarta.annotation.PreDestroy;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -21,6 +23,9 @@ public class SysDictDataHelper {
 
     private final ConcurrentHashMap<String, List<String>> cache = new ConcurrentHashMap<>();
 
+    /** 字典值的小写去点集合缓存，用于扩展名等高频后缀匹配，避免热路径反复 toLowerCase */
+    private final ConcurrentHashMap<String, Set<String>> lowerSetCache = new ConcurrentHashMap<>();
+
     public List<String> getAllValue(String dictType) {
         if (dictType == null) {
             return Collections.emptyList();
@@ -28,9 +33,28 @@ public class SysDictDataHelper {
         return cache.computeIfAbsent(dictType, this::loadDictValues);
     }
 
+    /**
+     * 返回字典值的小写集合（去掉前导点）。适用于扩展名匹配等高频场景，
+     * 结果被缓存，避免每次调用都对字典值做 toLowerCase。
+     */
+    public Set<String> getAllValueLowerSet(String dictType) {
+        if (dictType == null) {
+            return Collections.emptySet();
+        }
+        return lowerSetCache.computeIfAbsent(dictType, dt -> getAllValue(dt).stream()
+                .filter(Objects::nonNull)
+                .map(v -> {
+                    String s = v.trim().toLowerCase();
+                    return s.startsWith(".") ? s.substring(1) : s;
+                })
+                .filter(s -> !s.isEmpty())
+                .collect(Collectors.toUnmodifiableSet()));
+    }
+
     public void refreshCache(String dictType) {
         if (dictType == null) return;
         cache.remove(dictType);
+        lowerSetCache.remove(dictType);
         log.debug("Refreshed cache for dictType: {}", dictType);
     }
 
@@ -53,5 +77,6 @@ public class SysDictDataHelper {
     @PreDestroy
     public void destroy() {
         cache.clear();
+        lowerSetCache.clear();
     }
 }

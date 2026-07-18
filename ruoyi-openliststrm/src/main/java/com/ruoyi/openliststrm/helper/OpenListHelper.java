@@ -3,8 +3,6 @@ package com.ruoyi.openliststrm.helper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
-
 /**
  * @Author Jack
  * @Date 2025/7/16 20:51
@@ -23,13 +21,7 @@ public class OpenListHelper {
      * @return
      */
     public boolean isVideo(String name) {
-        List<String> values = sysDictDataHelper.getAllValue("openlist_video_type");
-        for (String value : values) {
-            if (name.toLowerCase().endsWith("." + value.toLowerCase())) {
-                return true;
-            }
-        }
-        return false;
+        return matchesExtension(name, "openlist_video_type");
     }
 
     /**
@@ -39,13 +31,23 @@ public class OpenListHelper {
      * @return
      */
     public boolean isSrt(String name) {
-        List<String> values = sysDictDataHelper.getAllValue("openlist_srt_type");
-        for (String value : values) {
-            if (name.toLowerCase().endsWith("." + value.toLowerCase())) {
-                return true;
-            }
+        return matchesExtension(name, "openlist_srt_type");
+    }
+
+    /**
+     * 按扩展名匹配字典类型。提取一次扩展名并查缓存的小写集合，
+     * 避免在热循环里对每个字典值重复 toLowerCase。
+     */
+    private boolean matchesExtension(String name, String dictType) {
+        if (name == null) {
+            return false;
         }
-        return false;
+        int dot = name.lastIndexOf('.');
+        if (dot < 0 || dot == name.length() - 1) {
+            return false;
+        }
+        String ext = name.substring(dot + 1).toLowerCase();
+        return sysDictDataHelper.getAllValueLowerSet(dictType).contains(ext);
     }
 
     /**
