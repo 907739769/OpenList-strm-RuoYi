@@ -41,7 +41,7 @@
             <el-icon><Edit /></el-icon> 修改
           </el-button>
           <el-button type="danger" :disabled="multiple" @click="handleDelete(undefined, `是否确认删除文件同步任务编号为“${selectedIds}”的数据项？`)">
-            <el-icon><Delete /></el-icon> 删除
+            <el-icon><Delete /></el-icon> 批量删除
           </el-button>
           <el-button type="warning" :disabled="multiple" @click="handleExecute('是否确认执行选中的文件同步任务？')">
             <el-icon><VideoPlay /></el-icon> 批量执行
@@ -162,8 +162,8 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="open = false">取 消</el-button>
-        <el-button type="primary" @click="submitForm" :loading="submitLoading">确 定</el-button>
+        <el-button @click="open = false">取消</el-button>
+        <el-button type="primary" @click="submitForm" :loading="submitLoading">确定</el-button>
       </template>
     </el-dialog>
   </div>

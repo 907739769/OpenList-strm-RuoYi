@@ -50,7 +50,7 @@
       <div class="action-bar">
         <div class="action-left">
           <el-button type="danger" :disabled="multiple" @click="handleBatchDelete()">
-            <el-icon><Delete /></el-icon> 批量删除
+            <el-icon><Delete /></el-icon> 批量删除记录
           </el-button>
           <el-button type="danger" :disabled="multiple" @click="handleBatchRemoveNetDisk()">
             <el-icon><Download /></el-icon> 批量删除网盘文件

@@ -38,10 +38,10 @@
             <el-icon><Edit /></el-icon> 修改
           </el-button>
           <el-button type="danger" :disabled="multiple" @click="handleDelete()">
-            <el-icon><Delete /></el-icon> 删除
+            <el-icon><Delete /></el-icon> 批量删除
           </el-button>
           <el-button type="warning" :disabled="multiple" @click="handleExecute()">
-            <el-icon><VideoPlay /></el-icon> 执行
+            <el-icon><VideoPlay /></el-icon> 批量执行
           </el-button>
           <el-button type="info" @click="handleTest()">
             <el-icon><MagicStick /></el-icon> 测试
@@ -175,8 +175,8 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="open = false">取 消</el-button>
-        <el-button type="primary" @click="submitForm" :loading="submitLoading">确 定</el-button>
+        <el-button @click="open = false">取消</el-button>
+        <el-button type="primary" @click="submitForm" :loading="submitLoading">确定</el-button>
       </template>
     </el-dialog>
 

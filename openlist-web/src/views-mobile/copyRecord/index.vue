@@ -41,13 +41,13 @@
     <div class="batch-bar" v-if="selectedIds.length > 0">
       <span class="selected-count">已选 {{ selectedIds.length }} 项</span>
       <el-button link type="primary" size="small" @click="handleBatchRetry">
-        <el-icon><RefreshLeft /></el-icon> 批量重试
+        <el-icon><RefreshLeft /></el-icon> 重试
       </el-button>
       <el-button link type="danger" size="small" @click="handleBatchRemoveNetDisk">
-        <el-icon><Document /></el-icon> 删除网盘
+        <el-icon><Download /></el-icon> 删网盘
       </el-button>
       <el-button link type="danger" size="small" @click="handleBatchDelete">
-        <el-icon><Delete /></el-icon> 批量删除记录
+        <el-icon><Delete /></el-icon> 删记录
       </el-button>
       <el-button link size="small" @click="clearSelection">
         取消
@@ -129,7 +129,7 @@
 import { ref } from 'vue'
 import {
   Files, Location, Clock,
-  RefreshLeft, Refresh, Delete, Document, Download
+  RefreshLeft, Refresh, Delete, Download
 } from '@element-plus/icons-vue'
 import MobileSearchPanel from '@/components/mobile/MobileSearchPanel.vue'
 import MobilePager from '@/components/mobile/MobilePager.vue'
@@ -179,6 +179,7 @@ getList()
   border: 1px solid var(--osr-primary-light-7);
   border-radius: var(--osr-radius-md);
   font-size: 13px;
+  flex-wrap: wrap;
 
   .selected-count {
     font-weight: 600;
@@ -191,6 +192,7 @@ getList()
     font-size: 12px;
     padding: 0 4px;
     height: auto;
+    margin-left: 0;
   }
 }
 

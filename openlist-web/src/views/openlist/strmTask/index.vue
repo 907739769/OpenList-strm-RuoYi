@@ -3,7 +3,7 @@
     <!-- Search Panel -->
     <el-card class="search-card" v-if="showSearch">
       <el-form :model="queryParams" ref="queryRef" :inline="true" label-width="80px">
-        <el-form-item label="strm目录" prop="strmTaskPath">
+        <el-form-item label="STRM目录" prop="strmTaskPath">
           <el-input v-model="queryParams.strmTaskPath" placeholder="请输入strm目录" clearable @keyup.enter="handleQuery" />
         </el-form-item>
         <el-form-item label="状态" prop="strmTaskStatus">
@@ -35,10 +35,10 @@
             <el-icon><Edit /></el-icon> 修改
           </el-button>
           <el-button type="danger" :disabled="multiple" @click="handleDelete(undefined, `是否确认删除STRM任务编号为“${selectedIds}”的数据项？`)">
-            <el-icon><Delete /></el-icon> 删除
+            <el-icon><Delete /></el-icon> 批量删除
           </el-button>
           <el-button type="warning" :disabled="multiple" @click="handleExecute('是否确认执行选中的STRM任务？')">
-            <el-icon><VideoPlay /></el-icon> 执行
+            <el-icon><VideoPlay /></el-icon> 批量执行
           </el-button>
         </div>
         <el-button text @click="showSearch = !showSearch">
@@ -136,8 +136,8 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="open = false">取 消</el-button>
-        <el-button type="primary" @click="submitForm" :loading="submitLoading">确 定</el-button>
+        <el-button @click="open = false">取消</el-button>
+        <el-button type="primary" @click="submitForm" :loading="submitLoading">确定</el-button>
       </template>
     </el-dialog>
   </div>

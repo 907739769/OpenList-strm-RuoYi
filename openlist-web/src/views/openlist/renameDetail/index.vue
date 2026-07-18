@@ -51,7 +51,7 @@
       <div class="action-bar">
         <div class="action-left">
           <el-button type="danger" :disabled="multiple" @click="handleDelete()">
-            <el-icon><Delete /></el-icon> 批量删除
+            <el-icon><Delete /></el-icon> 批量删除记录
           </el-button>
           <el-button type="info" :disabled="multiple" @click="handleBatchExecute()">
             <el-icon><Refresh /></el-icon> 批量执行
@@ -60,7 +60,7 @@
             <el-icon><Refresh /></el-icon> 批量刮削
           </el-button>
           <el-button type="danger" :disabled="multiple" plain @click="handleBatchDeleteScrape()">
-            <el-icon><Delete /></el-icon> 删除刮削
+            <el-icon><Delete /></el-icon> 批量删除刮削
           </el-button>
         </div>
         <el-button text @click="showSearch = !showSearch">
@@ -122,7 +122,7 @@
               <el-icon><Refresh /></el-icon> 刮削
             </el-button>
             <el-button link type="danger" @click="handleDeleteScrapeOne(scope.row)" v-if="scope.row.scrapeStatus === '1'">
-              <el-icon><Delete /></el-icon> 删刮削
+              <el-icon><Delete /></el-icon> 删除刮削
             </el-button>
             <el-button link type="primary" @click="handleRetryOne(scope.row)">
               <el-icon><Refresh /></el-icon> 重试

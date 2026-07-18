@@ -76,8 +76,14 @@ cd openlist-web && npm run lint
 # 前端 E2E 测试 (Playwright)
 cd openlist-web && npm run test:e2e
 
-# Docker 部署
+# Docker 部署（全部：前端+后端+DB）
 docker compose up -d --build
+
+# 只部署前端（改了 openlist-web/ 时用）：--no-deps 跳过依赖服务，避免连带重启后端
+docker compose up -d --build --no-deps frontend
+
+# 只部署后端（改了 Java 代码时用）
+docker compose up -d --build --no-deps backend
 ```
 
 ## NOTES

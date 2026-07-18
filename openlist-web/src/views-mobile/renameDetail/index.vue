@@ -42,16 +42,16 @@
     <div class="batch-bar" v-if="selectedIds.length > 0">
       <span class="selected-count">已选 {{ selectedIds.length }} 项</span>
       <el-button link type="primary" size="small" @click="handleBatchExecute">
-        <el-icon><RefreshLeft /></el-icon> 批量执行
+        <el-icon><RefreshLeft /></el-icon> 执行
       </el-button>
       <el-button link type="danger" size="small" @click="handleBatchDelete">
-        <el-icon><Delete /></el-icon> 批量删除
+        <el-icon><Delete /></el-icon> 删记录
       </el-button>
       <el-button link type="warning" size="small" @click="handleBatchScrape">
-        <el-icon><Refresh /></el-icon> 批量刮削
+        <el-icon><Refresh /></el-icon> 刮削
       </el-button>
       <el-button link type="danger" size="small" @click="handleBatchDeleteScrape">
-        <el-icon><Delete /></el-icon> 删除刮削
+        <el-icon><Delete /></el-icon> 删刮削
       </el-button>
       <el-button link size="small" @click="clearSelection">
         取消
@@ -424,7 +424,6 @@ getList()
   border-radius: var(--osr-radius-md);
   font-size: 13px;
   flex-wrap: wrap;
-  overflow-x: auto;
 
   .selected-count {
     font-weight: 600;
@@ -437,6 +436,7 @@ getList()
     font-size: 12px;
     padding: 0 4px;
     height: auto;
+    margin-left: 0;
   }
 }
 

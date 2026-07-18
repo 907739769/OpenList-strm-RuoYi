@@ -136,8 +136,8 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="open = false">取 消</el-button>
-        <el-button type="primary" @click="submitForm" :loading="submitLoading">确 定</el-button>
+        <el-button @click="open = false">取消</el-button>
+        <el-button type="primary" @click="submitForm" :loading="submitLoading">确定</el-button>
       </template>
     </el-dialog>
 

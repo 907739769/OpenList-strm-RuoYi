@@ -82,10 +82,10 @@
               <el-icon><Refresh /></el-icon> 重试
             </el-button>
             <el-button link type="warning" @click="handleRemoveNetDiskOne(scope.row)">
-              <el-icon><Download /></el-icon> 删除网盘源文件
+              <el-icon><Download /></el-icon> 删除网盘文件
             </el-button>
             <el-button link type="danger" @click="handleDeleteOne(scope.row)">
-              <el-icon><Delete /></el-icon> 仅删除记录
+              <el-icon><Delete /></el-icon> 删除记录
             </el-button>
           </template>
         </el-table-column>
