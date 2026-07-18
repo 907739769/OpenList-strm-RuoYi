@@ -12,7 +12,9 @@ import jakarta.websocket.OnOpen;
 import jakarta.websocket.Session;
 import jakarta.websocket.server.PathParam;
 import jakarta.websocket.server.ServerEndpoint;
+import com.ruoyi.common.core.domain.entity.SysUser;
 import com.ruoyi.common.utils.JwtTokenUtil;
+import com.ruoyi.system.service.ISysMenuService;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -24,6 +26,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -37,14 +40,20 @@ public class LogWebSocket {
 
     private static final Logger log = LoggerFactory.getLogger(LogWebSocket.class);
     private static final String LOG_BASE_PATH = "/data/logs";
+    private static final String REQUIRED_PERM = "monitor:log:view";
     private static JwtTokenUtil jwtTokenUtil;
+    private static ISysMenuService menuService;
 
     @Autowired
     private JwtTokenUtil tokenUtil;
 
+    @Autowired
+    private ISysMenuService sysMenuService;
+
     @PostConstruct
     void init() {
         jwtTokenUtil = tokenUtil;
+        menuService = sysMenuService;
     }
 
     static {
@@ -58,15 +67,28 @@ public class LogWebSocket {
     // Group 3: 剩余消息内容
     private static final Pattern LOG_PATTERN = Pattern.compile("^(\\[\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}\\.\\d{3}\\])(\\[.*?\\]\\[.*?\\]\\[.*?\\])(.*)");
 
-    private ExecutorService executorService;
-    private Tailer tailer;
+    private volatile ExecutorService executorService;
+    private volatile Tailer tailer;
+    private final AtomicBoolean closed = new AtomicBoolean(false);
 
     @OnOpen
     public void onOpen(Session session, @PathParam("logType") String logType) {
         // Token 校验
         String queryString = session.getQueryString();
         String token = extractToken(queryString);
-        if (token == null || jwtTokenUtil.isTokenExpired(token)) {
+        Long userId = null;
+        boolean tokenValid = token != null;
+        if (tokenValid) {
+            try {
+                tokenValid = !jwtTokenUtil.isTokenExpired(token);
+                if (tokenValid) {
+                    userId = jwtTokenUtil.getUserIdFromToken(token);
+                }
+            } catch (Exception e) {
+                tokenValid = false;
+            }
+        }
+        if (!tokenValid) {
             try {
                 session.getBasicRemote().sendText("unauthorized");
                 session.close();
@@ -74,6 +96,18 @@ public class LogWebSocket {
                 log.debug("关闭 WebSocket 连接时出错", e);
             }
             log.warn("WebSocket 连接被拒绝：token 无效或已过期, logType={}", logType);
+            return;
+        }
+
+        // 权限校验：非管理员必须拥有 monitor:log:view 权限
+        if (!SysUser.isAdmin(userId) && !menuService.selectPermsByUserId(userId).contains(REQUIRED_PERM)) {
+            try {
+                session.getBasicRemote().sendText("unauthorized");
+                session.close();
+            } catch (Exception e) {
+                log.debug("关闭 WebSocket 连接时出错", e);
+            }
+            log.warn("WebSocket 连接被拒绝：用户 {} 缺少权限 {}, logType={}", userId, REQUIRED_PERM, logType);
             return;
         }
 
@@ -94,7 +128,7 @@ public class LogWebSocket {
             // 监听新日志
             executorService = Executors.newVirtualThreadPerTaskExecutor();
             executorService.submit(() -> {
-                tailer = new Tailer(file, new TailerListenerAdapter() {
+                Tailer t = new Tailer(file, new TailerListenerAdapter() {
                     @Override
                     public void handle(String line) {
                         try {
@@ -106,7 +140,13 @@ public class LogWebSocket {
                         }
                     }
                 }, 500, true);
-                tailer.run();
+                tailer = t;
+                // 连接可能在 Tailer 创建完成前就已被关闭，此时需立即停止，避免线程泄漏
+                if (closed.get()) {
+                    t.stop();
+                    return;
+                }
+                t.run();
             });
 
         } catch (Exception e) {
@@ -140,6 +180,7 @@ public class LogWebSocket {
     public void onError(Session session, Throwable error) { stopTailer(); }
 
     private void stopTailer() {
+        closed.set(true);
         if (tailer != null) tailer.stop();
         if (executorService != null) executorService.shutdownNow();
     }

@@ -40,6 +40,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import { useUserStore } from '@/stores/user'
 
 const logType = ref('info')
 const autoScroll = ref(true)
@@ -54,6 +55,7 @@ const connectionState = ref<'disconnected' | 'connecting' | 'connected' | 'close
 
 let ws: WebSocket | null = null
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+let unauthorized = false
 
 const connectionStatus = computed(() => {
   switch (connectionState.value) {
@@ -103,6 +105,7 @@ function clearLog() {
 
 function reconnect() {
   disconnect()
+  unauthorized = false
   connectWebSocket()
 }
 
@@ -146,6 +149,19 @@ function connectWebSocket() {
 
   ws.onmessage = (event) => {
     const rawLine = event.data
+
+    // 后端鉴权失败（token 无效/过期或缺少权限）时会发这条纯文本控制消息后关闭连接，
+    // 不是日志内容，必须单独识别，否则会被当成普通日志行显示，且断线后还会
+    // 用同一个失效 token 不断自动重连，陷入死循环刷屏。
+    if (rawLine === 'unauthorized') {
+      unauthorized = true
+      const userStore = useUserStore()
+      userStore.clearToken()
+      ElMessage.error('登录已过期或无权限查看日志，请重新登录')
+      window.location.href = '/login'
+      return
+    }
+
     // 后端推来的是 <div class='log-item log-info'>...</div> 这样的 HTML 行，
     // 这里剥掉标签只取文本，再套用前端自己的样式。
     //
@@ -173,6 +189,8 @@ function connectWebSocket() {
 
   ws.onclose = () => {
     connectionState.value = 'closed'
+    // 鉴权失败导致的关闭不自动重连：token 不会自己变得合法，重连只会无限重复失败
+    if (unauthorized) return
     // Auto-reconnect after 3 seconds
     reconnectTimer = setTimeout(() => {
       connectWebSocket()
