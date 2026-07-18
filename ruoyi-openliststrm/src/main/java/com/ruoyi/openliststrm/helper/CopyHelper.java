@@ -55,7 +55,7 @@ public class CopyHelper {
                 .eq(StringUtils.isNotBlank(openlistCopyPlus.getCopySrcFileName()), OpenlistCopyPlus::getCopySrcFileName, openlistCopyPlus.getCopySrcFileName())
                 .eq(StringUtils.isNotBlank(openlistCopyPlus.getCopyDstFileName()), OpenlistCopyPlus::getCopyDstFileName, openlistCopyPlus.getCopyDstFileName())
                 .in(OpenlistCopyPlus::getCopyStatus, "1", "3")
-                .count() > 0;
+                .exists();
     }
 
 }

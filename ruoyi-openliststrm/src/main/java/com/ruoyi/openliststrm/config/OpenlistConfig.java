@@ -98,6 +98,20 @@ public class OpenlistConfig {
         return (value != null && !value.isBlank()) ? value : "1";
     }
 
+    /**
+     * 目录遍历（STRM 生成 / 同步时的目标目录存在性列举）时是否强制 AList 刷新网盘。
+     * 遍历会对整棵目录树逐目录 fs/list，若每次都 refresh 会强制网盘重新扫描，对网络盘非常慢。
+     * 默认 false（走 AList 缓存，大幅加速）。需要遍历时立即感知新增文件的用户可置为 1 开启。
+     * 注意：源目录同步列举不受此开关影响，始终按 {@link #getOpenListApiRefresh()} 以保证增量正确性。
+     */
+    public boolean getTraversalRefresh() {
+        String value = sysConfigService.selectConfigByKey("openlist.api.traversal.refresh");
+        if (value == null || value.isBlank()) {
+            return false;
+        }
+        return "1".equals(value.trim());
+    }
+
     // TMDb图片语言偏好 (默认: zh)
     public String getTmdbImageLanguage() {
         String value = sysConfigService.selectConfigByKey("openlist.tmdb.image.language");

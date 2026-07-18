@@ -89,6 +89,8 @@ public class CopyServiceImpl implements ICopyService {
         final String rootSrcDir = StringUtils.removeEnd(srcDir, "/");
         final String rootDstDir = StringUtils.removeEnd(dstDir, "/");
         final Semaphore dirSemaphore = new Semaphore(config.getTraversalConcurrency());
+        // 单次任务快照最小文件大小，避免每文件重复走配置缓存 + parseLong
+        final long minSize = config.getMinFileSizeBytes();
 
         // 逐层并行 BFS：同一层的目录并发列举（每目录含 fs/list + 目标列举 + 一次 DB 查询），
         // 层与层之间用 join 做屏障，保证父目录已 mkdir 后子目录才被列举。
@@ -99,7 +101,7 @@ public class CopyServiceImpl implements ICopyService {
             while (!currentLevel.isEmpty()) {
                 List<CompletableFuture<List<String>>> futures = currentLevel.stream()
                         .map(rel -> CompletableFuture.supplyAsync(
-                                () -> syncOneDir(rootSrcDir, rootDstDir, rel, incrementalAfter, dirSemaphore), executor))
+                                () -> syncOneDir(rootSrcDir, rootDstDir, rel, incrementalAfter, dirSemaphore, minSize), executor))
                         .toList();
 
                 List<String> nextLevel = new java.util.ArrayList<>();
@@ -116,7 +118,7 @@ public class CopyServiceImpl implements ICopyService {
      * 返回需要继续遍历的子目录相对路径列表。通过信号量限制并发列举数，避免压垮 AList。
      */
     private List<String> syncOneDir(String srcDir, String dstDir, String relativePath,
-                                    Date incrementalAfter, Semaphore dirSemaphore) {
+                                    Date incrementalAfter, Semaphore dirSemaphore, long minSize) {
         try {
             dirSemaphore.acquire();
         } catch (InterruptedException e) {
@@ -136,7 +138,8 @@ public class CopyServiceImpl implements ICopyService {
                 return Collections.emptyList();
             }
 
-            // 一次性获取目标目录下已有的名称集合，避免对每个子项都单独调用 fs/get
+            // 一次性获取目标目录下已有的名称集合，避免对每个子项都单独调用 fs/get。
+            // 目标列举沿用全局 refresh 配置：需感知目标已存在文件以避免重复复制，故不降级为纯缓存读。
             String dstPath = dstDir + (StringUtils.isBlank(relativePath) ? "" : "/" + relativePath);
             Set<String> dstExistingNames = listDstNames(dstPath);
 
@@ -150,6 +153,9 @@ public class CopyServiceImpl implements ICopyService {
                     .collect(Collectors.toSet());
 
             List<String> childDirs = new java.util.ArrayList<>();
+            // 收集同一目录下需要复制的文件，合并成一次 fs/copy 调用（AList copy 接口本就接受 names 列表），
+            // N 次网络请求 → 1 次，显著减少对 AList 的压力。
+            List<String> namesToCopy = new java.util.ArrayList<>();
             for (Object obj : contents) {
                 JSONObject content = (JSONObject) obj;
                 String name = content.getString("name");
@@ -183,16 +189,24 @@ public class CopyServiceImpl implements ICopyService {
                         log.debug("文件已处理过，跳过处理 {}/{}", dstPath, name);
                         continue;
                     }
-                    submitCopyTask(
-                            srcDir,
-                            dstDir,
-                            relativePath,
-                            name,
-                            content.getLongValue("size"),
-                            existsInDst
-                    );
+                    if (existsInDst) {
+                        // 目标已存在，直接记为成功，无需复制
+                        OpenlistCopyPlus copy = new OpenlistCopyPlus();
+                        copy.setCopySrcPath(srcPath);
+                        copy.setCopyDstPath(dstPath);
+                        copy.setCopySrcFileName(name);
+                        copy.setCopyDstFileName(name);
+                        copy.setCopyStatus("3");
+                        copyHelper.addCopy(copy);
+                    } else if (content.getLongValue("size") >= minSize) {
+                        namesToCopy.add(name);
+                    }
                 }
             }
+
+            // 同步提交批量复制任务，保证 syncFilesByQueue 返回前所有复制记录已入库，
+            // 消除后续 isCopyDone 监控与异步入库之间的时序竞态。
+            submitCopyBatch(srcPath, dstPath, namesToCopy);
             return childDirs;
         } finally {
             dirSemaphore.release();
@@ -219,50 +233,38 @@ public class CopyServiceImpl implements ICopyService {
     }
 
     /**
-     * 提交异步复制任务（避免捕获大对象）
+     * 提交同一目录下的批量复制任务：一次 fs/copy 调用复制多个文件，按返回的 tasks 顺序回填任务 ID。
+     * 调用同步执行，保证复制记录在遍历返回前入库。
      */
-    private void submitCopyTask(
-            String srcDir,
-            String dstDir,
-            String relativePath,
-            String fileName,
-            long fileSize,
-            boolean dstExists
-    ) {
-        final String copySrcPath =
-                srcDir + (StringUtils.isBlank(relativePath) ? "" : "/" + relativePath);
-        final String copyDstPath =
-                dstDir + (StringUtils.isBlank(relativePath) ? "" : "/" + relativePath);
-
-        AsyncManager.me().execute(() -> {
-                OpenlistCopyPlus copy = new OpenlistCopyPlus();
-                copy.setCopySrcPath(copySrcPath);
-                copy.setCopyDstPath(copyDstPath);
-                copy.setCopySrcFileName(fileName);
-                copy.setCopyDstFileName(fileName);
-
-                // 目标不存在 & 视频文件 & 体积满足
-                if (!dstExists
-                        && openListHelper.isVideo(fileName)
-                        && fileSize >= config.getMinFileSizeBytes()) {
-
-                    JSONObject resp = openlistApi.copyOpenlist(
-                            copySrcPath,
-                            copyDstPath,
-                            Collections.singletonList(fileName)
-                    );
-
-                    if (resp != null && Integer.valueOf(200).equals(resp.getInteger("code"))) {
-                        JSONArray tasks = resp.getJSONObject("data").getJSONArray("tasks");
-                        copy.setCopyTaskId(tasks.getJSONObject(0).getString("id"));
-                        copy.setCopyStatus("1");
-                        copyHelper.addCopy(copy);
-                    }
-                } else if (dstExists) {
-                    copy.setCopyStatus("3");
-                    copyHelper.addCopy(copy);
-                }
-            });
+    private void submitCopyBatch(String srcPath, String dstPath, List<String> names) {
+        if (names == null || names.isEmpty()) {
+            return;
+        }
+        JSONObject resp = openlistApi.copyOpenlist(srcPath, dstPath, names);
+        if (resp == null || !Integer.valueOf(200).equals(resp.getInteger("code"))
+                || resp.getJSONObject("data") == null) {
+            log.warn("批量复制提交失败 {} => {}, 文件数={}", srcPath, dstPath, names.size());
+            return;
+        }
+        JSONArray tasks = resp.getJSONObject("data").getJSONArray("tasks");
+        if (tasks != null && tasks.size() != names.size()) {
+            log.warn("复制任务数({})与文件数({})不一致，按顺序尽力映射: {} => {}",
+                    tasks.size(), names.size(), srcPath, dstPath);
+        }
+        for (int i = 0; i < names.size(); i++) {
+            String fileName = names.get(i);
+            OpenlistCopyPlus copy = new OpenlistCopyPlus();
+            copy.setCopySrcPath(srcPath);
+            copy.setCopyDstPath(dstPath);
+            copy.setCopySrcFileName(fileName);
+            copy.setCopyDstFileName(fileName);
+            // AList 按 names 顺序返回 tasks，逐一映射任务 ID
+            if (tasks != null && i < tasks.size()) {
+                copy.setCopyTaskId(tasks.getJSONObject(i).getString("id"));
+            }
+            copy.setCopyStatus("1");
+            copyHelper.addCopy(copy);
+        }
     }
 
     /**

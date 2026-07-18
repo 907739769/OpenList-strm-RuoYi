@@ -13,16 +13,24 @@ import com.ruoyi.openliststrm.mybatisplus.domain.OpenlistStrmPlus;
 import com.ruoyi.openliststrm.mybatisplus.service.IOpenlistCopyPlusService;
 import com.ruoyi.openliststrm.mybatisplus.service.IOpenlistStrmPlusService;
 import com.ruoyi.openliststrm.service.IStrmService;
+import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
+import okhttp3.Dns;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.io.*;
-import java.net.URL;
-import java.net.URLConnection;
+import java.net.InetAddress;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URLEncoder;
+import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.Collections;
@@ -31,6 +39,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 @Service
@@ -40,8 +49,41 @@ public class StrmServiceImpl implements IStrmService {
     /** BFS遍历收集的文件条目 */
     private record FileEntry(String path, String localPath, String name, long size) {}
 
+    /**
+     * 单次 STRM 任务的配置快照。避免在每文件的热循环里重复走 sysConfig 缓存查询与 parseLong，
+     * 任务开始时取一次即可（同一次任务内配置视为不变）。
+     */
+    private record StrmCtx(String baseUrl, boolean encode, boolean downloadSub,
+                           long minSize, boolean traversalRefresh) {}
+
     @Autowired
     private OpenlistConfig config;
+
+    @Autowired
+    @Qualifier("sharedOkHttpClient")
+    private OkHttpClient sharedClient;
+
+    /** 字幕下载专用客户端：带超时 + SSRF 防护 DNS（校验实际解析出的 IP，杜绝 TOCTOU） */
+    private OkHttpClient downloadClient;
+
+    @PostConstruct
+    public void initDownloadClient() {
+        Dns safeDns = hostname -> {
+            List<InetAddress> addrs = Dns.SYSTEM.lookup(hostname);
+            for (InetAddress a : addrs) {
+                if (a.isLoopbackAddress() || a.isAnyLocalAddress()
+                        || a.isLinkLocalAddress() || a.isSiteLocalAddress()) {
+                    throw new UnknownHostException("拒绝访问内网地址: " + hostname);
+                }
+            }
+            return addrs;
+        };
+        downloadClient = sharedClient.newBuilder()
+                .connectTimeout(15, TimeUnit.SECONDS)
+                .readTimeout(60, TimeUnit.SECONDS)
+                .dns(safeDns)
+                .build();
+    }
 
     @Autowired
     private StrmHelper strmHelper;
@@ -207,6 +249,10 @@ public class StrmServiceImpl implements IStrmService {
     }
 
     public void getData(String rootPath, String localRootPath) {
+        // 单次任务配置快照，避免每文件热循环重复取配置
+        StrmCtx ctx = new StrmCtx(config.getOpenListUrl(), shouldEncode(), shouldDownloadSub(),
+                config.getMinFileSizeBytes(), config.getTraversalRefresh());
+
         // 第一阶段：并行 BFS 遍历收集所有待处理文件。
         // 目录列举是网络 IO（每目录一次 fs/list），逐层并发列举可显著缩短大目录树的遍历耗时。
         List<FileEntry> fileEntries = Collections.synchronizedList(new java.util.ArrayList<>());
@@ -219,7 +265,7 @@ public class StrmServiceImpl implements IStrmService {
             while (!currentLevel.isEmpty()) {
                 List<CompletableFuture<List<String>>> futures = currentLevel.stream()
                         .map(path -> CompletableFuture.supplyAsync(
-                                () -> listDirCollect(path, localRootPath, fileEntries, dirSemaphore), executor))
+                                () -> listDirCollect(path, localRootPath, fileEntries, dirSemaphore, ctx), executor))
                         .toList();
 
                 List<String> nextLevel = new java.util.ArrayList<>();
@@ -249,7 +295,7 @@ public class StrmServiceImpl implements IStrmService {
                     try {
                         STRM_SEMAPHORE.acquire();
                         try {
-                            processFileEntry(entry, existingKeys);
+                            processFileEntry(entry, existingKeys, ctx);
                         } finally {
                             STRM_SEMAPHORE.release();
                         }
@@ -268,7 +314,7 @@ public class StrmServiceImpl implements IStrmService {
      * 通过信号量限制并发列举数，避免压垮 AList。
      */
     private List<String> listDirCollect(String rawPath, String localRootPath,
-                                        List<FileEntry> fileEntries, Semaphore dirSemaphore) {
+                                        List<FileEntry> fileEntries, Semaphore dirSemaphore, StrmCtx ctx) {
         String currentPath = StringUtils.removeEnd(rawPath, "/");
         String currentLocalPath = localRootPath + File.separator + currentPath.replace("/", File.separator);
         File currentDir = new File(currentLocalPath);
@@ -283,7 +329,8 @@ public class StrmServiceImpl implements IStrmService {
             return Collections.emptyList();
         }
         try {
-            JSONObject jsonObject = openListApi.getOpenlist(currentPath);
+            // 遍历列举默认走 AList 缓存（不刷新），大幅加速大目录树遍历
+            JSONObject jsonObject = openListApi.getOpenlist(currentPath, ctx.traversalRefresh());
             if (jsonObject == null || jsonObject.getInteger("code") != 200
                     || jsonObject.getJSONObject("data") == null) {
                 return Collections.emptyList();
@@ -316,7 +363,7 @@ public class StrmServiceImpl implements IStrmService {
     /**
      * 处理单个文件条目（从 getData 中提取出的文件处理逻辑）
      */
-    private void processFileEntry(FileEntry entry, Set<String> existingKeys) {
+    private void processFileEntry(FileEntry entry, Set<String> existingKeys, StrmCtx ctx) {
         String currentPath = entry.path();
         String currentLocalPath = entry.localPath();
         String rawName = entry.name();
@@ -342,7 +389,7 @@ public class StrmServiceImpl implements IStrmService {
         String fileName = safeName.length() > 255 ? safeName.substring(0, 250) : safeName;
 
         if (openListHelper.isVideo(rawName)) {
-            if (size < config.getMinFileSizeBytes()) {
+            if (size < ctx.minSize()) {
                 log.debug("Skipping small file {} ({} bytes)", rawName, size);
                 return;
             }
@@ -350,12 +397,12 @@ public class StrmServiceImpl implements IStrmService {
             Path strmFile = Paths.get(currentLocalPath).resolve(fileName + ".strm");
             try {
                 String encodePath = currentPath + "/" + rawName;
-                if (shouldEncode()) {
+                if (ctx.encode()) {
                     encodePath = URLEncoder.encode(encodePath, StandardCharsets.UTF_8.name())
                             .replace("+", "%20")
                             .replace("%2F", "/");
                 }
-                String content = config.getOpenListUrl() + "/d" + encodePath;
+                String content = ctx.baseUrl() + "/d" + encodePath;
                 writeAtomically(strmFile, content);
                 strmHelper.addStrm(currentPath, rawName, "1");
             } catch (Exception e) {
@@ -364,13 +411,13 @@ public class StrmServiceImpl implements IStrmService {
             }
         }
 
-        if (shouldDownloadSub() && openListHelper.isSrt(rawName)) {
+        if (ctx.downloadSub() && openListHelper.isSrt(rawName)) {
             try {
                 JSONObject fileJson = openListApi.getFile(currentPath + "/" + rawName);
                 if (fileJson != null && fileJson.getJSONObject("data") != null) {
                     String url = fileJson.getJSONObject("data").getString("raw_url");
                     File outFile = new File(currentLocalPath + File.separator + fileName + rawName.substring(rawName.lastIndexOf(".")));
-                    downloadFile(url, outFile.getAbsolutePath());
+                    downloadSubtitle(url, outFile.getAbsolutePath());
                     strmHelper.addStrm(currentPath, rawName, "1");
                 }
             } catch (Exception e) {
@@ -380,56 +427,44 @@ public class StrmServiceImpl implements IStrmService {
         }
     }
 
-    // SSRF防护：验证URL
-    private static void validateUrl(String fileURL) {
+    // SSRF防护：仅校验协议；内网地址的拦截交由 downloadClient 的自定义 DNS 在真正解析时完成，
+    // 保证校验与实际连接使用同一解析结果，杜绝 TOCTOU。
+    private static void validateScheme(String fileURL) {
         try {
-            java.net.URI uri = new java.net.URI(fileURL);
+            URI uri = new URI(fileURL);
             String scheme = uri.getScheme();
             if (scheme == null || (!scheme.equalsIgnoreCase("http") && !scheme.equalsIgnoreCase("https"))) {
                 throw new IllegalArgumentException("不允许的URL协议: " + scheme);
             }
-            String host = uri.getHost();
-            if (host != null) {
-                java.net.InetAddress addr = java.net.InetAddress.getByName(host);
-                if (addr.isLoopbackAddress() || addr.isLinkLocalAddress() || addr.isSiteLocalAddress()) {
-                    throw new IllegalArgumentException("不允许访问内网地址: " + host);
-                }
-            }
-        } catch (java.net.URISyntaxException e) {
+        } catch (URISyntaxException e) {
             throw new IllegalArgumentException("无效的URL: " + fileURL);
-        } catch (java.net.UnknownHostException e) {
-            throw new IllegalArgumentException("无法解析主机: " + fileURL);
         }
     }
 
-    public static void downloadFile(String fileURL, String saveDir) {
+    /**
+     * 下载字幕文件。使用带超时的 OkHttp 客户端（连接 15s / 读取 60s），避免源站挂起时
+     * 永久阻塞并占住虚拟线程与 STRM 信号量；SSRF 防护通过 downloadClient 的自定义 DNS 生效。
+     */
+    private void downloadSubtitle(String fileURL, String savePath) {
         if (StringUtils.isBlank(fileURL)) {
             return;
         }
-        validateUrl(fileURL);
-        URL url;
-        try {
-            url = new URL(fileURL);
-        } catch (Exception e) {
-            log.error("文件{}下载失败: 无效URL", fileURL);
-            throw new RuntimeException("Invalid URL: " + fileURL, e);
-        }
-        URLConnection connection;
-        try {
-            connection = url.openConnection();
-        } catch (IOException e) {
-            log.error("文件{}下载失败: 无法建立连接", fileURL);
-            throw new RuntimeException("Cannot open connection: " + fileURL, e);
-        }
-        try (InputStream inputStream = new BufferedInputStream(connection.getInputStream());
-             FileOutputStream outputStream = new FileOutputStream(saveDir)) {
-            byte[] buffer = new byte[8192];
-            int bytesRead;
-            while ((bytesRead = inputStream.read(buffer)) != -1) {
-                outputStream.write(buffer, 0, bytesRead);
+        validateScheme(fileURL);
+        Request request = new Request.Builder().url(fileURL).get().build();
+        try (Response response = downloadClient.newCall(request).execute()) {
+            if (!response.isSuccessful() || response.body() == null) {
+                throw new IOException("下载失败, HTTP " + response.code());
+            }
+            Path target = Paths.get(savePath);
+            Path parent = target.getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
+            try (InputStream in = response.body().byteStream()) {
+                Files.copy(in, target, StandardCopyOption.REPLACE_EXISTING);
             }
         } catch (IOException ex) {
-            log.error("文件{}下载失败: IO错误", fileURL);
+            log.error("字幕文件下载失败: {}", fileURL);
             throw new RuntimeException("Download failed: " + fileURL, ex);
         }
     }

@@ -8,7 +8,6 @@ import com.ruoyi.openliststrm.config.OpenlistConfig;
 import com.ruoyi.openliststrm.mybatisplus.domain.OpenlistCopyPlus;
 import com.ruoyi.openliststrm.mybatisplus.service.IOpenlistCopyPlusService;
 import com.ruoyi.openliststrm.service.IStrmService;
-import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.TaskScheduler;
@@ -18,6 +17,10 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
 
 /**
  * 异步线程服务
@@ -69,7 +72,7 @@ public class AsynHelper {
                 }
 
                 // 开始递归检查
-                processCopyListRecursive(copyList, dstDir, strmDir, deadline);
+                processCopyListRecursive(copyList, dstDir, strmDir, deadline, 0);
             } catch (Exception e) {
                 log.error("Error in isCopyDone initialization", e);
             }
@@ -77,9 +80,14 @@ public class AsynHelper {
     }
 
     /**
-     * 递归检查批量任务状态
+     * 递归检查批量任务状态。每轮并行查询所有任务的 copyInfo（原实现为串行，任务多时一轮要
+     * 逐个网络往返，收尾很慢），并对重新调度采用退避间隔。
      */
-    private void processCopyListRecursive(List<OpenlistCopyPlus> copyList, String dstDir, String strmDir, Instant deadline) {
+    private void processCopyListRecursive(List<OpenlistCopyPlus> copyList, String dstDir,
+                                          String strmDir, Instant deadline, int round) {
+        // 并行查询本轮所有任务的状态
+        Map<String, JSONObject> infoMap = fetchCopyInfoParallel(copyList);
+
         Iterator<OpenlistCopyPlus> iterator = copyList.iterator();
         while (iterator.hasNext()) {
             OpenlistCopyPlus copy = iterator.next();
@@ -91,7 +99,7 @@ public class AsynHelper {
             }
 
             try {
-                JSONObject jsonResponse = openlistApi.copyInfo(taskId);
+                JSONObject jsonResponse = infoMap.get(taskId);
                 if (jsonResponse == null) {
                     // API 请求失败或无响应，视为异常结束
                     updateCopyStatus(copy, "4");
@@ -151,9 +159,45 @@ public class AsynHelper {
                     "目标目录：" + StringUtils.escapeMarkdownV2(dstDir));
             finishStrmDir(dstDir, strmDir);
         } else {
-            // 列表不为空，说明还有任务在运行，延迟30秒后再次调用自己
-            scheduler.schedule(() -> processCopyListRecursive(copyList, dstDir, strmDir, deadline), Instant.now().plusSeconds(30));
+            // 列表不为空，说明还有任务在运行，按退避间隔再次调用自己
+            long interval = nextIntervalSeconds(round);
+            scheduler.schedule(() -> processCopyListRecursive(copyList, dstDir, strmDir, deadline, round + 1),
+                    Instant.now().plusSeconds(interval));
         }
+    }
+
+    /**
+     * 并行查询一批复制任务的状态，返回 taskId -> 响应 的映射（响应为空的不放入）。
+     */
+    private Map<String, JSONObject> fetchCopyInfoParallel(List<OpenlistCopyPlus> copyList) {
+        Map<String, JSONObject> infoMap = new ConcurrentHashMap<>();
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            List<CompletableFuture<Void>> futures = copyList.stream()
+                    .map(OpenlistCopyPlus::getCopyTaskId)
+                    .filter(StringUtils::isNotBlank)
+                    .distinct()
+                    .map(taskId -> CompletableFuture.runAsync(() -> {
+                        try {
+                            JSONObject resp = openlistApi.copyInfo(taskId);
+                            if (resp != null) {
+                                infoMap.put(taskId, resp);
+                            }
+                        } catch (Exception e) {
+                            log.error("并行查询复制任务状态异常: {}", taskId, e);
+                        }
+                    }, executor))
+                    .toList();
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+        }
+        return infoMap;
+    }
+
+    /**
+     * 轮询退避间隔（秒）：15 → 30 → 60，最高 60s，避免任务多时高频空轮询。
+     */
+    private long nextIntervalSeconds(int round) {
+        long interval = 15L * (1L << Math.min(round, 2));
+        return Math.min(interval, 60L);
     }
 
     /**
@@ -169,13 +213,13 @@ public class AsynHelper {
 
         // 延迟30秒后开始第一次检查
         Instant deadline = Instant.now().plus(monitorDuration());
-        scheduler.schedule(() -> checkOneFileRecursive(path, copy, deadline), Instant.now().plusSeconds(30));
+        scheduler.schedule(() -> checkOneFileRecursive(path, copy, deadline, 0), Instant.now().plusSeconds(30));
     }
 
     /**
      * 递归检查单文件状态
      */
-    private void checkOneFileRecursive(String path, OpenlistCopyPlus copy, Instant deadline) {
+    private void checkOneFileRecursive(String path, OpenlistCopyPlus copy, Instant deadline, int round) {
         try {
             JSONObject jsonResponse = openlistApi.copyInfo(copy.getCopyTaskId());
 
@@ -224,8 +268,10 @@ public class AsynHelper {
                 return;
             }
 
-            // 任务仍在运行中，继续调度下一次检查
-            scheduler.schedule(() -> checkOneFileRecursive(path, copy, deadline), Instant.now().plusSeconds(30));
+            // 任务仍在运行中，按退避间隔继续调度下一次检查
+            long interval = nextIntervalSeconds(round);
+            scheduler.schedule(() -> checkOneFileRecursive(path, copy, deadline, round + 1),
+                    Instant.now().plusSeconds(interval));
 
         } catch (Exception e) {
             log.error("Error in checkOneFileRecursive for path: {}", path, e);
@@ -243,7 +289,7 @@ public class AsynHelper {
         openlistCopyPlusService.updateById(copy);
     }
 
-    // 辅助方法：处理目录 strm 生成逻辑 (保持原有逻辑不变)
+    // 辅助方法：处理目录 strm 生成逻辑
     private void finishStrmDir(String dstDir, String strmDir) {
         if (!"1".equals(config.getOpenListCopyStrm())) {
             return;
@@ -261,10 +307,5 @@ public class AsynHelper {
         } catch (Exception e) {
             log.error("Error generating strm for dir: {}", dstDir, e);
         }
-    }
-
-    // 容器销毁时关闭线程池，防止内存泄漏
-    @PreDestroy
-    public void destroy() {
     }
 }

@@ -106,13 +106,22 @@ public class OpenlistApi {
     }
 
     public JSONObject getOpenlist(String path) {
-        log.debug("开始获取openlist目录{}", path);
+        // 默认沿用全局 openlist.api.refresh 配置
+        return getOpenlist(path, !"0".equals(config.getOpenListApiRefresh()));
+    }
+
+    /**
+     * 列举目录。{@code refresh=true} 会强制 AList 重新扫描网盘（慢，但能立即看到新增文件），
+     * {@code refresh=false} 走 AList 缓存（快，适合大目录树的并发遍历）。
+     */
+    public JSONObject getOpenlist(String path, boolean refresh) {
+        log.debug("开始获取openlist目录{} refresh={}", path, refresh);
         JSONObject body = new JSONObject();
         body.put("path", path);
         body.put("password", "");
         body.put("page", 1);
         body.put("per_page", 0);
-        body.put("refresh", !"0".equals(config.getOpenListApiRefresh()));
+        body.put("refresh", refresh);
         return executeJsonPost(config.getOpenListUrl() + "/api/fs/list", body, "获取openlist目录" + path, true);
     }
 
