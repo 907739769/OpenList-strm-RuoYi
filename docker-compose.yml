@@ -47,6 +47,7 @@ services:
       DB_USERNAME: ${DB_USERNAME:-osr_app}
       DB_PASSWORD: ${DB_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
       TZ: Asia/Shanghai
     depends_on:
       mysql:
