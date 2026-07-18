@@ -22,6 +22,26 @@
       </div>
     </div>
 
+    <!-- 今日处理数量：按 COPY/STRM/Rename 分类展示，对应 PC 端饼图的统计口径 -->
+    <div class="today-section">
+      <h3>今日处理</h3>
+      <div class="stats-grid" v-loading="todayLoading">
+        <div
+          v-for="stat in todayStatCards"
+          :key="stat.label"
+          class="stat-card"
+          :class="[stat.type, { clickable: !!stat.path }]"
+          @click="stat.path && router.push(stat.path)"
+        >
+          <div class="stat-icon">
+            <el-icon><component :is="stat.icon" /></el-icon>
+          </div>
+          <div class="stat-value">{{ stat.value }}</div>
+          <div class="stat-label">{{ stat.label }}</div>
+        </div>
+      </div>
+    </div>
+
     <!-- 快捷入口：直接取当前用户的菜单，避免写死路径造成死链 -->
     <div class="quick-actions" v-if="quickLinks.length">
       <h3>快捷操作</h3>
@@ -44,7 +64,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore, type MenuRoute } from '@/stores/user'
-import { getDashboardStatsApi } from '@/api/openlist/dashboard'
+import { getDashboardStatsApi, getCopyStatsApi, getStrmStatsApi, getRenameStatsApi } from '@/api/openlist/dashboard'
 import { getIconComponent } from '@/composables/useMenuIcon'
 import {
   Files, VideoCamera, EditPen, CircleCheck, CircleClose, Loading, Menu
@@ -63,8 +83,10 @@ interface StatCard {
 const router = useRouter()
 const userStore = useUserStore()
 const loading = ref(true)
+const todayLoading = ref(true)
 
 const statCards = ref<StatCard[]>([])
+const todayStatCards = ref<StatCard[]>([])
 
 function buildStatCards(data: any): StatCard[] {
   return [
@@ -74,6 +96,20 @@ function buildStatCards(data: any): StatCard[] {
     { label: '成功率', value: data?.successRate > 0 ? data.successRate + '%' : '--', icon: CircleCheck, type: 'info' },
     { label: '失败数', value: data?.failedCount ?? 0, icon: CircleClose, type: 'warning' },
     { label: '处理中', value: data?.processingCount ?? 0, icon: Loading, type: 'primary' }
+  ]
+}
+
+/** 接口按状态分组返回 { 成功: n, 失败: n, ... }，今日处理数量取各状态之和 */
+function sumStatusCounts(data: Record<string, number> | null | undefined): number {
+  if (!data) return 0
+  return Object.values(data).reduce((sum, n) => sum + (Number(n) || 0), 0)
+}
+
+function buildTodayStatCards(copy: number, strm: number, rename: number): StatCard[] {
+  return [
+    { label: '今日同步', value: copy, icon: Files, type: 'primary', path: '/openliststrm/copy' },
+    { label: '今日STRM', value: strm, icon: VideoCamera, type: 'success', path: '/openliststrm/strm' },
+    { label: '今日重命名', value: rename, icon: EditPen, type: 'warning', path: '/openliststrm/renameDetail' }
   ]
 }
 
@@ -112,6 +148,24 @@ onMounted(async () => {
     statCards.value = buildStatCards(null)
   } finally {
     loading.value = false
+  }
+
+  try {
+    const [copyToday, strmToday, renameToday] = await Promise.all([
+      getCopyStatsApi('today'),
+      getStrmStatsApi('today'),
+      getRenameStatsApi('today')
+    ])
+    todayStatCards.value = buildTodayStatCards(
+      sumStatusCounts(copyToday as any),
+      sumStatusCounts(strmToday as any),
+      sumStatusCounts(renameToday as any)
+    )
+  } catch (e) {
+    console.error('[MobileDashboard] 今日统计加载失败:', e)
+    todayStatCards.value = buildTodayStatCards(0, 0, 0)
+  } finally {
+    todayLoading.value = false
   }
 })
 </script>
@@ -212,6 +266,17 @@ onMounted(async () => {
       background-color: var(--osr-info-light);
       color: var(--osr-info);
     }
+  }
+}
+
+/* ============================================
+   今日处理
+   ============================================ */
+.today-section {
+  h3 {
+    font-size: 15px;
+    color: var(--osr-text-primary);
+    margin: 0 0 12px;
   }
 }
 
