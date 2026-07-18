@@ -3,3 +3,4 @@ dist
 *.local
 *.log
 .DS_Store
+vite.config.*.timestamp-*.mjs
