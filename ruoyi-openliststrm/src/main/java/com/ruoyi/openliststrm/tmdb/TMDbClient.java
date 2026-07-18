@@ -53,6 +53,50 @@ public class TMDbClient {
     }
 
     /**
+     * 已知 tmdbId 时直接拉取详情，跳过模糊搜索匹配。
+     * 用于"重新刮削"等场景：搜索容易在续集/重制版/同名作品之间选错，
+     * 而已入库的 tmdbId 是此前（可能经过人工修正）确定的结果，应优先复用。
+     */
+    public void enrichByTmdbId(MediaInfo info, String type, String tmdbId) {
+        if (StringUtils.isEmpty(apiKey) || StringUtils.isBlank(tmdbId)) return;
+        String resolvedType = StringUtils.isNotBlank(type) ? type : (maybeTV(info) ? "tv" : "movie");
+
+        try {
+            int id = Integer.parseInt(tmdbId.trim());
+            TMDbApiService api = SpringUtils.getBean(TMDbApiService.class);
+            info.setTmdbId(String.valueOf(id));
+
+            JsonNode d = mapper.readTree(api.getDetails(apiKey, resolvedType, id));
+            if (d != null) {
+                info.setYear(getYearSafe(d, resolvedType));
+                String best = getBestTitle(resolvedType, d, id, api);
+                if (StringUtils.isNotEmpty(best)) {
+                    info.setTitle(best);
+                }
+                applyDetails(resolvedType, id, d, info, api);
+            } else {
+                log.warn("按 tmdbId 拉取详情为空，回退为搜索匹配：type={}, tmdbId={}", resolvedType, tmdbId);
+                enrich(info);
+                return;
+            }
+
+            if ("tv".equals(resolvedType) && info.getSeason() != null) {
+                try {
+                    enrichEpisodeDetails(info, api);
+                } catch (Exception e) {
+                    log.warn("enrichEpisodeDetails failed for tvId={}, season={}: {}",
+                            tmdbId, info.getSeason(), e.getMessage());
+                }
+            }
+        } catch (NumberFormatException e) {
+            log.warn("tmdbId 格式非法，回退为搜索匹配：{}", tmdbId);
+            enrich(info);
+        } catch (Exception e) {
+            log.error("TMDb enrichByTmdbId error, tmdbId={}", tmdbId, e);
+        }
+    }
+
+    /**
      * 从 TMDB 获取指定季的集列表，并回填当前集的详情（集标题、播出日期、剧情、tmdbId、评分、导演、编剧）
      */
     private void enrichEpisodeDetails(MediaInfo info, TMDbApiService api) throws IOException {
@@ -214,7 +258,7 @@ public class TMDbClient {
     }
 
     /**
-     * 处理 search 返回的 JsonNode（来自 TMDbApiService），解析首个结果
+     * 处理 search 返回的 JsonNode（来自 TMDbApiService），在候选结果中打分挑选最佳匹配
      */
     private String doSearchOnce(String type, MediaInfo info, com.fasterxml.jackson.databind.JsonNode root, TMDbApiService api) throws IOException {
         if (root == null) return null;
@@ -222,26 +266,13 @@ public class TMDbClient {
         log.debug("doSearchOnce: {} results: {}", info.getOriginalName(), results);
         if (!results.isArray() || results.isEmpty()) return null;
 
-        JsonNode first = null;
-        if (StringUtils.isNotEmpty(info.getOriginalTitle()) && results.size() > 1) {
-            for (int i = 0; i < results.size(); i++) {
-                JsonNode node = results.get(i);
-                if (info.getOriginalTitle().equals(getOfficialChineseTitle(node, type))) {
-                    first = node;
-                    break;
-                }
-            }
+        JsonNode picked = pickBestCandidate(type, info, results);
 
-        }
-        if (first == null) {
-            first = results.get(0);
-        }
+        info.setYear(getYearSafe(picked, type));
+        info.setTmdbId(picked.path("id").asText());
 
-        info.setYear(getYearSafe(first, type));
-        info.setTmdbId(first.path("id").asText());
-
-        int id = first.path("id").asInt(-1);
-        String best = (id > 0) ? getBestTitle(type, first, id, api) : null;
+        int id = picked.path("id").asInt(-1);
+        String best = (id > 0) ? getBestTitle(type, picked, id, api) : null;
 
         // fetch details to populate genres, original language and origin countries
         if (id > 0) {
@@ -255,8 +286,65 @@ public class TMDbClient {
         return best;
     }
 
+    /**
+     * 在多个候选结果中打分挑选最佳匹配，替代"直接取第一条"的粗暴策略。
+     * 打分维度：官方中文标题精确匹配（最高权重）、发行年份接近度、TMDb 热度（popularity）、
+     * 以及 TMDb 自身相关度排序名次（作为无其他信号时的兜底，保持与旧行为一致）。
+     */
+    private JsonNode pickBestCandidate(String type, MediaInfo info, JsonNode results) {
+        JsonNode best = results.get(0);
+        double bestScore = Double.NEGATIVE_INFINITY;
+        for (int i = 0; i < results.size(); i++) {
+            JsonNode node = results.get(i);
+            double score = scoreCandidate(type, info, node) - i * 0.5; // TMDb 原始相关度名次作为兜底权重
+            if (score > bestScore) {
+                bestScore = score;
+                best = node;
+            }
+        }
+        return best;
+    }
+
+    private double scoreCandidate(String type, MediaInfo info, JsonNode node) {
+        double score = 0;
+
+        // 官方中文标题与文件名解析出的标题精确匹配：最强信号
+        if (StringUtils.isNotEmpty(info.getOriginalTitle())
+                && info.getOriginalTitle().equals(getOfficialChineseTitle(node, type))) {
+            score += 100;
+        }
+
+        // 发行年份接近度：越接近文件名解析出的年份分越高，差距过大则扣分（防止误选重制版/不同季）
+        String targetYear = info.getYear();
+        String candidateYear = getYearSafe(node, type);
+        if (StringUtils.isNotEmpty(targetYear) && StringUtils.isNotEmpty(candidateYear)) {
+            try {
+                int diff = Math.abs(Integer.parseInt(targetYear) - Integer.parseInt(candidateYear));
+                if (diff == 0) score += 30;
+                else if (diff == 1) score += 15;
+                else if (diff <= 3) score += 5;
+                else score -= 10;
+            } catch (NumberFormatException ignored) {
+            }
+        }
+
+        // TMDb 热度：对数压缩，避免头部大热门作品的 popularity 数值压过标题/年份信号
+        double popularity = node.path("popularity").asDouble(0);
+        score += Math.log1p(Math.max(popularity, 0)) * 2;
+
+        return score;
+    }
+
     private void fetchDetails(String type, int id, MediaInfo info, TMDbApiService api) throws IOException {
         JsonNode d = mapper.readTree(api.getDetails(apiKey, type, id));
+        applyDetails(type, id, d, info, api);
+    }
+
+    /**
+     * 将 /movie(tv)/{id} 详情响应回填到 info（genres、语言、地区、海报、分级等）。
+     * 从 fetchDetails 中拆出，便于已持有详情 JsonNode 时直接复用，避免重复请求。
+     */
+    private void applyDetails(String type, int id, JsonNode d, MediaInfo info, TMDbApiService api) {
         if (d == null) return;
         info.getMetadata().put("details", d);
 

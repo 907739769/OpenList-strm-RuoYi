@@ -64,4 +64,10 @@ public class RenameTaskPlus extends BaseEntity {
      */
     @TableField("scrape_images")
     private String scrapeImages;
+
+    /**
+     * 刮削时是否强制覆盖已有的 NFO/图片文件 0-否 1-是
+     */
+    @TableField("scrape_force_overwrite")
+    private String scrapeForceOverwrite;
 }

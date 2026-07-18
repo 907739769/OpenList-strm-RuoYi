@@ -49,23 +49,7 @@ public class MediaParser {
 
     public MediaInfo parse(String filename, String title, String year) {
         log.info("开始重命名文件名: {}", filename);
-        String extension = "";
-        String baseName = filename;
-        if (filename.lastIndexOf('.') != -1) {
-            extension = filename.substring(filename.lastIndexOf('.') + 1).toLowerCase();
-            baseName = filename.substring(0, filename.lastIndexOf('.')).trim();
-        }
-
-        // 预处理文件名
-        String norm = normalize(baseName);
-
-        MediaInfo info = new MediaInfo(filename);
-        info.setExtension(extension);
-        String remaining = norm;
-        for (Extractor ex : extractors) {
-            remaining = ex.extract(remaining, info);
-        }
-        titleProcessor.processTitle(remaining, info);
+        MediaInfo info = extractBase(filename);
 
         if (StringUtils.isNotEmpty(title)) info.setTitle(title);
         if (StringUtils.isNotEmpty(year)) info.setYear(year);
@@ -88,6 +72,44 @@ public class MediaParser {
         }
 
         log.debug("文件名称: {} 识别结果info: {}", filename, info);
+        return info;
+    }
+
+    /**
+     * 已知 tmdbId 时按 tmdbId 直接拉取详情，不再走标题模糊搜索。
+     * 用于"重新刮削"场景：复用此前（可能经过人工修正）确定的 tmdbId，避免续集/重制版/同名作品被重新匹配错。
+     */
+    public MediaInfo parseWithKnownTmdbId(String filename, String tmdbId, String mediaType) {
+        log.info("开始重命名文件名（已知tmdbId={}）: {}", tmdbId, filename);
+        MediaInfo info = extractBase(filename);
+
+        if (tmdbClient != null && StringUtils.isNotBlank(tmdbId)) {
+            String type = "movie".equals(mediaType) ? "movie" : "tv";
+            tmdbClient.enrichByTmdbId(info, type, tmdbId);
+        }
+
+        log.debug("文件名称: {} 识别结果info(已知tmdbId): {}", filename, info);
+        return info;
+    }
+
+    private MediaInfo extractBase(String filename) {
+        String extension = "";
+        String baseName = filename;
+        if (filename.lastIndexOf('.') != -1) {
+            extension = filename.substring(filename.lastIndexOf('.') + 1).toLowerCase();
+            baseName = filename.substring(0, filename.lastIndexOf('.')).trim();
+        }
+
+        // 预处理文件名
+        String norm = normalize(baseName);
+
+        MediaInfo info = new MediaInfo(filename);
+        info.setExtension(extension);
+        String remaining = norm;
+        for (Extractor ex : extractors) {
+            remaining = ex.extract(remaining, info);
+        }
+        titleProcessor.processTitle(remaining, info);
         return info;
     }
 

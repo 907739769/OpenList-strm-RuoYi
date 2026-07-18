@@ -15,6 +15,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -25,7 +26,7 @@ import java.util.concurrent.TimeUnit;
 @Component
 public class MediaImageDownloader {
 
-    private static final String TMDb_IMG_BASE = "https://image.tmdb.org/t/p/original";
+    private static final String TMDb_IMG_HOST = "https://image.tmdb.org/t/p/";
     private static final MediaType OCTET_STREAM = MediaType.parse("application/octet-stream");
 
     private final OkHttpClient client;
@@ -88,17 +89,15 @@ public class MediaImageDownloader {
         String url = selectImageFromList(posters);
         if (url == null) return;
 
-        Path target = seasonDir.resolve("season-poster.jpg");
-        if (Files.exists(target) && !forceOverwrite) {
-            log.debug("季海报已存在，跳过: {}", target);
-            return;
-        }
-        try {
-            downloadToFile(url, target);
-            log.info("下载季海报图片: {} -> {}", url, target);
-        } catch (Exception e) {
-            log.warn("下载季海报图片失败: {}", e.getMessage());
-        }
+        downloadImageLocked(url, seasonDir.resolve("season-poster.jpg"), forceOverwrite, "季海报");
+    }
+
+    /**
+     * TMDb 图片 CDN 基础地址（不含末尾斜杠，TMDb 返回的 file_path 本身以 "/" 开头），
+     * 尺寸段可通过 openlist.tmdb.image.size 配置（默认 original）。
+     */
+    private String imgBase() {
+        return TMDb_IMG_HOST + config.getTmdbImageSize();
     }
 
     private JsonNode mergeImages(JsonNode details, JsonNode imagesNode) {
@@ -123,13 +122,7 @@ public class MediaImageDownloader {
                 log.debug("未找到 {} 图片", type);
                 return;
             }
-            Path target = outputDir.resolve(filename);
-            if (Files.exists(target) && !forceOverwrite) {
-                log.debug("图片已存在，跳过: {}", target);
-                return;
-            }
-            downloadToFile(imgUrl, target);
-            log.info("下载 {} 图片: {} -> {}", type, imgUrl, target);
+            downloadImageLocked(imgUrl, outputDir.resolve(filename), forceOverwrite, type);
         } catch (Exception e) {
             log.warn("下载 {} 图片失败: {}", type, e.getMessage());
         }
@@ -139,13 +132,7 @@ public class MediaImageDownloader {
         try {
             String imgUrl = extractLogoUrl(details, 0);
             if (imgUrl == null) return;
-            Path target = outputDir.resolve("clearlogo.png");
-            if (Files.exists(target) && !forceOverwrite) {
-                log.debug("clearlogo 已存在，跳过: {}", target);
-                return;
-            }
-            downloadToFile(imgUrl, target);
-            log.info("下载 clearlogo 图片: {} -> {}", imgUrl, target);
+            downloadImageLocked(imgUrl, outputDir.resolve("clearlogo.png"), forceOverwrite, "clearlogo");
         } catch (Exception e) {
             log.warn("下载 clearlogo 图片失败: {}", e.getMessage());
         }
@@ -182,15 +169,34 @@ public class MediaImageDownloader {
             String url = selectImageFromListAt(imagesArray, idx);
             if (url == null) return;
 
-            Path target = outputDir.resolve(filename);
-            if (Files.exists(target) && !forceOverwrite) {
-                log.debug("{} 已存在，跳过: {}", filename, target);
-                return;
-            }
-            downloadToFile(url, target);
-            log.info("下载 {} 图片: {} -> {}", filename, url, target);
+            downloadImageLocked(url, outputDir.resolve(filename), forceOverwrite, filename);
         } catch (Exception e) {
             log.warn("下载 {} 图片失败: {}", filename, e.getMessage());
+        }
+    }
+
+    /**
+     * 按目标文件路径加锁 + 临时文件下载后原子替换，避免同一图片文件（如 season-poster.jpg）
+     * 被多个并发刮削任务同时写入导致内容交错/半下载文件。
+     */
+    private void downloadImageLocked(String urlStr, Path target, boolean forceOverwrite, String logLabel) {
+        try {
+            ScrapeFileLock.withLock(target, () -> {
+                if (Files.exists(target) && !forceOverwrite) {
+                    log.debug("{} 已存在，跳过: {}", logLabel, target);
+                    return;
+                }
+                Path tmpFile = target.resolveSibling(target.getFileName().toString() + ".tmp");
+                try {
+                    downloadToFile(urlStr, tmpFile);
+                    Files.move(tmpFile, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+                    log.info("下载 {} 图片: {} -> {}", logLabel, urlStr, target);
+                } finally {
+                    Files.deleteIfExists(tmpFile);
+                }
+            });
+        } catch (Exception e) {
+            log.warn("下载 {} 图片失败: {}", logLabel, e.getMessage());
         }
     }
 
@@ -210,7 +216,7 @@ public class MediaImageDownloader {
                     String filePath = file.path("file_path").asText(null);
                     String isoLang = file.path("iso_639_1").asText("");
                     if (filePath != null && lang.equals(isoLang)) {
-                        return TMDb_IMG_BASE + filePath;
+                        return imgBase() +filePath;
                     }
                 }
             }
@@ -218,16 +224,16 @@ public class MediaImageDownloader {
             JsonNode first = details.get(imagesKey).get(0);
             String filePath = first.path("file_path").asText(null);
             if (filePath != null) {
-                return TMDb_IMG_BASE + filePath;
+                return imgBase() +filePath;
             }
         }
         
         // 回退: 从 details 顶级字段获取 (poster_path, backdrop_path)
         if ("backdrop".equals(type) && details.has("backdrop_path")) {
-            return TMDb_IMG_BASE + details.get("backdrop_path").asText();
+            return imgBase() +details.get("backdrop_path").asText();
         }
         if ("poster".equals(type) && details.has("poster_path")) {
-            return TMDb_IMG_BASE + details.get("poster_path").asText();
+            return imgBase() +details.get("poster_path").asText();
         }
         return null;
     }
@@ -267,7 +273,7 @@ public class MediaImageDownloader {
             if (filePath == null) continue;
             String isoLang = file.path("iso_639_1").asText("");
             if (preferredLang.equals(isoLang)) {
-                return TMDb_IMG_BASE + filePath;
+                return imgBase() +filePath;
             }
         }
         // 再从头查找 en 语言
@@ -277,18 +283,18 @@ public class MediaImageDownloader {
             if (filePath == null) continue;
             String isoLang = file.path("iso_639_1").asText("");
             if ("en".equals(isoLang)) {
-                return TMDb_IMG_BASE + filePath;
+                return imgBase() +filePath;
             }
         }
         // 回退: 使用 preferredIndex 处的图片
         JsonNode selected = imageArray.get(maxIdx);
         String filePath = selected.path("file_path").asText(null);
         if (filePath != null) {
-            return TMDb_IMG_BASE + filePath;
+            return imgBase() +filePath;
         }
         // 最终回退: 使用第一张
         filePath = imageArray.get(0).path("file_path").asText(null);
-        return filePath != null ? TMDb_IMG_BASE + filePath : null;
+        return filePath != null ? imgBase() +filePath : null;
     }
 
     private void downloadToFile(String urlStr, Path target) throws IOException {

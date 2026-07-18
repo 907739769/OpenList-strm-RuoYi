@@ -14,37 +14,21 @@ public class MovieNfoBuilder implements NfoTypeStrategy {
 
     @Override
     public String buildNfo(MediaInfo info) {
-        StringBuilder sb = new StringBuilder();
-        sb.append(xmlHeader());
-        sb.append("<movie>\n");
-
         JsonNode details = getDetails(info);
         JsonNode externalIds = getExternalIds(info);
+        return wrapXml("movie", sb -> buildBody(sb, info, details, externalIds));
+    }
 
+    private void buildBody(StringBuilder sb, MediaInfo info, JsonNode details, JsonNode externalIds) {
         // 标题优先取 TMDb 接口返回值
         String movieTitle = details != null && details.hasNonNull("title") ? details.get("title").asText() : info.getTitle();
         String movieOriginalTitle = details != null && details.hasNonNull("original_title") ? details.get("original_title").asText() : info.getOriginalTitle();
         appendTag(sb, "title", movieTitle);
         appendTag(sb, "originaltitle", movieOriginalTitle);
         appendTag(sb, "sorttitle", movieTitle);
-        appendTag(sb, "tmdbid", info.getTmdbId());
 
-        // IMDb ID: 从 details 或 external_ids 获取
-        String imdbId = null;
-        if (details != null && details.hasNonNull("imdb_id")) {
-            imdbId = details.get("imdb_id").asText();
-        } else if (externalIds != null && externalIds.hasNonNull("imdb_id")) {
-            imdbId = externalIds.get("imdb_id").asText();
-        }
-        if (StringUtils.isNotBlank(imdbId)) {
-            appendTag(sb, "imdbid", imdbId);
-        }
-
-        // uniqueid 节点（IMDb 优先为 default）
-        if (StringUtils.isNotBlank(imdbId)) {
-            appendUniqueid(sb, imdbId, "imdb", "true");
-        }
-        appendUniqueid(sb, info.getTmdbId(), "tmdb", imdbId == null ? "true" : "false");
+        String imdbId = extractImdbId(details, externalIds);
+        appendIdBlock(sb, info.getTmdbId(), imdbId);
 
         appendTag(sb, "year", info.getYear());
 
@@ -105,8 +89,5 @@ public class MovieNfoBuilder implements NfoTypeStrategy {
 
         // 图片引用 (thumb)
         appendThumbs(sb, details);
-
-        sb.append("</movie>\n");
-        return sb.toString();
     }
 }

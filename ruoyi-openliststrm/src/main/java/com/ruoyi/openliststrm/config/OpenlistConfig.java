@@ -104,6 +104,18 @@ public class OpenlistConfig {
         return (value != null && !value.isBlank()) ? value : "zh";
     }
 
+    // TMDb元数据（标题、简介等）请求语言 (默认: zh-CN)
+    public String getTmdbMetadataLanguage() {
+        String value = sysConfigService.selectConfigByKey("openlist.tmdb.metadata.language");
+        return (value != null && !value.isBlank()) ? value : "zh-CN";
+    }
+
+    // TMDb下载图片的尺寸 (默认: original；可选 w780/w500/w342 等以节省带宽和存储，见 TMDb 官方图片尺寸文档)
+    public String getTmdbImageSize() {
+        String value = sysConfigService.selectConfigByKey("openlist.tmdb.image.size");
+        return (value != null && !value.isBlank()) ? value : "original";
+    }
+
     /**
      * 获取最小文件大小（字节）。
      * 配置项存储的是 MB 值，此方法将其转换为字节。

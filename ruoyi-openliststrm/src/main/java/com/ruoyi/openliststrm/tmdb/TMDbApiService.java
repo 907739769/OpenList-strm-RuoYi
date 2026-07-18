@@ -1,10 +1,12 @@
 package com.ruoyi.openliststrm.tmdb;
 
+import com.ruoyi.openliststrm.config.OpenlistConfig;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -16,13 +18,15 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * TMDb 网络请求封装，含数据库缓存、指数退避重试、速率限制。
+ * TMDb 网络请求封装，含进程内短期缓存、数据库缓存、指数退避重试、速率限制。
  */
 @Slf4j
 @Service
 public class TMDbApiService {
     private static final String BASE = "https://api.tmdb.org/3";
-    private static final String LANGUAGE = "zh-CN";
+
+    /** 进程内短期缓存的 Spring Cache 名称，配置见 CacheConfig（10 分钟 TTL，摊薄同一批量任务内的重复请求） */
+    private static final String L1_CACHE_NAME = "tmdbRaw";
 
     // --- 速率限制 ---
     /** 最多4个并发请求 */
@@ -39,6 +43,12 @@ public class TMDbApiService {
     @Autowired
     private TmdbCacheService tmdbCacheService;
 
+    @Autowired
+    private CacheManager cacheManager;
+
+    @Autowired
+    private OpenlistConfig config;
+
     public TMDbApiService(@Qualifier("sharedOkHttpClient") OkHttpClient sharedClient) {
         this.http = sharedClient.newBuilder()
                 .connectTimeout(20, TimeUnit.SECONDS)
@@ -51,12 +61,11 @@ public class TMDbApiService {
      * 搜索接口
      * 优化点: 去掉 apiKey 参与 key 生成；返回 String 防止引用污染
      */
-    @Cacheable(value = "tmdbSearch", key = "#p1 + ':' + #p2 + ':' + (#p3==null?'':#p3)", unless = "#result == null")
     public String search(String apiKey, String type, String query, String year) {
         HttpUrl.Builder b = Objects.requireNonNull(HttpUrl.parse(BASE + "/search/" + type)).newBuilder()
                 .addQueryParameter("api_key", apiKey)
                 .addQueryParameter("query", query)
-                .addQueryParameter("language", LANGUAGE);
+                .addQueryParameter("language", language());
         if (year != null && !year.isEmpty()) {
             String yearKey = "movie".equals(type) ? "primary_release_year" : "first_air_date_year";
             b.addQueryParameter(yearKey, year);
@@ -68,12 +77,11 @@ public class TMDbApiService {
     /**
      * 获取详情
      */
-    @Cacheable(value = "tmdbDetails", key = "#p1 + ':' + #p2", unless = "#result == null")
     public String getDetails(String apiKey, String type, int id) {
         HttpUrl url = Objects.requireNonNull(HttpUrl.parse(BASE + "/" + type + "/" + id))
                 .newBuilder()
                 .addQueryParameter("api_key", apiKey)
-                .addQueryParameter("language", LANGUAGE)
+                .addQueryParameter("language", language())
                 .addQueryParameter("append_to_response", "credits,videos")
                 .build();
         Request req = new Request.Builder().url(url).get().build();
@@ -83,7 +91,6 @@ public class TMDbApiService {
     /**
      * 获取备用标题
      */
-    @Cacheable(value = "tmdbAlts", key = "#p1 + ':' + #p2", unless = "#result == null")
     public String getAlternativeTitles(String apiKey, String type, int id) {
         HttpUrl url = Objects.requireNonNull(HttpUrl.parse(BASE + "/" + type + "/" + id + "/alternative_titles"))
                 .newBuilder().addQueryParameter("api_key", apiKey).build();
@@ -95,12 +102,11 @@ public class TMDbApiService {
      * 获取季集列表（TV 专用）
      * 接口: GET /tv/{id}/season/{season_number}
      */
-    @Cacheable(value = "tmdbSeason", key = "#p1 + ':' + #p2", unless = "#result == null")
     public String getSeasonEpisodes(String apiKey, int tvId, int seasonNumber) {
         HttpUrl url = Objects.requireNonNull(HttpUrl.parse(BASE + "/tv/" + tvId + "/season/" + seasonNumber))
                 .newBuilder()
                 .addQueryParameter("api_key", apiKey)
-                .addQueryParameter("language", LANGUAGE)
+                .addQueryParameter("language", language())
                 .build();
         Request req = new Request.Builder().url(url).get().build();
         return executeAndReturnString(req, "getSeasonEpisodes");
@@ -109,7 +115,6 @@ public class TMDbApiService {
     /**
      * 获取剧集图片（TV 专用）
      */
-    @Cacheable(value = "tmdbTvImages", key = "#p1", unless = "#result == null")
     public String getTvImages(String apiKey, int tvId) {
         HttpUrl url = Objects.requireNonNull(HttpUrl.parse(BASE + "/tv/" + tvId + "/images"))
                 .newBuilder()
@@ -123,7 +128,6 @@ public class TMDbApiService {
     /**
      * 获取电影图片（Movie 专用）
      */
-    @Cacheable(value = "tmdbMovieImages", key = "#p1", unless = "#result == null")
     public String getMovieImages(String apiKey, int movieId) {
         HttpUrl url = Objects.requireNonNull(HttpUrl.parse(BASE + "/movie/" + movieId + "/images"))
                 .newBuilder()
@@ -137,7 +141,6 @@ public class TMDbApiService {
     /**
      * 获取外部 ID（IMDb、TVDb 等）
      */
-    @Cacheable(value = "tmdbExternalIds", key = "#p1 + ':' + #p2", unless = "#result == null")
     public String getExternalIds(String apiKey, String type, int id) {
         HttpUrl url = Objects.requireNonNull(HttpUrl.parse(BASE + "/" + type + "/" + id + "/external_ids"))
                 .newBuilder()
@@ -150,7 +153,6 @@ public class TMDbApiService {
     /**
      * 获取电影上映/分级信息（Movie 专用）
      */
-    @Cacheable(value = "tmdbReleaseDates", key = "#p1", unless = "#result == null")
     public String getMovieReleaseDates(String apiKey, int movieId) {
         HttpUrl url = Objects.requireNonNull(HttpUrl.parse(BASE + "/movie/" + movieId + "/release_dates"))
                 .newBuilder()
@@ -163,7 +165,6 @@ public class TMDbApiService {
     /**
      * 获取季级别图片（TV 专用）
      */
-    @Cacheable(value = "tmdbSeasonImages", key = "#p1 + ':' + #p2", unless = "#result == null")
     public String getTvSeasonImages(String apiKey, int tvId, int seasonNumber) {
         HttpUrl url = Objects.requireNonNull(HttpUrl.parse(BASE + "/tv/" + tvId + "/season/" + seasonNumber + "/images"))
                 .newBuilder()
@@ -177,7 +178,6 @@ public class TMDbApiService {
     /**
      * 获取剧集内容分级（TV 专用）
      */
-    @Cacheable(value = "tmdbContentRatings", key = "#p1", unless = "#result == null")
     public String getTvContentRatings(String apiKey, int tvId) {
         HttpUrl url = Objects.requireNonNull(HttpUrl.parse(BASE + "/tv/" + tvId + "/content_ratings"))
                 .newBuilder()
@@ -187,65 +187,109 @@ public class TMDbApiService {
         return executeAndReturnString(req, "getTvContentRatings");
     }
 
+    private String language() {
+        return config.getTmdbMetadataLanguage();
+    }
+
     // ======================== 核心执行逻辑 ========================
 
     /**
-     * 带数据库缓存 + 重试 + 速率限制的执行方法。
-     * 缓存层：DB（持久化，跨重启）
+     * 带进程内短期缓存 + 数据库缓存 + 重试 + 速率限制的执行方法。
+     * 两层缓存共用同一个 cacheKey（URL 去掉 api_key 后取 MD5），避免出现两套 key 生成方式不一致的问题：
+     * - L1（进程内，10分钟 TTL）：摊薄同一批量刮削任务内对同一部剧/季的重复请求，减少 DB 查询次数
+     * - L2（数据库，24小时 TTL，跨重启持久化）：唯一的权威缓存
      */
     private String executeAndReturnString(Request req, String methodName) {
-        // 生成缓存 key（对 URL 去掉 api_key 参数后取 MD5）
         String cacheKey = buildCacheKey(req);
         String cacheType = methodName;
+        Cache l1 = cacheManager.getCache(L1_CACHE_NAME);
+        String l1Key = cacheType + ":" + cacheKey;
 
-        // 1. 查数据库缓存
+        // 1. 查进程内短期缓存
+        if (l1 != null) {
+            Cache.ValueWrapper wrapper = l1.get(l1Key);
+            if (wrapper != null) {
+                return (String) wrapper.get();
+            }
+        }
+
+        // 2. 查数据库缓存
         try {
             String cached = tmdbCacheService.getCachedResponse(cacheKey, cacheType);
             if (cached != null) {
+                if (l1 != null) l1.put(l1Key, cached);
                 return cached;
             }
         } catch (Exception e) {
             log.debug("查询TMDb数据库缓存异常（忽略）: {}", e.getMessage());
         }
 
-        // 2. 带重试的 HTTP 调用
+        // 3. 带重试的 HTTP 调用
         String result = executeWithRetry(req, methodName);
 
-        // 3. 写入数据库缓存
+        // 4. 写入数据库缓存 + 进程内缓存
         if (result != null) {
             try {
                 tmdbCacheService.cacheResponse(cacheKey, cacheType, result, 0);
             } catch (Exception e) {
                 log.debug("写入TMDb数据库缓存异常（忽略）: {}", e.getMessage());
             }
+            if (l1 != null) l1.put(l1Key, result);
         }
         return result;
     }
 
     /**
-     * 指数退避重试
+     * 带重试的执行：404/401/403 等客户端错误重试没有意义直接放弃；
+     * 429（限流，尊重 Retry-After）与 5xx（服务端错误）、网络层异常才指数退避重试。
      */
     private String executeWithRetry(Request req, String methodName) {
         for (int attempt = 0; attempt <= MAX_RETRIES; attempt++) {
             try {
                 return doHttpCall(req);
+            } catch (TMDbHttpException e) {
+                if (!isRetryable(e.statusCode)) {
+                    log.warn("TMDb API请求失败（HTTP {}，不重试）: {} error={}", e.statusCode, methodName, e.getMessage());
+                    return null;
+                }
+                if (attempt == MAX_RETRIES) {
+                    log.error("TMDb API请求失败，已重试{}次: {} error={}", MAX_RETRIES, methodName, e.getMessage());
+                    return null;
+                }
+                long delay = e.retryAfterMillis > 0 ? e.retryAfterMillis : backoffMillis(attempt);
+                if (!sleepQuietly(delay)) return null;
+                log.warn("TMDb API请求失败，第{}次重试（{}ms后，HTTP {}）: {} error={}",
+                        attempt + 1, delay, e.statusCode, methodName, e.getMessage());
             } catch (IOException e) {
                 if (attempt == MAX_RETRIES) {
                     log.error("TMDb API请求失败，已重试{}次: {} error={}", MAX_RETRIES, methodName, e.getMessage());
                     return null;
                 }
-                long delay = (long) Math.pow(2, attempt) * 1000L; // 1s, 2s, 4s
-                try {
-                    Thread.sleep(delay);
-                } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
-                    return null;
-                }
+                long delay = backoffMillis(attempt);
+                if (!sleepQuietly(delay)) return null;
                 log.warn("TMDb API请求失败，第{}次重试（{}ms后）: {} error={}",
                         attempt + 1, delay, methodName, e.getMessage());
             }
         }
         return null;
+    }
+
+    private boolean isRetryable(int statusCode) {
+        return statusCode == 429 || statusCode >= 500;
+    }
+
+    private long backoffMillis(int attempt) {
+        return (long) Math.pow(2, attempt) * 1000L; // 1s, 2s, 4s
+    }
+
+    private boolean sleepQuietly(long millis) {
+        try {
+            Thread.sleep(millis);
+            return true;
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
     }
 
     /**
@@ -277,12 +321,36 @@ public class TMDbApiService {
             try (Response resp = http.newCall(req).execute()) {
                 if (!resp.isSuccessful() || resp.body() == null) {
                     log.warn("TMDb请求失败，HTTP {}: {}", resp.code(), req.url());
-                    throw new IOException("HTTP " + resp.code());
+                    throw new TMDbHttpException(resp.code(), parseRetryAfterMillis(resp));
                 }
                 return resp.body().string();
             }
         } finally {
             RATE_LIMITER.release();
+        }
+    }
+
+    private long parseRetryAfterMillis(Response resp) {
+        String retryAfter = resp.header("Retry-After");
+        if (retryAfter == null) return -1;
+        try {
+            return Long.parseLong(retryAfter.trim()) * 1000L;
+        } catch (NumberFormatException e) {
+            return -1;
+        }
+    }
+
+    /**
+     * 携带 HTTP 状态码及 Retry-After（如有）的异常，供重试逻辑按错误类型区分处理。
+     */
+    private static final class TMDbHttpException extends IOException {
+        final int statusCode;
+        final long retryAfterMillis;
+
+        TMDbHttpException(int statusCode, long retryAfterMillis) {
+            super("HTTP " + statusCode);
+            this.statusCode = statusCode;
+            this.retryAfterMillis = retryAfterMillis;
         }
     }
 

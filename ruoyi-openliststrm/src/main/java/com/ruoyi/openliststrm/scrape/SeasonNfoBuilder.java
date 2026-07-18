@@ -16,10 +16,10 @@ public class SeasonNfoBuilder implements NfoTypeStrategy {
 
     @Override
     public String buildNfo(MediaInfo info) {
-        StringBuilder sb = new StringBuilder();
-        sb.append(xmlHeader());
-        sb.append("<season>\n");
+        return wrapXml("season", sb -> buildBody(sb, info));
+    }
 
+    private void buildBody(StringBuilder sb, MediaInfo info) {
         int seasonNum = parseSeasonNumber(info.getSeason());
 
         // 季标题：优先使用 TMDb 返回的季名称
@@ -88,8 +88,5 @@ public class SeasonNfoBuilder implements NfoTypeStrategy {
                 }
             }
         }
-
-        sb.append("</season>\n");
-        return sb.toString();
     }
 }

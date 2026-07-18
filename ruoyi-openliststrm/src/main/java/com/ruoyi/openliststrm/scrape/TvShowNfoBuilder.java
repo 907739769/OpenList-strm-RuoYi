@@ -14,13 +14,12 @@ public class TvShowNfoBuilder implements NfoTypeStrategy {
 
     @Override
     public String buildNfo(MediaInfo info) {
-        StringBuilder sb = new StringBuilder();
-        sb.append(xmlHeader());
-        sb.append("<tvshow>\n");
-
         JsonNode details = getDetails(info);
         JsonNode externalIds = getExternalIds(info);
+        return wrapXml("tvshow", sb -> buildBody(sb, info, details, externalIds));
+    }
 
+    private void buildBody(StringBuilder sb, MediaInfo info, JsonNode details, JsonNode externalIds) {
         // 标题优先取 TMDb 接口返回值
         String tvTitle = details != null && details.hasNonNull("name") ? details.get("name").asText() : info.getTitle();
         String tvOriginalTitle = details != null && details.hasNonNull("original_name") ? details.get("original_name").asText() : tvTitle;
@@ -29,20 +28,8 @@ public class TvShowNfoBuilder implements NfoTypeStrategy {
         appendTag(sb, "showtitle", tvTitle);
 
         // TMDB ID + IMDb ID
-        appendTag(sb, "tmdbid", info.getTmdbId());
-        String imdbId = null;
-        if (externalIds != null && externalIds.hasNonNull("imdb_id")) {
-            imdbId = externalIds.get("imdb_id").asText();
-        }
-        if (StringUtils.isNotBlank(imdbId)) {
-            appendTag(sb, "imdbid", imdbId);
-        }
-
-        // uniqueid 节点
-        if (StringUtils.isNotBlank(imdbId)) {
-            appendUniqueid(sb, imdbId, "imdb", "true");
-        }
-        appendUniqueid(sb, info.getTmdbId(), "tmdb", imdbId == null ? "true" : "false");
+        String imdbId = extractImdbId(details, externalIds);
+        appendIdBlock(sb, info.getTmdbId(), imdbId);
 
         // TVDb ID
         if (externalIds != null && externalIds.hasNonNull("tvdb_id")) {
@@ -120,8 +107,5 @@ public class TvShowNfoBuilder implements NfoTypeStrategy {
 
         // 图片引用 (thumb)
         appendThumbs(sb, details);
-
-        sb.append("</tvshow>\n");
-        return sb.toString();
     }
 }

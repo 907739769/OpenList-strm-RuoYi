@@ -127,6 +127,13 @@
         <el-form-item label="下载图片" prop="scrapeImages" v-if="form.scrapeEnabled === '1'">
           <el-switch v-model="form.scrapeImages" active-value="1" inactive-value="0" />
         </el-form-item>
+        <el-form-item
+          label="强制覆盖"
+          prop="scrapeForceOverwrite"
+          v-if="form.scrapeEnabled === '1'"
+        >
+          <el-switch v-model="form.scrapeForceOverwrite" active-value="1" inactive-value="0" />
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="open = false">取 消</el-button>

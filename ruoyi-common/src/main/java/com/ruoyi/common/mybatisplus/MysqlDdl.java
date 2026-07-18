@@ -37,7 +37,8 @@ public class MysqlDdl extends SimpleDdl {
                 "sql/20260626-delindex.sql",
                 "sql/20260711-add-scrape-fields.sql",
                 "sql/20260716-add-indexes.sql",
-                "sql/20260716-tmdb-cache-incremental-sync.sql"
+                "sql/20260716-tmdb-cache-incremental-sync.sql",
+                "sql/20260718-add-scrape-force-overwrite.sql"
         );
     }
 }

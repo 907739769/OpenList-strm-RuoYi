@@ -2,6 +2,7 @@ package com.ruoyi.openliststrm.controller.api;
 
 import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.Result;
+import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.framework.manager.AsyncManager;
 import com.ruoyi.openliststrm.mybatisplus.domain.RenameDetailPlus;
 import com.ruoyi.openliststrm.mybatisplus.service.IRenameDetailPlusService;
@@ -14,9 +15,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * 刮削操作 REST API控制器
@@ -59,7 +59,10 @@ public class ScrapeRestController extends BaseController
         AsyncManager.me().execute(() -> {
             try {
                 MediaParser parser = new MediaParser(clientProvider.tmdb(), clientProvider.openAI());
-                MediaInfo info = parser.parse(newName);
+                String tmdbId = detail.getTmdbId();
+                MediaInfo info = StringUtils.isNotEmpty(tmdbId)
+                        ? parser.parseWithKnownTmdbId(newName, tmdbId, mediaType)
+                        : parser.parse(newName);
 
                 Path destFile = Paths.get(detail.getNewPath(), newName);
                 Path outputDir = destFile.getParent();
@@ -87,7 +90,11 @@ public class ScrapeRestController extends BaseController
         {
             return Result.error("请选择要刮削的记录");
         }
-        List<Integer> idList = Arrays.stream(ids.split(",")).map(String::trim).filter(s -> !s.isEmpty()).map(Integer::parseInt).collect(Collectors.toList());
+        List<Integer> idList = parseIds(ids);
+        if (idList.isEmpty())
+        {
+            return Result.error("未解析到有效的记录 ID");
+        }
         for (Integer id : idList)
         {
             logger.info("开始批量刮削，ID：{}", id);
@@ -136,7 +143,11 @@ public class ScrapeRestController extends BaseController
         {
             return Result.error("请选择要删除刮削文件的记录");
         }
-        List<Integer> idList = Arrays.stream(ids.split(",")).map(String::trim).filter(s -> !s.isEmpty()).map(Integer::parseInt).collect(Collectors.toList());
+        List<Integer> idList = parseIds(ids);
+        if (idList.isEmpty())
+        {
+            return Result.error("未解析到有效的记录 ID");
+        }
         int totalDeleted = 0;
         for (Integer id : idList)
         {
@@ -148,5 +159,30 @@ public class ScrapeRestController extends BaseController
         }
         logger.info("批量删除刮削文件完成，记录数：{}，删除文件数：{}", idList.size(), totalDeleted);
         return Result.success();
+    }
+
+    /**
+     * 解析逗号分隔的 ID 列表，跳过非法（非数字）片段并记录警告，而不是直接抛异常导致整个请求 500。
+     */
+    private List<Integer> parseIds(String ids)
+    {
+        List<Integer> result = new ArrayList<>();
+        for (String s : ids.split(","))
+        {
+            s = s.trim();
+            if (s.isEmpty())
+            {
+                continue;
+            }
+            try
+            {
+                result.add(Integer.parseInt(s));
+            }
+            catch (NumberFormatException e)
+            {
+                logger.warn("忽略非法的记录 ID：{}", s);
+            }
+        }
+        return result;
     }
 }

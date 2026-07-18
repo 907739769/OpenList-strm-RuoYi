@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 
 /**
@@ -80,11 +81,20 @@ public class NfoGenerator {
         if (parent != null) {
             Files.createDirectories(parent);
         }
-        if (Files.exists(nfoFile) && !forceOverwrite) {
-            log.debug("NFO 文件已存在，跳过: {}", nfoFile);
-            return;
-        }
-        Files.write(nfoFile, content.getBytes(StandardCharsets.UTF_8),
-                StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+        // 按目标文件路径加锁 + 临时文件原子替换，避免同一 NFO（如 tvshow.nfo）被并发刮削任务写坏
+        ScrapeFileLock.withLock(nfoFile, () -> {
+            if (Files.exists(nfoFile) && !forceOverwrite) {
+                log.debug("NFO 文件已存在，跳过: {}", nfoFile);
+                return;
+            }
+            Path tmpFile = nfoFile.resolveSibling(nfoFile.getFileName().toString() + ".tmp");
+            try {
+                Files.write(tmpFile, content.getBytes(StandardCharsets.UTF_8),
+                        StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+                Files.move(tmpFile, nfoFile, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            } finally {
+                Files.deleteIfExists(tmpFile);
+            }
+        });
     }
 }

@@ -14,10 +14,10 @@ public class EpisodeNfoBuilder implements NfoTypeStrategy {
 
     @Override
     public String buildNfo(MediaInfo info) {
-        StringBuilder sb = new StringBuilder();
-        sb.append(xmlHeader());
-        sb.append("<episodedetails>\n");
+        return wrapXml("episodedetails", sb -> buildBody(sb, info));
+    }
 
+    private void buildBody(StringBuilder sb, MediaInfo info) {
         JsonNode details = getDetails(info);
 
         // 剧集标题优先取 TMDb 接口返回值
@@ -108,8 +108,5 @@ public class EpisodeNfoBuilder implements NfoTypeStrategy {
             sb.append("    </streamdetails>\n");
             sb.append("  </fileinfo>\n");
         }
-
-        sb.append("</episodedetails>\n");
-        return sb.toString();
     }
 }

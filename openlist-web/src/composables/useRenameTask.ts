@@ -38,7 +38,8 @@ export function useRenameTask() {
       status: '1',
       scrapeEnabled: '0',
       scrapeNfo: '0',
-      scrapeImages: '0'
+      scrapeImages: '0',
+      scrapeForceOverwrite: '0'
     }),
     rules: {
       sourceFolder: [{ required: true, message: '源目录不能为空', trigger: 'blur' }],

@@ -3,6 +3,8 @@ package com.ruoyi.openliststrm.scrape;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.ruoyi.common.utils.StringUtils;
 
+import java.util.function.Consumer;
+
 /**
  * NFO XML 标签构建工具类，封装所有类型共享的 XML 构建方法。
  */
@@ -11,6 +13,33 @@ public final class NfoXmlBuilder {
     public static final String TMDb_IMG_BASE = "https://image.tmdb.org/t/p/original";
 
     private NfoXmlBuilder() {}
+
+    // ==================== XML 骨架 ====================
+
+    /**
+     * 生成 "&lt;?xml ...?&gt; + 根标签 + body + 闭合根标签" 的完整 NFO 文档，
+     * 四种 NfoTypeStrategy 实现共用同一套外壳，避免各自重复声明。
+     */
+    public static String wrapXml(String rootTag, Consumer<StringBuilder> body) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(xmlHeader());
+        sb.append("<").append(rootTag).append(">\n");
+        body.accept(sb);
+        sb.append("</").append(rootTag).append(">\n");
+        return sb.toString();
+    }
+
+    /**
+     * 输出 tmdbid + imdbid + 对应的 uniqueid 节点。Movie/TvShow 两种类型的写法完全一致，故抽取共用。
+     */
+    public static void appendIdBlock(StringBuilder sb, String tmdbId, String imdbId) {
+        appendTag(sb, "tmdbid", tmdbId);
+        if (StringUtils.isNotBlank(imdbId)) {
+            appendTag(sb, "imdbid", imdbId);
+            appendUniqueid(sb, imdbId, "imdb", "true");
+        }
+        appendUniqueid(sb, tmdbId, "tmdb", imdbId == null ? "true" : "false");
+    }
 
     // ==================== 基础标签 ====================
 
@@ -214,6 +243,19 @@ public final class NfoXmlBuilder {
         Object si = info.getMetadata().get("season_images");
         if (si instanceof JsonNode) {
             return (JsonNode) si;
+        }
+        return null;
+    }
+
+    /**
+     * 提取 IMDb ID：优先取 details.imdb_id（电影详情接口才有此字段），否则回退到 external_ids.imdb_id。
+     */
+    public static String extractImdbId(JsonNode details, JsonNode externalIds) {
+        if (details != null && details.hasNonNull("imdb_id")) {
+            return details.get("imdb_id").asText();
+        }
+        if (externalIds != null && externalIds.hasNonNull("imdb_id")) {
+            return externalIds.get("imdb_id").asText();
         }
         return null;
     }
