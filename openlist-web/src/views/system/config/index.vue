@@ -8,10 +8,10 @@
         </div>
         <div>
           <h2 class="page-title">参数设置</h2>
-          <p class="page-desc">系统全局参数配置总览 — 点击 ✏️ 编辑，修改后保存生效</p>
+          <p class="page-desc">系统全局参数配置 — 开关直接切换即时生效，其余点击 ✏️ 编辑后保存</p>
         </div>
       </div>
-      <el-button type="primary" plain :icon="Refresh" @click="handleRefreshCache" :loading="refreshing">
+      <el-button type="primary" plain :icon="Refresh" :loading="refreshing" @click="handleRefreshCache">
         刷新缓存
       </el-button>
     </div>
@@ -43,50 +43,116 @@
             class="config-item"
             :class="{ 'config-item--editing': editingId === item.configId }"
           >
-            <!-- Display Mode -->
-            <template v-if="editingId !== item.configId">
-              <div class="config-item__header">
+            <!-- Header row: name + key + actions -->
+            <div class="config-item__header">
+              <div class="config-item__title">
                 <span class="config-item__name">{{ item.configName }}</span>
-                <div class="config-item__actions">
-                  <el-tooltip content="复制键名" placement="top" :show-after="300">
-                    <el-icon class="action-btn action-btn--copy" :size="16" @click="copyText(item.configKey)"><DocumentCopy /></el-icon>
-                  </el-tooltip>
-                  <el-tooltip content="编辑" placement="top" :show-after="300">
-                    <el-icon class="action-btn action-btn--edit" :size="16" @click="startEdit(item)"><EditPen /></el-icon>
-                  </el-tooltip>
-                </div>
+                <code class="config-item__key" @click="copyText(item.configKey)" title="点击复制键名">{{ item.configKey }}</code>
               </div>
-              <div class="config-item__value">
-                <span class="value-text">{{ displayValue(item) }}</span>
-                <el-tooltip v-if="isSensitive(item.configKey)" :content="item.configValue" placement="top" :show-after="300">
-                  <el-icon class="value-expand" :size="14"><ZoomIn /></el-icon>
-                </el-tooltip>
-              </div>
-              <!-- Mobile edit button (visible only on small screens) -->
-              <div class="config-item__mobile-edit">
-                <el-button type="primary" plain :icon="EditPen" class="mobile-edit-btn" @click="startEdit(item)">
-                  编辑参数
+              <div class="config-item__actions">
+                <!-- Inline switch for boolean configs -->
+                <el-switch
+                  v-if="metaOf(item).type === 'switch' && editingId !== item.configId"
+                  :model-value="item.configValue === '1'"
+                  :loading="switchSavingId === item.configId"
+                  inline-prompt
+                  active-text="开"
+                  inactive-text="关"
+                  @change="(val: any) => toggleSwitch(item, val)"
+                />
+                <!-- 明确的编辑按钮（PC + 移动端均清晰可见） -->
+                <el-button
+                  v-else-if="editingId !== item.configId"
+                  type="primary"
+                  plain
+                  size="small"
+                  :icon="EditPen"
+                  @click="startEdit(item)"
+                >
+                  编辑
                 </el-button>
+                <el-tag v-else size="small" type="warning">编辑中</el-tag>
               </div>
-            </template>
+            </div>
+
+            <!-- Hint -->
+            <p v-if="metaOf(item).hint" class="config-item__hint">{{ metaOf(item).hint }}</p>
+
+            <!-- Display value (non-switch, non-editing) -->
+            <div
+              v-if="editingId !== item.configId && metaOf(item).type !== 'switch'"
+              class="config-item__value"
+            >
+              <span class="value-text" :class="{ 'value-text--empty': !item.configValue }">{{ displayValue(item) }}</span>
+              <el-tooltip v-if="isSensitive(item.configKey) && item.configValue" :content="item.configValue" placement="top" :show-after="300">
+                <el-icon class="value-expand" :size="14"><ZoomIn /></el-icon>
+              </el-tooltip>
+            </div>
 
             <!-- Edit Mode -->
-            <template v-else>
-              <div class="config-item__header">
-                <span class="config-item__name">{{ item.configName }}</span>
-                <el-tag size="small" type="warning">编辑中</el-tag>
+            <template v-if="editingId === item.configId">
+              <div class="edit-body">
+                <!-- number -->
+                <el-input-number
+                  v-if="metaOf(item).type === 'number'"
+                  v-model="editNumber"
+                  :min="metaOf(item).min"
+                  :max="metaOf(item).max"
+                  :step="1"
+                  controls-position="right"
+                  class="edit-number"
+                />
+                <span v-if="metaOf(item).type === 'number' && metaOf(item).unit" class="edit-unit">{{ metaOf(item).unit }}</span>
+
+                <!-- select -->
+                <el-select
+                  v-else-if="metaOf(item).type === 'select'"
+                  v-model="editForm.configValue"
+                  class="edit-select"
+                  placeholder="请选择"
+                  filterable
+                  allow-create
+                >
+                  <el-option
+                    v-for="opt in metaOf(item).options"
+                    :key="opt.value"
+                    :label="opt.label"
+                    :value="opt.value"
+                  />
+                </el-select>
+
+                <!-- password -->
+                <el-input
+                  v-else-if="metaOf(item).type === 'password'"
+                  v-model="editForm.configValue"
+                  type="password"
+                  show-password
+                  placeholder="请输入参数值"
+                  class="edit-input"
+                  :class="{ 'edit-input--error': editError }"
+                />
+
+                <!-- textarea -->
+                <el-input
+                  v-else-if="metaOf(item).type === 'textarea'"
+                  v-model="editForm.configValue"
+                  type="textarea"
+                  :rows="3"
+                  placeholder="请输入参数值"
+                  class="edit-input"
+                  :class="{ 'edit-input--error': editError }"
+                />
+
+                <!-- text (default) -->
+                <el-input
+                  v-else
+                  v-model="editForm.configValue"
+                  placeholder="请输入参数值"
+                  class="edit-input"
+                  :class="{ 'edit-input--error': editError }"
+                />
               </div>
-              <el-input
-                v-model="editForm.configValue"
-                type="textarea"
-                :rows="2"
-                placeholder="请输入参数值"
-                class="edit-input"
-                :class="{ 'edit-input--error': editError }"
-              />
-              <el-tooltip v-if="editError" :content="editError" placement="top" :show-after="200">
-                <el-text class="edit-error" size="small" type="danger">{{ editError }}</el-text>
-              </el-tooltip>
+              <el-text v-if="editError" class="edit-error" size="small" type="danger">{{ editError }}</el-text>
               <div class="edit-actions">
                 <el-button size="default" @click="cancelEdit">取消</el-button>
                 <el-button type="primary" size="default" :loading="saving" @click="saveEdit(item)">保存</el-button>
@@ -106,7 +172,7 @@
 import { ref, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import {
-  Setting, Loading, DocumentCopy, ZoomIn, EditPen, Refresh,
+  Setting, Loading, ZoomIn, EditPen, Refresh,
   Monitor, Connection, ChatDotRound,
   ChatLineSquare, Lightning
 } from '@element-plus/icons-vue'
@@ -120,15 +186,88 @@ interface ConfigSection {
   items: SysConfig[]
 }
 
+type ConfigInputType = 'switch' | 'number' | 'select' | 'text' | 'password' | 'textarea'
+
+interface ConfigMeta {
+  type: ConfigInputType
+  hint?: string
+  unit?: string
+  min?: number
+  max?: number
+  options?: { label: string; value: string }[]
+}
+
 const loading = ref(true)
 const refreshing = ref(false)
 const saving = ref(false)
+const switchSavingId = ref<number | null>(null)
 const configList = ref<SysConfig[]>([])
 
 // Editing state
 const editingId = ref<number | null>(null)
 const editForm = ref<Partial<SysConfig>>({})
+const editNumber = ref<number>(0)
 const editError = ref('')
+
+/* ============================================================
+   配置项元数据：按 configKey 定义控件类型、说明、可选项等。
+   未在此声明的配置键回退为普通文本输入。
+   ============================================================ */
+const tmdbImageLangOptions = [
+  { label: '中文 (zh)', value: 'zh' },
+  { label: '英语 (en)', value: 'en' },
+  { label: '日语 (ja)', value: 'ja' },
+  { label: '韩语 (ko)', value: 'ko' }
+]
+const tmdbMetaLangOptions = [
+  { label: '简体中文 (zh-CN)', value: 'zh-CN' },
+  { label: '繁体中文 (zh-TW)', value: 'zh-TW' },
+  { label: '英语 (en-US)', value: 'en-US' },
+  { label: '日语 (ja-JP)', value: 'ja-JP' },
+  { label: '韩语 (ko-KR)', value: 'ko-KR' }
+]
+const tmdbImageSizeOptions = [
+  { label: '原图 (original)', value: 'original' },
+  { label: 'w780', value: 'w780' },
+  { label: 'w500', value: 'w500' },
+  { label: 'w342', value: 'w342' },
+  { label: 'w300', value: 'w300' },
+  { label: 'w185', value: 'w185' }
+]
+
+const CONFIG_META: Record<string, ConfigMeta> = {
+  // Openlist 基础
+  'openlist.server.url': { type: 'text', hint: 'OpenList 服务访问地址，例如 http://192.168.1.10:5244' },
+  'openlist.server.token': { type: 'password', hint: 'OpenList 管理 API Token' },
+  'openlist.api.apikey': { type: 'password', hint: '第三方开放回调接口的鉴权 Key' },
+  'openlist.api.refresh': { type: 'switch', hint: '源目录同步列举时是否强制刷新网盘（建议开启以保证增量正确）' },
+  'openlist.api.traversal.refresh': { type: 'switch', hint: '目录遍历目标目录时是否强制刷新网盘（关闭走缓存更快，默认关闭）' },
+  'openlist.api.traversal.concurrency': { type: 'number', min: 1, max: 64, hint: '目录遍历并发线程数，范围 1-64，默认 10' },
+  'openlist.local.allowedroots': { type: 'textarea', hint: '本地目录浏览白名单，多个用英文逗号分隔，默认仅 /data' },
+  // 复制 & STRM
+  'openlist.copy.minfilesize': { type: 'number', min: 0, unit: 'MB', hint: '小于该大小的文件不会被复制' },
+  'openlist.copy.strm': { type: 'switch', hint: '复制完成后是否自动生成 STRM 文件' },
+  'openlist.copy.monitor.maxminutes': { type: 'number', min: 1, unit: '分钟', hint: '复制任务监控最长时长，超时未结束将标记为异常，默认 600' },
+  'openlist.strm.outputdir': { type: 'text', hint: 'STRM 文件生成的根目录，默认 /data/strm' },
+  'openlist.strm.encode': { type: 'switch', hint: 'STRM 内路径是否进行 URL 编码' },
+  'openlist.strm.downloadsub': { type: 'switch', hint: '生成 STRM 时是否同时下载字幕文件' },
+  // Telegram
+  'openlist.tg.token': { type: 'password', hint: 'Telegram 机器人 Token' },
+  'openlist.tg.userid': { type: 'text', hint: '允许控制机器人的 Telegram 用户 ID' },
+  // OpenAI
+  'openlist.openai.apikey': { type: 'password', hint: 'OpenAI API Key' },
+  'openlist.openai.endpoint': { type: 'text', hint: 'OpenAI 接口地址，默认 https://api.openai.com' },
+  'openlist.openai.model': { type: 'text', hint: 'OpenAI 模型名称，例如 gpt-5-mini' },
+  // TMDb
+  'openlist.tmdb.apikey': { type: 'password', hint: 'TMDb API Key' },
+  'openlist.tmdb.image.language': { type: 'select', options: tmdbImageLangOptions, hint: 'TMDb 图片语言偏好' },
+  'openlist.tmdb.metadata.language': { type: 'select', options: tmdbMetaLangOptions, hint: 'TMDb 元数据（标题/简介）请求语言' },
+  'openlist.tmdb.image.size': { type: 'select', options: tmdbImageSizeOptions, hint: 'TMDb 图片下载尺寸，越小越省带宽' }
+}
+
+const metaOf = (config: SysConfig): ConfigMeta => {
+  return CONFIG_META[config.configKey] || { type: 'text' }
+}
 
 // Section definitions with categorization logic
 const configSections = computed<ConfigSection[]>(() => {
@@ -152,8 +291,8 @@ const configSections = computed<ConfigSection[]>(() => {
     }
 
     // TMDB 相关
-    if (key.includes('tmdb') || name.includes('TMDB') || name.includes('tmdb')) {
-      addSection('tmdb', 'TMDB 影视配置', Lightning)
+    if (key.includes('tmdb') || name.includes('TMDB') || name.includes('tmdb') || name.includes('TMDb')) {
+      addSection('tmdb', 'TMDb 影视配置', Lightning)
       sections['tmdb'].items.push(config)
       return
     }
@@ -209,7 +348,18 @@ const isSensitive = (key: string): boolean => {
 }
 
 const displayValue = (config: SysConfig): string => {
-  if (!config.configValue) return '—'
+  if (!config.configValue) return '未配置'
+  // 下拉枚举：显示对应中文标签
+  const meta = metaOf(config)
+  if (meta.type === 'select' && meta.options) {
+    const hit = meta.options.find(o => o.value === config.configValue)
+    if (hit) return hit.label
+  }
+  // 数字：附带单位
+  if (meta.type === 'number' && meta.unit) {
+    return `${config.configValue} ${meta.unit}`
+  }
+  // 敏感值脱敏
   if (isSensitive(config.configKey)) {
     const v = config.configValue
     if (v.length <= 6) return v
@@ -218,11 +368,39 @@ const displayValue = (config: SysConfig): string => {
   return config.configValue
 }
 
+// 开关内联即时保存
+const toggleSwitch = async (config: SysConfig, val: boolean) => {
+  const newValue = val ? '1' : '0'
+  switchSavingId.value = config.configId
+  try {
+    await updateConfigApi({
+      configId: config.configId,
+      configName: config.configName,
+      configKey: config.configKey,
+      configValue: newValue,
+      configType: config.configType,
+      createTime: config.createTime,
+      updateTime: config.updateTime,
+      remark: config.remark
+    })
+    config.configValue = newValue
+    ElMessage.success(`${config.configName} 已${val ? '开启' : '关闭'}`)
+  } catch (error: any) {
+    ElMessage.error(error.msg || error.message || '保存失败')
+  } finally {
+    switchSavingId.value = null
+  }
+}
+
 // Edit functions
 const startEdit = (config: SysConfig) => {
   editingId.value = config.configId
   editForm.value = { ...config }
   editError.value = ''
+  if (metaOf(config).type === 'number') {
+    const n = Number(config.configValue)
+    editNumber.value = Number.isFinite(n) ? n : 0
+  }
 }
 
 const cancelEdit = () => {
@@ -232,7 +410,13 @@ const cancelEdit = () => {
 }
 
 const saveEdit = async (original: SysConfig) => {
-  if (!editForm.value.configValue && editForm.value.configValue !== '') {
+  const meta = metaOf(original)
+  let value = editForm.value.configValue ?? ''
+  if (meta.type === 'number') {
+    value = String(editNumber.value ?? '')
+  }
+
+  if (value === '' && meta.type !== 'textarea' && meta.type !== 'text') {
     editError.value = '参数值不能为空'
     return
   }
@@ -245,7 +429,7 @@ const saveEdit = async (original: SysConfig) => {
       configId: original.configId,
       configName: original.configName,
       configKey: original.configKey,
-      configValue: editForm.value.configValue || '',
+      configValue: value,
       configType: original.configType,
       createTime: original.createTime,
       updateTime: original.updateTime,
@@ -264,7 +448,7 @@ const saveEdit = async (original: SysConfig) => {
 const copyText = async (text: string) => {
   try {
     await navigator.clipboard.writeText(text)
-    ElMessage.success('已复制到剪贴板')
+    ElMessage.success('已复制键名到剪贴板')
   } catch {
     ElMessage.error('复制失败')
   }
@@ -305,6 +489,7 @@ getList()
 .page-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 16px;
 
   .page-header-left {
@@ -398,10 +583,10 @@ getList()
   }
 
   .section-cards {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    padding-top: 10px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    padding-top: 4px;
   }
 }
 
@@ -412,8 +597,10 @@ getList()
   background: var(--osr-surface);
   border-radius: 12px;
   border: 1px solid var(--osr-border-light);
-  padding: 14px 18px;
+  padding: 14px 16px;
   transition: all var(--osr-transition-base);
+  display: flex;
+  flex-direction: column;
 
   &:hover:not(.config-item--editing) {
     border-color: var(--osr-primary-light-6);
@@ -423,21 +610,49 @@ getList()
   &--editing {
     border-color: var(--osr-warning);
     box-shadow: 0 0 0 2px rgba(230, 162, 60, 0.15);
+    grid-column: 1 / -1;
   }
 
   .config-item__header {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
     gap: 8px;
-    margin-bottom: 8px;
 
-    .config-item__name {
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--osr-text-primary);
-      flex: 1;
+    .config-item__title {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
       min-width: 0;
+      flex: 1;
+
+      .config-item__name {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--osr-text-primary);
+        line-height: 1.3;
+      }
+
+      .config-item__key {
+        font-family: 'SF Mono', 'Courier New', monospace;
+        font-size: 11px;
+        color: var(--osr-text-placeholder);
+        background: var(--osr-bg-page);
+        padding: 1px 6px;
+        border-radius: 5px;
+        cursor: pointer;
+        align-self: flex-start;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        transition: all var(--osr-transition-fast);
+
+        &:hover {
+          color: var(--osr-primary);
+          background: var(--osr-primary-light-9);
+        }
+      }
     }
 
     .config-item__actions {
@@ -445,13 +660,25 @@ getList()
       align-items: center;
       gap: 6px;
       flex-shrink: 0;
+      padding-top: 2px;
     }
+  }
+
+  .config-item__hint {
+    margin: 8px 0 0;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--osr-text-secondary);
   }
 
   .config-item__value {
     display: flex;
     align-items: center;
     gap: 8px;
+    margin-top: 10px;
+    padding: 8px 10px;
+    background: var(--osr-bg-page);
+    border-radius: 8px;
 
     .value-text {
       flex: 1;
@@ -461,6 +688,12 @@ getList()
       line-height: 1.6;
       word-break: break-all;
       min-width: 0;
+
+      &--empty {
+        color: var(--osr-text-placeholder);
+        font-style: italic;
+        font-family: inherit;
+      }
     }
 
     .value-expand {
@@ -479,82 +712,42 @@ getList()
   }
 }
 
-/* Action buttons */
-.action-btn {
-  cursor: pointer;
-  padding: 8px;
-  border-radius: 8px;
-  transition: all var(--osr-transition-fast);
+/* Edit mode */
+.edit-body {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
 
-  &--copy {
-    color: var(--osr-text-placeholder);
-
-    &:hover {
-      color: var(--osr-primary);
-      background: var(--osr-primary-light-9);
-    }
-  }
-
-  &--edit {
-    color: var(--osr-warning);
-
-    &:hover {
-      color: #d2972e;
-      background: rgba(230, 162, 60, 0.12);
-    }
+  .edit-number { width: 180px; }
+  .edit-select { width: 100%; }
+  .edit-input { flex: 1; }
+  .edit-unit {
+    font-size: 13px;
+    color: var(--osr-text-secondary);
+    flex-shrink: 0;
   }
 }
 
-/* Mobile edit button - visible on both desktop and mobile */
-.config-item__mobile-edit {
-  display: block;
-  padding-top: 8px;
-  border-top: 1px solid var(--osr-border-light);
-  margin-top: 8px;
-}
-
-.mobile-edit-btn {
-  width: 100%;
-  --el-button-padding-vertical: 8px;
-  --el-button-padding-horizontal: 16px;
-}
-
-/* Desktop: smaller edit button */
-@media (min-width: 769px) {
-  .mobile-edit-btn {
-    width: auto;
-    --el-button-padding-vertical: 6px;
-    --el-button-padding-horizontal: 12px;
-    font-size: 12px;
-  }
-}
-
-.mobile-edit-btn {
-  width: 100%;
-  --el-button-padding-vertical: 10px;
-  --el-button-padding-horizontal: 16px;
-}
-
-/* Edit input */
 .edit-input {
-  margin-bottom: 4px;
-
   &--error {
-    :deep(.el-textarea__inner) {
-      border-color: var(--el-color-danger);
+    :deep(.el-textarea__inner),
+    :deep(.el-input__wrapper) {
+      box-shadow: 0 0 0 1px var(--el-color-danger) inset;
     }
   }
 }
 
 .edit-error {
   display: block;
-  margin-bottom: 8px;
+  margin-top: 6px;
 }
 
 .edit-actions {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+  margin-top: 12px;
 }
 
 /* ============================================
@@ -593,28 +786,21 @@ getList()
       .section-count { display: none; }
     }
 
-    .section-cards { gap: 8px; }
+    /* 移动端单列 */
+    .section-cards {
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
   }
 
   .config-item {
     padding: 12px 14px;
 
+    &--editing { grid-column: auto; }
+
     .config-item__name { font-size: 13px; }
 
-    .value-text {
-      font-size: 12px;
-    }
-
-    /* Mobile: full width edit button */
-    .mobile-edit-btn {
-      width: 100%;
-    }
-
-    /* Larger action icons on mobile */
-    .action-btn {
-      padding: 6px;
-      border-radius: 8px;
-    }
+    .edit-body .edit-number { width: 140px; }
   }
 }
 </style>
