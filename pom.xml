@@ -22,7 +22,6 @@
         <yauaa.version>7.32.0</yauaa.version>
         <fastjson2.version>2.0.62</fastjson2.version>
         <commons.io.version>2.21.0</commons.io.version>
-        <poi.version>5.3.0</poi.version>
         <telegrambots.version>6.9.7.1</telegrambots.version>
         <eclipse-collections.version>11.1.0</eclipse-collections.version>
         <pebble.version>3.2.2</pebble.version>
@@ -70,13 +69,6 @@
                 <groupId>commons-io</groupId>
                 <artifactId>commons-io</artifactId>
                 <version>${commons.io.version}</version>
-            </dependency>
-
-            <!-- excel工具 -->
-            <dependency>
-                <groupId>org.apache.poi</groupId>
-                <artifactId>poi-ooxml</artifactId>
-                <version>${poi.version}</version>
             </dependency>
 
             <!-- 阿里JSON解析器 (FastJSON2) -->
