@@ -100,13 +100,6 @@ public class RenameTaskManager {
                 season, episode);
     }
 
-    public void executeRenameDetailsBatch(List<Integer> ids, String title, String year, String season, String episode) {
-        if (ids == null || ids.isEmpty()) return;
-        for (Integer id : ids) {
-            executeRenameDetails(id, title, year, season, episode);
-        }
-    }
-
     /**
      * 立即执行单个任务一次（用于页面手动触发）。
      * 返回 true 表示已成功触发处理（不代表全部文件处理成功）。
@@ -135,16 +128,6 @@ public class RenameTaskManager {
             processor.processOnce(Paths.get(src));
         } catch (Exception e) {
             log.error("executeTaskNow error for {}: {}", taskId, e.getMessage(), e);
-        }
-    }
-
-    /**
-     * 批量立即执行任务（以逗号分隔的 id 字符串或整数列表）。
-     */
-    public void executeTasksBatch(List<Integer> ids) {
-        if (ids == null || ids.isEmpty()) return;
-        for (Integer id : ids) {
-            executeTaskNow(id);
         }
     }
 

@@ -34,11 +34,6 @@ public class SysDictDataHelper {
         log.debug("Refreshed cache for dictType: {}", dictType);
     }
 
-    public void refreshAllCache() {
-        cache.clear();
-        log.debug("Cleared all dict cache");
-    }
-
     private List<String> loadDictValues(String dictType) {
         try {
             SysDictData data = new SysDictData();

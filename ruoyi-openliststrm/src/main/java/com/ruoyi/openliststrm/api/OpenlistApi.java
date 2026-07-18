@@ -147,15 +147,6 @@ public class OpenlistApi {
         return result;
     }
 
-    public JSONObject copyUndone() {
-        Request request = new Request.Builder()
-                .url(config.getOpenListUrl() + "/api/task/copy/undone")
-                .headers(buildHeaders())
-                .get()
-                .build();
-        return executeOnce(request, "获取未完成的复制任务");
-    }
-
     public JSONObject copyInfo(String tid) {
         Headers headers = new Headers.Builder()
                 .add("Accept", "application/json")
@@ -168,20 +159,6 @@ public class OpenlistApi {
                 .post(formBody)
                 .build();
         return executeOnce(request, "获取复制任务信息" + tid);
-    }
-
-    public JSONObject copyRetry(String tid) {
-        Headers headers = new Headers.Builder()
-                .add("Accept", "application/json")
-                .add("Authorization", config.getOpenListToken())
-                .build();
-        RequestBody formBody = new FormBody.Builder().add("tid", tid).build();
-        Request request = new Request.Builder()
-                .url(config.getOpenListUrl() + "/api/task/copy/retry" + "?tid=" + tid)
-                .headers(headers)
-                .post(formBody)
-                .build();
-        return executeOnce(request, "重试复制任务" + tid);
     }
 
     public JSONObject fsRemove(String dir, List<String> names) {
