@@ -19,12 +19,15 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.baomidou.mybatisplus.extension.service.IService;
+
 import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 
 /**
  * 仪表盘统计 REST API控制器
@@ -45,27 +48,30 @@ public class OpenlistDashboardRestController {
     private IRenameDetailPlusService renameDetailPlusService;
 
     /**
-     * 获取仪表盘统计数据
+     * 获取仪表盘统计数据。
+     * <p>
+     * copy/strm 各按状态 GROUP BY 一次查询即可拿到总数与各状态数，相比原先每个状态各一条
+     * COUNT(*)（共8条查询），压缩为 3 条（copy分组、strm分组、rename总数）。
      */
     @GetMapping("/stats")
     public Result<Map<String, Object>> getStats() {
         Map<String, Object> stats = new HashMap<>();
         try {
-            long strmTotal = openlistStrmPlusService.count();
-            long copyTotal = openlistCopyPlusService.count();
+            Map<String, Long> copyByStatus = countGroupByStatus(
+                    Wrappers.<OpenlistCopyPlus>query().select("copy_status as status, count(*) as count").groupBy("copy_status"),
+                    openlistCopyPlusService);
+            Map<String, Long> strmByStatus = countGroupByStatus(
+                    Wrappers.<OpenlistStrmPlus>query().select("strm_status as status, count(*) as count").groupBy("strm_status"),
+                    openlistStrmPlusService);
             long renameTotal = renameDetailPlusService.count();
 
-            long copySuccess = openlistCopyPlusService.count(
-                    Wrappers.<OpenlistCopyPlus>lambdaQuery().eq(OpenlistCopyPlus::getCopyStatus, CopyStatusEnum.SUCCESS.getCode()));
-            long copyFailed = openlistCopyPlusService.count(
-                    Wrappers.<OpenlistCopyPlus>lambdaQuery().eq(OpenlistCopyPlus::getCopyStatus, CopyStatusEnum.FAILED.getCode()));
-            long copyProcessing = openlistCopyPlusService.count(
-                    Wrappers.<OpenlistCopyPlus>lambdaQuery().eq(OpenlistCopyPlus::getCopyStatus, CopyStatusEnum.PROCESSING.getCode()));
-
-            long strmSuccess = openlistStrmPlusService.count(
-                    Wrappers.<OpenlistStrmPlus>lambdaQuery().eq(OpenlistStrmPlus::getStrmStatus, StrmStatusEnum.SUCCESS.getCode()));
-            long strmFailed = openlistStrmPlusService.count(
-                    Wrappers.<OpenlistStrmPlus>lambdaQuery().eq(OpenlistStrmPlus::getStrmStatus, StrmStatusEnum.FAILED.getCode()));
+            long copyTotal = copyByStatus.values().stream().mapToLong(Long::longValue).sum();
+            long strmTotal = strmByStatus.values().stream().mapToLong(Long::longValue).sum();
+            long copySuccess = copyByStatus.getOrDefault(CopyStatusEnum.SUCCESS.getCode(), 0L);
+            long copyFailed = copyByStatus.getOrDefault(CopyStatusEnum.FAILED.getCode(), 0L);
+            long copyProcessing = copyByStatus.getOrDefault(CopyStatusEnum.PROCESSING.getCode(), 0L);
+            long strmSuccess = strmByStatus.getOrDefault(StrmStatusEnum.SUCCESS.getCode(), 0L);
+            long strmFailed = strmByStatus.getOrDefault(StrmStatusEnum.FAILED.getCode(), 0L);
 
             long totalDone = copyTotal + strmTotal;
             long totalSuccess = copySuccess + strmSuccess;
@@ -81,6 +87,15 @@ public class OpenlistDashboardRestController {
             log.error("获取仪表盘统计失败", e);
         }
         return Result.success(stats);
+    }
+
+    /** 执行 GROUP BY status 查询并转为 status -> count 的映射 */
+    private <T> Map<String, Long> countGroupByStatus(QueryWrapper<T> wrapper, IService<T> service) {
+        Map<String, Long> result = new HashMap<>();
+        for (Map<String, Object> row : service.listMaps(wrapper)) {
+            result.put(String.valueOf(row.get("status")), Long.parseLong(row.get("count").toString()));
+        }
+        return result;
     }
 
     @PostMapping("/copy/stats")

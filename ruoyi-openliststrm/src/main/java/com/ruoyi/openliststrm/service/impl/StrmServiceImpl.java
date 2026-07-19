@@ -35,6 +35,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
@@ -255,7 +256,8 @@ public class StrmServiceImpl implements IStrmService {
 
         // 第一阶段：并行 BFS 遍历收集所有待处理文件。
         // 目录列举是网络 IO（每目录一次 fs/list），逐层并发列举可显著缩短大目录树的遍历耗时。
-        List<FileEntry> fileEntries = Collections.synchronizedList(new java.util.ArrayList<>());
+        // 用无锁的 ConcurrentLinkedQueue 承接并发 add，避免 synchronizedList 的锁竞争。
+        java.util.Queue<FileEntry> fileEntries = new java.util.concurrent.ConcurrentLinkedQueue<>();
         Semaphore dirSemaphore = new Semaphore(config.getTraversalConcurrency());
 
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
@@ -276,37 +278,59 @@ public class StrmServiceImpl implements IStrmService {
             }
         }
 
-        log.info("BFS遍历完成，共收集到 {} 个待处理文件", fileEntries.size());
+        int fileEntryCount = fileEntries.size();
+        log.info("BFS遍历完成，共收集到 {} 个待处理文件", fileEntryCount);
 
-        // 一次性批量查出该目录树下已处理成功的记录，避免每个文件单独查询数据库
-        Set<String> existingKeys = openlistStrmPlusService.lambdaQuery()
+        // 一次性批量查出该目录树下已有的 strm 记录（含所有状态），用途两个：
+        // 1) existingKeys（仅成功记录）用于处理阶段跳过已成功的文件；
+        // 2) existingIdByKey（全部记录）用于批量落库阶段判断 insert 还是 update——
+        //    openlist_strm 表 (strm_path, strm_file_name) 无唯一约束，无法用 ON DUPLICATE KEY UPSERT，
+        //    需要显式知道已存在记录的主键才能走 updateBatchById。
+        List<OpenlistStrmPlus> existingList = openlistStrmPlusService.lambdaQuery()
                 .likeRight(OpenlistStrmPlus::getStrmPath, rootPath)
-                .eq(OpenlistStrmPlus::getStrmStatus, "1")
-                .select(OpenlistStrmPlus::getStrmPath, OpenlistStrmPlus::getStrmFileName)
-                .list()
-                .stream()
-                .map(s -> s.getStrmPath() + " " + s.getStrmFileName())
+                .select(OpenlistStrmPlus::getStrmId, OpenlistStrmPlus::getStrmPath,
+                        OpenlistStrmPlus::getStrmFileName, OpenlistStrmPlus::getStrmStatus)
+                .list();
+        Set<String> existingKeys = existingList.stream()
+                .filter(s -> "1".equals(s.getStrmStatus()))
+                .map(s -> StrmHelper.recordKey(s.getStrmPath(), s.getStrmFileName()))
                 .collect(java.util.stream.Collectors.toSet());
+        Map<String, Integer> existingIdByKey = existingList.stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        s -> StrmHelper.recordKey(s.getStrmPath(), s.getStrmFileName()),
+                        OpenlistStrmPlus::getStrmId,
+                        (a, b) -> a));
 
-        // 第二阶段：虚拟线程并行处理文件
+        // 第二阶段：虚拟线程并行处理文件，处理结果（待写入的DB记录）先收集，处理完成后统一批量落库，
+        // 避免每文件各自调度一次异步单行查询+insert/update（N 次数据库往返）
+        List<OpenlistStrmPlus> pendingRecords;
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            List<CompletableFuture<Void>> futures = fileEntries.stream()
-                .map(entry -> CompletableFuture.runAsync(() -> {
+            List<CompletableFuture<List<OpenlistStrmPlus>>> futures = fileEntries.stream()
+                .map(entry -> CompletableFuture.supplyAsync(() -> {
                     try {
                         STRM_SEMAPHORE.acquire();
                         try {
-                            processFileEntry(entry, existingKeys, ctx);
+                            return processFileEntry(entry, existingKeys, ctx);
                         } finally {
                             STRM_SEMAPHORE.release();
                         }
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
+                        return Collections.<OpenlistStrmPlus>emptyList();
                     }
-                }, executor))
+                }, executor).exceptionally(ex -> {
+                    // 单个文件处理异常不应导致整批已收集的记录全部无法落库，兜底为空列表后继续
+                    log.error("处理文件条目异常 {} / {}", entry.path(), entry.name(), ex);
+                    return Collections.emptyList();
+                }))
                 .toList();
-            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+            pendingRecords = futures.stream()
+                    .map(CompletableFuture::join)
+                    .flatMap(List::stream)
+                    .toList();
         }
-        log.info("STRM文件并行处理完成，共处理 {} 个文件", fileEntries.size());
+        strmHelper.batchAddStrm(pendingRecords, existingIdByKey);
+        log.info("STRM文件并行处理完成，共处理 {} 个文件", fileEntryCount);
     }
 
     /**
@@ -314,7 +338,7 @@ public class StrmServiceImpl implements IStrmService {
      * 通过信号量限制并发列举数，避免压垮 AList。
      */
     private List<String> listDirCollect(String rawPath, String localRootPath,
-                                        List<FileEntry> fileEntries, Semaphore dirSemaphore, StrmCtx ctx) {
+                                        java.util.Queue<FileEntry> fileEntries, Semaphore dirSemaphore, StrmCtx ctx) {
         String currentPath = StringUtils.removeEnd(rawPath, "/");
         String currentLocalPath = localRootPath + File.separator + currentPath.replace("/", File.separator);
         File currentDir = new File(currentLocalPath);
@@ -361,26 +385,27 @@ public class StrmServiceImpl implements IStrmService {
     }
 
     /**
-     * 处理单个文件条目（从 getData 中提取出的文件处理逻辑）
+     * 处理单个文件条目（从 getData 中提取出的文件处理逻辑）。
+     * 返回本文件产生的待写入DB记录（0~2条：视频/字幕各一条），由调用方统一批量落库。
      */
-    private void processFileEntry(FileEntry entry, Set<String> existingKeys, StrmCtx ctx) {
+    private List<OpenlistStrmPlus> processFileEntry(FileEntry entry, Set<String> existingKeys, StrmCtx ctx) {
         String currentPath = entry.path();
         String currentLocalPath = entry.localPath();
         String rawName = entry.name();
         long size = entry.size();
 
-        if (existingKeys.contains(currentPath + " " + rawName)) {
+        if (existingKeys.contains(StrmHelper.recordKey(currentPath, rawName))) {
             if (log.isDebugEnabled()) {
                 log.debug("文件已处理过，跳过处理 {} / {}", currentPath, rawName);
             }
-            return;
+            return Collections.emptyList();
         }
 
         if (!openListHelper.isVideo(rawName) && !openListHelper.isSrt(rawName)) {
             if (log.isDebugEnabled()) {
                 log.debug("Skipping no media file {}", rawName);
             }
-            return;
+            return Collections.emptyList();
         }
 
         int dot = rawName.lastIndexOf('.');
@@ -388,10 +413,12 @@ public class StrmServiceImpl implements IStrmService {
         String safeName = ILLEGAL_PATTERN.matcher(baseName).replaceAll("");
         String fileName = safeName.length() > 255 ? safeName.substring(0, 250) : safeName;
 
+        List<OpenlistStrmPlus> records = new java.util.ArrayList<>(2);
+
         if (openListHelper.isVideo(rawName)) {
             if (size < ctx.minSize()) {
                 log.debug("Skipping small file {} ({} bytes)", rawName, size);
-                return;
+                return records;
             }
 
             Path strmFile = Paths.get(currentLocalPath).resolve(fileName + ".strm");
@@ -404,10 +431,10 @@ public class StrmServiceImpl implements IStrmService {
                 }
                 String content = ctx.baseUrl() + "/d" + encodePath;
                 writeAtomically(strmFile, content);
-                strmHelper.addStrm(currentPath, rawName, "1");
+                records.add(strmHelper.newRecord(currentPath, rawName, "1"));
             } catch (Exception e) {
                 log.error("写入 .strm 文件失败 {}", strmFile, e);
-                strmHelper.addStrm(currentPath, rawName, "0");
+                records.add(strmHelper.newRecord(currentPath, rawName, "0"));
             }
         }
 
@@ -418,13 +445,15 @@ public class StrmServiceImpl implements IStrmService {
                     String url = fileJson.getJSONObject("data").getString("raw_url");
                     File outFile = new File(currentLocalPath + File.separator + fileName + rawName.substring(rawName.lastIndexOf(".")));
                     downloadSubtitle(url, outFile.getAbsolutePath());
-                    strmHelper.addStrm(currentPath, rawName, "1");
+                    records.add(strmHelper.newRecord(currentPath, rawName, "1"));
                 }
             } catch (Exception e) {
                 log.error("下载字幕失败 {} / {}", currentPath, rawName, e);
-                strmHelper.addStrm(currentPath, rawName, "0");
+                records.add(strmHelper.newRecord(currentPath, rawName, "0"));
             }
         }
+
+        return records;
     }
 
     // SSRF防护：仅校验协议；内网地址的拦截交由 downloadClient 的自定义 DNS 在真正解析时完成，

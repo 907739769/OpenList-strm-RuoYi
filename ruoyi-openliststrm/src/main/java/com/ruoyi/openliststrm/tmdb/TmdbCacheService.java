@@ -56,12 +56,8 @@ public class TmdbCacheService {
         if (ttlMinutes <= 0) {
             ttlMinutes = DEFAULT_TTL_MINUTES;
         }
-        // 删除旧的同 key+type 记录
-        LambdaQueryWrapper<TmdbCache> delWrapper = new LambdaQueryWrapper<>();
-        delWrapper.eq(TmdbCache::getCacheKey, cacheKey)
-                  .eq(TmdbCache::getCacheType, cacheType);
-        tmdbCacheMapper.delete(delWrapper);
-
+        // 唯一索引 uk_cache_key(cache_key, cache_type) 支持单条 INSERT ... ON DUPLICATE KEY UPDATE，
+        // 替代原先 delete + insert 两次往返，同时消除两者之间的竞态窗口
         TmdbCache cache = new TmdbCache();
         cache.setCacheKey(cacheKey);
         cache.setCacheType(cacheType);
@@ -69,7 +65,7 @@ public class TmdbCacheService {
         long expireMillis = System.currentTimeMillis() + (long) ttlMinutes * 60_000L;
         cache.setExpireTime(new Date(expireMillis));
         cache.setCreateTime(new Date());
-        tmdbCacheMapper.insert(cache);
+        tmdbCacheMapper.upsert(cache);
         log.debug("TMDb缓存写入: type={}, key={}, ttl={}min", cacheType, cacheKey, ttlMinutes);
     }
 

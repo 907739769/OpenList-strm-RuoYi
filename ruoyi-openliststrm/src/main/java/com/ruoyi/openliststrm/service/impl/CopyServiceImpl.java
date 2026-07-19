@@ -153,6 +153,9 @@ public class CopyServiceImpl implements ICopyService {
                     .collect(Collectors.toSet());
 
             List<String> childDirs = new java.util.ArrayList<>();
+            // 收集同一目录下需要落库的 copy 记录，处理完整个目录后统一批量写入（1次查询+至多2次批量写），
+            // 替代逐文件调用 copyHelper.addCopy（每条各一次 getOne + save/update）
+            List<OpenlistCopyPlus> toPersist = new java.util.ArrayList<>();
             // 收集同一目录下需要复制的文件，合并成一次 fs/copy 调用（AList copy 接口本就接受 names 列表），
             // N 次网络请求 → 1 次，显著减少对 AList 的压力。
             List<String> namesToCopy = new java.util.ArrayList<>();
@@ -197,7 +200,7 @@ public class CopyServiceImpl implements ICopyService {
                         copy.setCopySrcFileName(name);
                         copy.setCopyDstFileName(name);
                         copy.setCopyStatus("3");
-                        copyHelper.addCopy(copy);
+                        toPersist.add(copy);
                     } else if (content.getLongValue("size") >= minSize) {
                         namesToCopy.add(name);
                     }
@@ -206,7 +209,9 @@ public class CopyServiceImpl implements ICopyService {
 
             // 同步提交批量复制任务，保证 syncFilesByQueue 返回前所有复制记录已入库，
             // 消除后续 isCopyDone 监控与异步入库之间的时序竞态。
-            submitCopyBatch(srcPath, dstPath, namesToCopy);
+            toPersist.addAll(submitCopyBatch(srcPath, dstPath, namesToCopy));
+            // 整个目录一次性批量落库，而不是逐文件调度
+            copyHelper.batchAddCopy(srcPath, toPersist);
             return childDirs;
         } finally {
             dirSemaphore.release();
@@ -234,23 +239,24 @@ public class CopyServiceImpl implements ICopyService {
 
     /**
      * 提交同一目录下的批量复制任务：一次 fs/copy 调用复制多个文件，按返回的 tasks 顺序回填任务 ID。
-     * 调用同步执行，保证复制记录在遍历返回前入库。
+     * 返回构建好的记录列表（不在此处落库），由调用方与目录内其它记录合并后一次性批量写入。
      */
-    private void submitCopyBatch(String srcPath, String dstPath, List<String> names) {
+    private List<OpenlistCopyPlus> submitCopyBatch(String srcPath, String dstPath, List<String> names) {
         if (names == null || names.isEmpty()) {
-            return;
+            return Collections.emptyList();
         }
         JSONObject resp = openlistApi.copyOpenlist(srcPath, dstPath, names);
         if (resp == null || !Integer.valueOf(200).equals(resp.getInteger("code"))
                 || resp.getJSONObject("data") == null) {
             log.warn("批量复制提交失败 {} => {}, 文件数={}", srcPath, dstPath, names.size());
-            return;
+            return Collections.emptyList();
         }
         JSONArray tasks = resp.getJSONObject("data").getJSONArray("tasks");
         if (tasks != null && tasks.size() != names.size()) {
             log.warn("复制任务数({})与文件数({})不一致，按顺序尽力映射: {} => {}",
                     tasks.size(), names.size(), srcPath, dstPath);
         }
+        List<OpenlistCopyPlus> records = new java.util.ArrayList<>(names.size());
         for (int i = 0; i < names.size(); i++) {
             String fileName = names.get(i);
             OpenlistCopyPlus copy = new OpenlistCopyPlus();
@@ -263,8 +269,9 @@ public class CopyServiceImpl implements ICopyService {
                 copy.setCopyTaskId(tasks.getJSONObject(i).getString("id"));
             }
             copy.setCopyStatus("1");
-            copyHelper.addCopy(copy);
+            records.add(copy);
         }
+        return records;
     }
 
     /**
