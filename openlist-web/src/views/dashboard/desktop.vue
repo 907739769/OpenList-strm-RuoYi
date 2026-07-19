@@ -38,8 +38,14 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick } from 'vue'
-import * as echarts from 'echarts'
+// 按需引入：仪表盘只用到饼图，避免全量引入 echarts 拖大打包体积
+import * as echarts from 'echarts/core'
+import { PieChart } from 'echarts/charts'
+import { TitleComponent, TooltipComponent } from 'echarts/components'
+import { CanvasRenderer } from 'echarts/renderers'
 import { getDashboardStatsApi, getCopyStatsApi, getStrmStatsApi, getRenameStatsApi } from '@/api/openlist/dashboard'
+
+echarts.use([PieChart, TitleComponent, TooltipComponent, CanvasRenderer])
 import { Files, VideoCamera, EditPen, CircleCheck, CircleClose, Loading } from '@element-plus/icons-vue'
 import type { Component, Ref } from 'vue'
 
@@ -223,10 +229,8 @@ onMounted(async () => {
   // Wait for DOM to render
   await nextTick()
 
-  // Load charts
-  await loadCopyChart()
-  await loadStrmChart()
-  await loadRenameChart()
+  // Load charts in parallel (previously serial awaits, tripling first-paint latency)
+  await Promise.all([loadCopyChart(), loadStrmChart(), loadRenameChart()])
 
   resizeHandler = () => {
     copyChart.value?.resize()

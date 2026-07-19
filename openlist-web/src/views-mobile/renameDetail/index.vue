@@ -174,9 +174,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import type { FormInstance, FormRules } from 'element-plus'
+import { ref } from 'vue'
 import {
   ArrowRight, Location, Clock,
   RefreshLeft, Refresh, Delete
@@ -184,216 +182,24 @@ import {
 import MobileSearchPanel from '@/components/mobile/MobileSearchPanel.vue'
 import MobilePager from '@/components/mobile/MobilePager.vue'
 import FullTextDialog from '@/components/mobile/FullTextDialog.vue'
-import {
-  getRenameDetailListApi,
-  executeRenameDetailApi,
-  batchDeleteRenameDetailApi,
-  scrapeRenameDetailApi,
-  batchScrapeRenameDetailApi,
-  deleteScrapeFilesApi,
-  batchDeleteScrapeFilesApi
-} from '@/api/openlist/renameDetail'
-import type { SearchParams, PageResult } from '@/types'
+import { useRenameDetailList } from '@/composables/useRenameDetailList'
 
-const recordList = ref<any[]>([])
-const loading = ref(true)
-const total = ref(0)
-const selectedIds = ref<number[]>([])
-const dateRange = ref<string[] | null>(null)
 const searchCollapsed = ref(true)
-const queryRef = ref<any>()
-
-// Edit & Rename dialog
-const retryDialogVisible = ref(false)
-const retryLoading = ref(false)
-const retryFormRef = ref<FormInstance>()
-const retryForm = reactive({ id: 0, title: '', year: '', season: '', episode: '', mediaType: '' })
-const retryRules = reactive<FormRules>({
-  title: [{ max: 100, message: '最多 100 个字符', trigger: 'blur' }],
-  year: [{ pattern: /^\d{0,4}$/, message: '年份为 4 位数字', trigger: 'blur' }],
-  season: [{ pattern: /^\d{1,2}$/, message: '季为 1-2 位数字', trigger: 'blur' }],
-  episode: [{ pattern: /^\d{1,4}$/, message: '集为 1-4 位数字', trigger: 'blur' }]
-})
 
 const fullTextRef = ref<InstanceType<typeof FullTextDialog>>()
 const showFullText = (content: string, title: string) => fullTextRef.value?.show(content, title)
 
-const totalPages = computed(() => Math.ceil(total.value / queryParams.pageSize) || 1)
-
-const queryParams = reactive<SearchParams & {
-  originalName?: string
-  newName?: string
-  originalPath?: string
-  newPath?: string
-  title?: string
-  status?: string
-}>({
-  pageNum: 1,
-  pageSize: 10,
-  status: undefined
-})
-
-const getList = async () => {
-  loading.value = true
-  try {
-    const res = await getRenameDetailListApi(queryParams) as PageResult
-    recordList.value = res.records || []
-    total.value = res.total || 0
-  } finally {
-    loading.value = false
-  }
-}
-
-const handleQuery = () => {
-  queryParams.pageNum = 1
-  if (dateRange.value != null && dateRange.value.length === 2) {
-    queryParams.params = {
-      beginTime: dateRange.value[0] + ' 00:00:00',
-      endTime: dateRange.value[1] + ' 23:59:59'
-    }
-  } else {
-    delete queryParams.params
-  }
-  getList()
-}
-
-const resetQuery = () => {
-  dateRange.value = null
-  if (queryRef.value) (queryRef.value as any).resetFields()
-  handleQuery()
-}
-
-const toggleSelect = (id: number) => {
-  const idx = selectedIds.value.indexOf(id)
-  if (idx > -1) {
-    selectedIds.value.splice(idx, 1)
-  } else {
-    selectedIds.value.push(id)
-  }
-}
-
-const handleCardClick = (event: Event, id: number) => {
-  const target = event.target as HTMLElement
-  if (target.closest('.card-checkbox')) return
-  toggleSelect(id)
-}
-
-const clearSelection = () => {
-  selectedIds.value = []
-}
-
-const prevPage = () => {
-  if (queryParams.pageNum > 1) {
-    queryParams.pageNum--
-    getList()
-  }
-}
-
-const nextPage = () => {
-  if (queryParams.pageNum < totalPages.value) {
-    queryParams.pageNum++
-    getList()
-  }
-}
-
-const handleSizeChange = () => {
-  queryParams.pageNum = 1
-  getList()
-}
-
-// --- Actions ---
-
-const handleRetryOne = (row: any) => {
-  retryForm.id = row.id
-  retryForm.title = row.title || ''
-  retryForm.year = row.year || ''
-  retryForm.season = row.season || ''
-  retryForm.episode = row.episode || ''
-  retryForm.mediaType = row.mediaType || ''
-  retryDialogVisible.value = true
-}
-
-const handleRetryClose = () => {
-  retryFormRef.value?.resetFields()
-}
-
-const handleRetrySubmit = async () => {
-  await retryFormRef.value?.validate()
-  retryLoading.value = true
-  try {
-    await executeRenameDetailApi([retryForm.id], retryForm.title || undefined, retryForm.year || undefined, retryForm.season || undefined, retryForm.episode || undefined)
-    ElMessage.success('编辑并重命名成功')
-    retryDialogVisible.value = false
-    getList()
-  } catch (error: any) {
-    ElMessage.error(error.message || '操作失败')
-  } finally {
-    retryLoading.value = false
-  }
-}
-
-const handleBatchExecute = async () => {
-  try {
-    await ElMessageBox.confirm(`是否确认批量执行选中的 ${selectedIds.value.length} 条记录？`, '提示', { type: 'warning' })
-    await executeRenameDetailApi(selectedIds.value)
-    ElMessage.success('批量执行成功')
-    getList()
-  } catch (e) { if (e !== 'cancel') console.error(e) }
-}
-
-const handleBatchDelete = async () => {
-  try {
-    await ElMessageBox.confirm(`是否确认删除选中的 ${selectedIds.value.length} 条记录？`, '警告', { type: 'warning' })
-    await batchDeleteRenameDetailApi(selectedIds.value)
-    ElMessage.success('删除成功')
-    getList()
-  } catch (e) { if (e !== 'cancel') console.error(e) }
-}
-
-const handleDeleteOne = async (row: any) => {
-  try {
-    await ElMessageBox.confirm(`是否确认删除重命名记录"${row.originalName}"？`, '警告', { type: 'warning' })
-    await batchDeleteRenameDetailApi([row.id])
-    ElMessage.success('删除成功')
-    getList()
-  } catch (e) { if (e !== 'cancel') console.error(e) }
-}
-
-const handleScrapeOne = async (row: any) => {
-  try {
-    await ElMessageBox.confirm(`是否确认对"${row.newName}"执行刮削？`, '提示', { type: 'info' })
-    await scrapeRenameDetailApi(row.id)
-    ElMessage.success('刮削已启动')
-    getList()
-  } catch (e) { if (e !== 'cancel') console.error(e) }
-}
-
-const handleBatchScrape = async () => {
-  try {
-    await ElMessageBox.confirm(`是否确认批量刮削选中的 ${selectedIds.value.length} 条记录？`, '提示', { type: 'info' })
-    await batchScrapeRenameDetailApi(selectedIds.value)
-    ElMessage.success('批量刮削已启动')
-    getList()
-  } catch (e) { if (e !== 'cancel') console.error(e) }
-}
-
-const handleDeleteScrapeOne = async (row: any) => {
-  try {
-    await ElMessageBox.confirm(`是否确认删除"${row.newName}"的刮削文件（NFO + 图片）？`, '删除刮削文件', { type: 'warning' })
-    await deleteScrapeFilesApi(row.id)
-    ElMessage.success('刮削文件已删除')
-    getList()
-  } catch (e) { if (e !== 'cancel') console.error(e) }
-}
-
-const handleBatchDeleteScrape = async () => {
-  try {
-    await ElMessageBox.confirm(`是否确认删除选中记录的刮削文件？`, '批量删除刮削', { type: 'warning' })
-    await batchDeleteScrapeFilesApi(selectedIds.value)
-    ElMessage.success('刮削文件已删除')
-    getList()
-  } catch (e) { if (e !== 'cancel') console.error(e) }
-}
+const {
+  recordList, loading, total, queryParams, totalPages,
+  getList, prevPage, nextPage, handleSizeChange,
+  queryRef, dateRange, handleQuery, resetQuery,
+  selectedIds, toggleSelect, handleCardClick, clearSelection,
+  handleDeleteOne, handleBatchDelete,
+  retryDialogVisible, retryLoading, retryFormRef, retryForm, retryRules,
+  handleRetryOne, handleRetryClose, handleRetrySubmit,
+  handleBatchExecute, handleScrapeOne, handleBatchScrape,
+  handleDeleteScrapeOne, handleBatchDeleteScrape
+} = useRenameDetailList()
 
 getList()
 </script>

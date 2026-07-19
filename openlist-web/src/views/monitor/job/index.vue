@@ -49,7 +49,7 @@
         </el-table-column>
         <el-table-column label="操作" align="center" width="240" fixed="right">
           <template #default="scope">
-            <el-button link type="primary" @click="handleUpdate(scope.row)">
+            <el-button link type="primary" @click="handleUpdate(scope.row, '修改定时任务')">
               <el-icon><Edit /></el-icon> 修改
             </el-button>
             <el-button link type="primary" @click="handleRun(scope.row)">
@@ -82,7 +82,7 @@
             </div>
           </div>
           <div class="mobile-card-actions">
-            <el-button link type="primary" size="small" @click="handleUpdate(item)">
+            <el-button link type="primary" size="small" @click="handleUpdate(item, '修改定时任务')">
               <el-icon><Edit /></el-icon> 修改
             </el-button>
             <el-button link type="primary" size="small" @click="handleRun(item)">
@@ -354,100 +354,49 @@
 import { ref, reactive } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh, Edit, VideoPlay, Filter, List, View, ArrowDown, Clock } from '@element-plus/icons-vue'
-import { getJobListApi, updateJobApi, changeJobStatusApi, runJobApi } from '@/api/monitor/job'
+import { getJobListApi, addJobApi, updateJobApi, deleteJobApi, changeJobStatusApi, runJobApi } from '@/api/monitor/job'
 import { getJobLogListApi, getJobLogDetailApi } from '@/api/monitor/jobLog'
 import { useAppStore } from '@/stores/app'
+import { useTaskList } from '@/composables/useTaskList'
 import type { SearchParams, PageResult } from '@/types'
 
 const appStore = useAppStore()
 const showSearch = ref(window.innerWidth >= 768)
 
-const jobList = ref<any[]>([])
-const loading = ref(true)
-const total = ref(0)
-
-const queryParams = reactive<SearchParams>({
-  pageNum: 1,
-  pageSize: 10,
-  jobName: undefined,
-  jobGroup: undefined,
-  status: undefined
+const {
+  taskList: jobList, loading, total, queryParams,
+  getList, handleQuery, resetQuery, queryRef,
+  open, dialogTitle, submitLoading, formRef, form, rules,
+  handleUpdate, submitForm
+} = useTaskList<SearchParams & { jobName?: string; jobGroup?: string; status?: string }>({
+  listApi: getJobListApi,
+  addApi: addJobApi,
+  updateApi: updateJobApi,
+  deleteApi: deleteJobApi,
+  // 该页当前无批量执行 UI，仅支持单个 jobId 执行
+  executeApi: (ids: number[]) => runJobApi(ids[0]),
+  idField: 'jobId',
+  initForm: () => ({
+    jobId: undefined,
+    jobName: undefined,
+    jobGroup: 'DEFAULT',
+    invokeTarget: undefined,
+    cronExpression: undefined,
+    subPost: undefined,
+    concurrent: '0',
+    status: '0',
+    remark: undefined
+  }),
+  rules: {
+    jobName: [{ required: true, message: '任务名称不能为空', trigger: 'blur' }],
+    jobGroup: [{ required: true, message: '任务组名不能为空', trigger: 'blur' }],
+    invokeTarget: [{ required: true, message: '调用目标字符串不能为空', trigger: 'blur' }],
+    cronExpression: [{ required: true, message: 'Cron表达式不能为空', trigger: 'blur' }]
+  },
+  defaultQuery: { jobName: undefined, jobGroup: undefined, status: undefined }
 })
 
-const getList = async () => {
-  loading.value = true
-  try {
-    const res = await getJobListApi(queryParams) as PageResult
-    jobList.value = res.records
-    total.value = res.total
-  } finally {
-    loading.value = false
-  }
-}
-
-const handleQuery = () => { queryParams.pageNum = 1; getList() }
-const resetQuery = () => { (queryRef.value as any).resetFields(); handleQuery() }
-
-// Dialog state
-const open = ref(false)
-const dialogTitle = ref('')
-const submitLoading = ref(false)
 const showCronDialog = ref(false)
-
-const initForm = (): any => ({
-  jobId: undefined,
-  jobName: undefined,
-  jobGroup: 'DEFAULT',
-  invokeTarget: undefined,
-  cronExpression: undefined,
-  subPost: undefined,
-  concurrent: '0',
-  status: '0',
-  remark: undefined
-})
-
-const form = ref<any>(initForm())
-const formRef = ref<any>()
-
-const rules = reactive({
-  jobName: [{ required: true, message: '任务名称不能为空', trigger: 'blur' }],
-  jobGroup: [{ required: true, message: '任务组名不能为空', trigger: 'blur' }],
-  invokeTarget: [{ required: true, message: '调用目标字符串不能为空', trigger: 'blur' }],
-  cronExpression: [{ required: true, message: 'Cron表达式不能为空', trigger: 'blur' }]
-})
-
-const handleUpdate = (row: any) => {
-  if (!row?.jobId) {
-    ElMessage.warning('请选择数据项')
-    return
-  }
-  dialogTitle.value = '修改定时任务'
-  getJobListApi({ ...queryParams, pageNum: 1, pageSize: 100 }).then((res: PageResult) => {
-    const job = res.records.find((t: any) => t.jobId === row.jobId)
-    if (job) {
-      form.value = { ...job }
-      open.value = true
-    } else {
-      ElMessage.error('任务不存在')
-    }
-  })
-}
-
-const submitForm = async () => {
-  if (!formRef.value) return
-  await formRef.value.validate()
-  submitLoading.value = true
-  try {
-    if (form.value.jobId) {
-      await updateJobApi(form.value)
-      ElMessage.success('修改成功')
-    }
-    open.value = false
-    getList()
-  } finally {
-    submitLoading.value = false
-  }
-}
 
 const handleSwitchChange = async (row: any) => {
   const newStatus = row.status
@@ -554,7 +503,6 @@ const formatDuration = (start: string | null, end: string | null): string => {
   return `${diff}毫秒`
 }
 
-const queryRef = ref<any>()
 getList()
 </script>
 
