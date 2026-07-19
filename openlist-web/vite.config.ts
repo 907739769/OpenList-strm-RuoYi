@@ -28,7 +28,7 @@ export default defineConfig({
         name: 'OpenList-strm-RuoYi',
         short_name: 'OSR',
         description: 'OpenList STRM Management System',
-        theme_color: '#409EFF',
+        theme_color: '#0d9488',
         background_color: '#ffffff',
         display: 'standalone',
         icons: [

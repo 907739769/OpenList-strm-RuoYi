@@ -3,7 +3,7 @@
     <!-- Sidebar -->
     <div class="sidebar-container">
       <div class="logo">
-        <img src="/favicon.svg" alt="Logo" class="logo-img" />
+        <img src="/icons/android-chrome-192x192.png" alt="Logo" class="logo-img" />
         <h1 v-show="appStore.sidebarOpened" class="logo-title">OSR</h1>
       </div>
       <el-scrollbar>

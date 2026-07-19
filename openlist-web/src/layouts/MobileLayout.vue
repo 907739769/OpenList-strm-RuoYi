@@ -10,7 +10,7 @@
       <div v-if="menuOpen" class="drawer-menu">
         <div class="drawer-header">
           <div class="drawer-brand">
-            <img src="/favicon.svg" alt="Logo" class="drawer-logo" />
+            <img src="/icons/android-chrome-192x192.png" alt="Logo" class="drawer-logo" />
             <span class="drawer-title">OSR</span>
           </div>
           <el-icon class="close-btn" @click="menuOpen = false"><Close /></el-icon>
