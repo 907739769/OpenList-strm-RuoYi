@@ -21,6 +21,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
@@ -146,10 +147,11 @@ class RenameOrphanScanServiceImplTest {
         ignored.setReason("local_missing");
         when(renameOrphanService.list()).thenReturn(List.of(ignored));
 
-        service.scan();
+        var summary = service.scan();
 
         verify(renameOrphanService, never()).save(any());
         verify(renameOrphanService, never()).updateById(any());
+        assertEquals(0, summary.localMissing());
     }
 
     @Test
