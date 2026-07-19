@@ -137,8 +137,15 @@ public class RenameOrphanScanServiceImpl implements IRenameOrphanScanService {
      */
     private int[] checkDirGroup(String dir, List<ScanCandidate> group, Map<Integer, RenameOrphanPlus> existingByDetailId, Date now) {
         JSONObject resp = openListApi.getOpenlist(dir, false);
+        if (resp == null) {
+            // API 调用失败（网络异常/超时/JSON解析失败，openListApi 内部重试3次后仍失败），
+            // 无法确认网盘源是否真的消失，跳过本组，避免瞬时故障误判为 source_missing
+            log.warn("核对网盘目录失败，跳过本轮该目录下 {} 条候选记录: {}", group.size(), dir);
+            return new int[]{0, 0};
+        }
+
         Set<String> existingNames;
-        boolean dirGone = resp == null || !Integer.valueOf(200).equals(resp.getInteger("code")) || resp.getJSONObject("data") == null;
+        boolean dirGone = !Integer.valueOf(200).equals(resp.getInteger("code")) || resp.getJSONObject("data") == null;
         if (dirGone) {
             existingNames = Set.of();
         } else {

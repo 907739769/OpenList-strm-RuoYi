@@ -184,6 +184,32 @@ class RenameOrphanScanServiceImplTest {
     }
 
     @Test
+    void scan_核对网盘目录API调用失败_跳过本组不产生孤儿记录() throws IOException {
+        Path dir = Files.createDirectories(tempDir.resolve("movies3"));
+        Path strmFile = dir.resolve("c.strm");
+        when(config.getOpenListUrl()).thenReturn("http://alist.local");
+        when(config.getOpenListStrmEncode()).thenReturn("0");
+        Files.writeString(strmFile, "http://alist.local/d/movies3/c.mkv", StandardCharsets.UTF_8);
+
+        RenameDetailPlus detail = new RenameDetailPlus();
+        detail.setId(4);
+        detail.setStatus("1");
+        detail.setNewPath(dir.toString());
+        detail.setNewName("c.strm");
+        when(renameDetailService.list(any(Wrapper.class))).thenReturn(List.of(detail));
+        when(renameOrphanService.list()).thenReturn(List.of());
+        when(config.getTraversalConcurrency()).thenReturn(4);
+
+        // 模拟 openListApi 内部重试3次后仍失败，返回 null
+        when(openListApi.getOpenlist(eq("/movies3"), eq(false))).thenReturn(null);
+
+        service.scan();
+
+        verify(renameOrphanService, never()).save(any());
+        verify(renameOrphanService, never()).updateById(any());
+    }
+
+    @Test
     void scan_本地文件和网盘源都存在_不产生孤儿记录() throws IOException {
         Path dir = Files.createDirectories(tempDir.resolve("movies2"));
         Path strmFile = dir.resolve("b.strm");
