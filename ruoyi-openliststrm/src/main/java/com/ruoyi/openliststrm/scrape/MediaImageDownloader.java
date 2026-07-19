@@ -16,6 +16,9 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -28,6 +31,7 @@ public class MediaImageDownloader {
 
     private static final String TMDb_IMG_HOST = "https://image.tmdb.org/t/p/";
     private static final MediaType OCTET_STREAM = MediaType.parse("application/octet-stream");
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private final OkHttpClient client;
     private final OpenlistConfig config;
@@ -51,11 +55,7 @@ public class MediaImageDownloader {
 
         // 合并 images 数据到 details 中
         details = mergeImages(details, getImagesFromMetadata(info));
-
-        downloadImage(details, "poster", "poster.jpg", outputDir, forceOverwrite);
-        downloadImage(details, "backdrop", "fanart.jpg", outputDir, forceOverwrite);
-        downloadLogo(details, outputDir, forceOverwrite);
-        downloadAdditionalImages(details, outputDir, forceOverwrite);
+        downloadAllImages(details, outputDir, forceOverwrite);
     }
 
     /**
@@ -68,11 +68,30 @@ public class MediaImageDownloader {
 
         // 合并 images 数据到 details 中
         details = mergeImages(details, getImagesFromMetadata(info));
+        downloadAllImages(details, outputDir, forceOverwrite);
+    }
 
-        downloadImage(details, "poster", "poster.jpg", outputDir, forceOverwrite);
-        downloadImage(details, "backdrop", "fanart.jpg", outputDir, forceOverwrite);
-        downloadLogo(details, outputDir, forceOverwrite);
-        downloadAdditionalImages(details, outputDir, forceOverwrite);
+    /**
+     * 并发下载 poster/fanart/clearlogo/banner/clearart/landscape/thumb 最多7张图片。
+     * 各自写入不同目标文件（downloadImageLocked 按路径加锁防交错写入），互不依赖，
+     * 之前串行下载会导致耗时随图片数量线性叠加。
+     */
+    private void downloadAllImages(JsonNode details, Path outputDir, boolean forceOverwrite) {
+        List<Runnable> tasks = List.of(
+                () -> downloadImage(details, "poster", "poster.jpg", outputDir, forceOverwrite),
+                () -> downloadImage(details, "backdrop", "fanart.jpg", outputDir, forceOverwrite),
+                () -> downloadLogo(details, outputDir, forceOverwrite),
+                () -> downloadImageByIndex(details, "backdrops", "banner.jpg", 1, forceOverwrite, outputDir),
+                () -> downloadImageByIndex(details, "logos", "clearart.png", 1, forceOverwrite, outputDir),
+                () -> downloadImageByIndex(details, "backdrops", "landscape.jpg", 2, forceOverwrite, outputDir),
+                () -> downloadImageByIndex(details, "posters", "thumb.jpg", 1, forceOverwrite, outputDir)
+        );
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            List<CompletableFuture<Void>> futures = tasks.stream()
+                    .map(t -> CompletableFuture.runAsync(t, executor))
+                    .toList();
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+        }
     }
 
     /**
@@ -103,8 +122,7 @@ public class MediaImageDownloader {
     private JsonNode mergeImages(JsonNode details, JsonNode imagesNode) {
         if (imagesNode == null) return details;
         try {
-            ObjectMapper mapper = new ObjectMapper();
-            ObjectNode merged = mapper.valueToTree(details);
+            ObjectNode merged = MAPPER.valueToTree(details);
             if (imagesNode.has("posters")) merged.set("posters", imagesNode.get("posters"));
             if (imagesNode.has("backdrops")) merged.set("backdrops", imagesNode.get("backdrops"));
             if (imagesNode.has("logos")) merged.set("logos", imagesNode.get("logos"));
@@ -136,23 +154,6 @@ public class MediaImageDownloader {
         } catch (Exception e) {
             log.warn("下载 clearlogo 图片失败: {}", e.getMessage());
         }
-    }
-
-    /**
-     * 下载额外图片类型: banner, clearart, landscape, thumb
-     */
-    private void downloadAdditionalImages(JsonNode details, Path outputDir, boolean forceOverwrite) {
-        // banner.jpg: 从 backdrops 中选择第二张（与 fanart 不同）
-        downloadImageByIndex(details, "backdrops", "banner.jpg", 1, forceOverwrite, outputDir);
-
-        // clearart.png: 从 logos 中选择第二张（与 clearlogo 不同）
-        downloadImageByIndex(details, "logos", "clearart.png", 1, forceOverwrite, outputDir);
-
-        // landscape.jpg: 从 backdrops 中选择第三张（或第二张如只有两张）
-        downloadImageByIndex(details, "backdrops", "landscape.jpg", 2, forceOverwrite, outputDir);
-
-        // thumb.jpg: 从 posters 中选择第二张（与 poster 不同）
-        downloadImageByIndex(details, "posters", "thumb.jpg", 1, forceOverwrite, outputDir);
     }
 
     /**

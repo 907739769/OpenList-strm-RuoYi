@@ -10,6 +10,8 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
 /**
@@ -17,12 +19,15 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 public class TMDbClient {
+    // ObjectMapper 线程安全，可在所有 TMDbClient 实例间共享，避免每次刮削创建都 new 一个
+    private static final ObjectMapper MAPPER = new ObjectMapper();
+
     private final String apiKey;
     private final ObjectMapper mapper;
 
     public TMDbClient(String apiKey) {
         this.apiKey = apiKey;
-        this.mapper = new ObjectMapper();
+        this.mapper = MAPPER;
     }
 
     public void enrich(MediaInfo info) {
@@ -365,20 +370,31 @@ public class TMDbClient {
         // origin countries
         extractOriginCountries(d, type, info);
 
-        // images (shared by tv/movie, different API)
+        // images/external_ids/content_ratings(或release_dates)/season_images 相互独立，
+        // 用虚拟线程并发拉取，避免最多5次请求串行叠加耗时（各自的 metadata 写入已加锁，见 fetchAndStore）
         String label = "tv".equals(type) ? "剧集" : "电影";
-        fetchAndStore(api, info, "images", label, () ->
-                "tv".equals(type) ? api.getTvImages(apiKey, id) : api.getMovieImages(apiKey, id));
-
-        // external_ids (same API for both)
-        fetchAndStore(api, info, "external_ids", label, () -> api.getExternalIds(apiKey, type, id));
-
-        // type-specific additional metadata
+        List<Runnable> tasks = new ArrayList<>();
+        tasks.add(() -> fetchAndStore(api, info, "images", label, () ->
+                "tv".equals(type) ? api.getTvImages(apiKey, id) : api.getMovieImages(apiKey, id)));
+        tasks.add(() -> fetchAndStore(api, info, "external_ids", label, () -> api.getExternalIds(apiKey, type, id)));
         if ("tv".equals(type)) {
-            fetchAndStore(api, info, "content_ratings", label, () -> api.getTvContentRatings(apiKey, id));
-            fetchSeasonImagesIfNeeded(api, info, id);
+            tasks.add(() -> fetchAndStore(api, info, "content_ratings", label, () -> api.getTvContentRatings(apiKey, id)));
+            tasks.add(() -> fetchSeasonImagesIfNeeded(api, info, id));
         } else {
-            fetchAndStore(api, info, "release_dates", label, () -> api.getMovieReleaseDates(apiKey, id));
+            tasks.add(() -> fetchAndStore(api, info, "release_dates", label, () -> api.getMovieReleaseDates(apiKey, id)));
+        }
+        runConcurrently(tasks);
+    }
+
+    /**
+     * 并发执行一组互不依赖的任务并等待全部完成。
+     */
+    private static void runConcurrently(List<Runnable> tasks) {
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            List<CompletableFuture<Void>> futures = tasks.stream()
+                    .map(t -> CompletableFuture.runAsync(t, executor))
+                    .toList();
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
         }
     }
 
@@ -409,7 +425,10 @@ public class TMDbClient {
             String json = apiCall.get();
             if (json != null) {
                 JsonNode node = mapper.readTree(json);
-                info.getMetadata().put(key, node);
+                // metadata 是普通 HashMap，applyDetails 中多个 fetchAndStore 任务并发执行，写入需加锁
+                synchronized (info.getMetadata()) {
+                    info.getMetadata().put(key, node);
+                }
                 log.debug("获取{} {} 成功: {}", label, key, node);
             }
         } catch (Exception e) {
@@ -424,7 +443,9 @@ public class TMDbClient {
             String seasonImagesJson = api.getTvSeasonImages(apiKey, tvId, seasonNum);
             if (seasonImagesJson != null) {
                 JsonNode seasonImages = mapper.readTree(seasonImagesJson);
-                info.getMetadata().put("season_images", seasonImages);
+                synchronized (info.getMetadata()) {
+                    info.getMetadata().put("season_images", seasonImages);
+                }
                 log.debug("获取季 images 成功: tvId={}, season={}, posters={}",
                         tvId, seasonNum, seasonImages.path("posters").size());
             }

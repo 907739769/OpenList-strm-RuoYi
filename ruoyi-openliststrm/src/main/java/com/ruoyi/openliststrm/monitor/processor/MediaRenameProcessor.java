@@ -20,9 +20,11 @@ import java.io.IOException;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Semaphore;
 
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
@@ -50,6 +52,18 @@ public class MediaRenameProcessor implements FileProcessor {
     /** 按目标路径加锁，使用引用计数避免"释放后又被新线程复用同一把已失效锁"的竞态 */
     private static final ConcurrentMap<String, LockEntry> FILE_LOCKS = new ConcurrentHashMap<>();
     private final Set<Path> processing = ConcurrentHashMap.newKeySet();
+
+    /** processOnce 批量扫描时的并发处理度（虚拟线程），避免大目录下逐文件串行 + isFileStable 固定2s导致耗时线性叠加 */
+    private static final int PROCESS_ONCE_CONCURRENCY = 8;
+
+    /**
+     * scrapeAsyncFile 对应的 RenameTaskPlus 懒加载缓存：同一 processor 实例的 targetRoot 不变，
+     * 避免批量处理时每个文件都重复按 targetRoot 查一次任务配置（N+1）。
+     * 该实例在任务配置变更时会被 RenameMonitorRegistry/RenameTaskManager 整体重建，故不存在缓存过期问题。
+     */
+    private volatile RenameTaskPlus cachedTask;
+    private volatile boolean taskLookedUp = false;
+    private final Object taskLookupLock = new Object();
 
     private static final class LockEntry {
         private final java.util.concurrent.locks.ReentrantLock lock = new java.util.concurrent.locks.ReentrantLock();
@@ -111,7 +125,7 @@ public class MediaRenameProcessor implements FileProcessor {
             return;
         }
         //判断文件是否还在写入中
-        if (!isFileStable(p)) {
+        if (!FileStabilityUtils.isFileStable(p)) {
             log.debug("文件仍在写入，稍后再试：{}", p);
             return;
         }
@@ -158,26 +172,47 @@ public class MediaRenameProcessor implements FileProcessor {
                     .map(r -> r.getOriginalPath() + " " + r.getOriginalName())
                     .collect(java.util.stream.Collectors.toSet());
 
+            // 先收集全部待处理文件，再用虚拟线程并发处理；原实现在 walkFileTree 回调里逐个同步处理，
+            // 每个文件仅 isFileStable 就固定阻塞2s，大目录下耗时随文件数线性叠加
+            List<Path> pendingFiles = new ArrayList<>();
             Files.walkFileTree(sourceDir, new SimpleFileVisitor<Path>() {
                 @Override
-                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
                     Path p = file.toAbsolutePath().normalize();
                     String key = p.getParent().toString() + " " + p.getFileName().toString();
-                    if (processedKeys.contains(key)) {
-                        return FileVisitResult.CONTINUE;
+                    if (!processedKeys.contains(key)) {
+                        pendingFiles.add(p);
                     }
-                    processing.add(p);
-                    try {
-                        handleFileIfReady(p);
-                    } catch (Exception e) {
-                        log.error("processOnce handleFileIfReady failed for {}", p, e);
-                    } finally {
-                        processing.remove(p);
-                    }
-
                     return FileVisitResult.CONTINUE;
                 }
             });
+
+            Semaphore semaphore = new Semaphore(PROCESS_ONCE_CONCURRENCY);
+            try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+                List<CompletableFuture<Void>> futures = pendingFiles.stream()
+                        .map(p -> CompletableFuture.runAsync(() -> {
+                            try {
+                                semaphore.acquire();
+                            } catch (InterruptedException e) {
+                                Thread.currentThread().interrupt();
+                                return;
+                            }
+                            try {
+                                processing.add(p);
+                                try {
+                                    handleFileIfReady(p);
+                                } catch (Exception e) {
+                                    log.error("processOnce handleFileIfReady failed for {}", p, e);
+                                } finally {
+                                    processing.remove(p);
+                                }
+                            } finally {
+                                semaphore.release();
+                            }
+                        }, executor))
+                        .toList();
+                CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+            }
         } catch (IOException e) {
             log.error("processOnce failed", e);
         }
@@ -242,7 +277,7 @@ public class MediaRenameProcessor implements FileProcessor {
             return false;
         }
 
-        if (!isFileStable(p)) {
+        if (!FileStabilityUtils.isFileStable(p)) {
             log.debug("文件仍在写入，稍后再试：{}", p);
             return false;
         }
@@ -351,15 +386,9 @@ public class MediaRenameProcessor implements FileProcessor {
      */
     private void scrapeAsyncFile(Path destFile, MediaInfo info, String mediaType, Path outputDir, Integer detailId) {
         try {
-            // 直接使用 processor 的 targetRoot 字段查询对应的任务配置
-            String targetRootPath = targetRoot.toString().replaceAll("/+$", "");
-            RenameTaskPlus task = taskService.getOne(
-                    new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<RenameTaskPlus>()
-                            .eq(RenameTaskPlus::getTargetRoot, targetRootPath)
-                            .last("LIMIT 1")
-            );
+            RenameTaskPlus task = resolveTask();
             if (task == null) {
-                log.warn("未找到 targetRoot={} 对应的重命名任务，跳过刮削", targetRootPath);
+                log.warn("未找到 targetRoot={} 对应的重命名任务，跳过刮削", targetRoot);
                 return;
             }
 
@@ -377,6 +406,26 @@ public class MediaRenameProcessor implements FileProcessor {
         } catch (Exception e) {
             log.warn("查询任务配置失败: {}", e.getMessage());
         }
+    }
+
+    /**
+     * 懒加载并缓存本 processor 实例对应的 RenameTaskPlus（按 targetRoot 查询）。
+     * processOnce 批量扫描时避免每个文件都重复查询一次（N+1）。
+     */
+    private RenameTaskPlus resolveTask() {
+        if (taskLookedUp) return cachedTask;
+        synchronized (taskLookupLock) {
+            if (!taskLookedUp) {
+                String targetRootPath = targetRoot.toString().replaceAll("/+$", "");
+                cachedTask = taskService.getOne(
+                        new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<RenameTaskPlus>()
+                                .eq(RenameTaskPlus::getTargetRoot, targetRootPath)
+                                .last("LIMIT 1")
+                );
+                taskLookedUp = true;
+            }
+        }
+        return cachedTask;
     }
 
     private String sanitizeForPath(String s) {
@@ -415,19 +464,6 @@ public class MediaRenameProcessor implements FileProcessor {
         m.put("tv", tv);
 
         return Collections.unmodifiableMap(m);
-    }
-
-    private static boolean isFileStable(Path p) {
-        try {
-            long s1 = Files.size(p);
-            long t1 = Files.getLastModifiedTime(p).toMillis();
-            TimeUnit.SECONDS.sleep(2);
-            long s2 = Files.size(p);
-            long t2 = Files.getLastModifiedTime(p).toMillis();
-            return s1 == s2 && t1 == t2;
-        } catch (Exception ignored) {
-        }
-        return false;
     }
 
 }

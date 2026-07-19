@@ -3,11 +3,9 @@ package com.ruoyi.openliststrm.monitor.processor;
 import com.ruoyi.openliststrm.service.ICopyService;
 import lombok.extern.slf4j.Slf4j;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
 
 /**
  * @author: Jack
@@ -39,7 +37,7 @@ public class MediaUploadProcessor implements FileProcessor {
             return;
         }
         //判断文件是否还在写入中
-        if (!isFileStable(p)) {
+        if (!FileStabilityUtils.isFileStable(p)) {
             log.debug("文件仍在写入，稍后再试：{}", p);
             return;
         }
@@ -54,20 +52,6 @@ public class MediaUploadProcessor implements FileProcessor {
         } finally {
             processing.remove(p);
         }
-    }
-
-
-    private static boolean isFileStable(Path p) {
-        try {
-            long s1 = Files.size(p);
-            long t1 = Files.getLastModifiedTime(p).toMillis();
-            TimeUnit.SECONDS.sleep(2);
-            long s2 = Files.size(p);
-            long t2 = Files.getLastModifiedTime(p).toMillis();
-            return s1 == s2 && t1 == t2;
-        } catch (Exception ignored) {
-        }
-        return false;
     }
 
 

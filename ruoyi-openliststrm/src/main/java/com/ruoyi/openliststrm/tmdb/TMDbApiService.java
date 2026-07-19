@@ -304,19 +304,19 @@ public class TMDbApiService {
             throw new IOException("速率限制等待被中断", e);
         }
         try {
-            // 保证最小间隔
-            long now = System.currentTimeMillis();
-            long lastTime = LAST_REQUEST_TIME.get();
-            long elapsed = now - lastTime;
-            if (elapsed < MIN_INTERVAL_MS) {
+            // 保证最小间隔：每个线程原子地为自己预约下一个可用时间槽（不早于"上一槽+间隔"，也不早于当前时刻），
+            // 避免并发线程同时读到旧的 lastTime、各自睡眠后又同时发起请求，导致限流形同虚设
+            long scheduledTime = LAST_REQUEST_TIME.updateAndGet(
+                    prev -> Math.max(prev + MIN_INTERVAL_MS, System.currentTimeMillis()));
+            long waitMillis = scheduledTime - System.currentTimeMillis();
+            if (waitMillis > 0) {
                 try {
-                    Thread.sleep(MIN_INTERVAL_MS - elapsed);
+                    Thread.sleep(waitMillis);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     throw new IOException("请求间隔等待被中断", e);
                 }
             }
-            LAST_REQUEST_TIME.set(System.currentTimeMillis());
 
             try (Response resp = http.newCall(req).execute()) {
                 if (!resp.isSuccessful() || resp.body() == null) {
