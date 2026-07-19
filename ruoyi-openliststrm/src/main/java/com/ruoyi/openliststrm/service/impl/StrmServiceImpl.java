@@ -149,16 +149,21 @@ public class StrmServiceImpl implements IStrmService {
             return;
         }
         String fileName = path.substring(path.lastIndexOf("/") + 1, path.lastIndexOf(".")).replaceAll("[\\\\/:*?\"<>|]", "");
-        File file = new File(getOutputDir() + File.separator + filePath.replace("/", File.separator));
-        if (!file.exists()) {
-            file.mkdirs();
-        }
         String relative = filePath.startsWith("/")
                 ? filePath.substring(1)
                 : filePath;
-        Path strmFile = Paths.get(getOutputDir())
-                .resolve(relative.replace("/", File.separator))
-                .resolve((fileName.length() > 255 ? fileName.substring(0, 250) : fileName) + ".strm");
+        Path outputBase = Paths.get(getOutputDir()).normalize();
+        Path targetDir = resolveWithinBase(outputBase, relative.replace("/", File.separator));
+        if (targetDir == null) {
+            log.error("拒绝路径穿越：strm目标目录超出输出根目录 {}, path={}", getOutputDir(), path);
+            strmHelper.addStrm(filePath, name, "0");
+            return;
+        }
+        File file = targetDir.toFile();
+        if (!file.exists()) {
+            file.mkdirs();
+        }
+        Path strmFile = targetDir.resolve((fileName.length() > 255 ? fileName.substring(0, 250) : fileName) + ".strm");
         try {
             String encodePath = path;
             if (shouldEncode()) {
@@ -454,6 +459,16 @@ public class StrmServiceImpl implements IStrmService {
         }
 
         return records;
+    }
+
+    /**
+     * 将 relativePath 解析到 base 目录下，并校验规范化后的结果仍在 base 内。
+     * relativePath 可能来自外部回调（如 qBittorrent 下载完成通知），需防范 ".." 路径穿越写出输出目录。
+     * @return 校验通过返回规范化后的绝对路径，越界返回 null。
+     */
+    private static Path resolveWithinBase(Path base, String relativePath) {
+        Path resolved = StringUtils.isBlank(relativePath) ? base : base.resolve(relativePath).normalize();
+        return resolved.startsWith(base) ? resolved : null;
     }
 
     // SSRF防护：仅校验协议；内网地址的拦截交由 downloadClient 的自定义 DNS 在真正解析时完成，

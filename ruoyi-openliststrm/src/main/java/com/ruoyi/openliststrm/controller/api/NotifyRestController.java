@@ -48,7 +48,9 @@ public class NotifyRestController
             log.warn("没有设置参数openlist.api.apikey");
             return Result.error("APIKEY校验不通过");
         }
-        if (!request.getHeader("X-API-KEY").equals(config.getOpenListApiKey()))
+        if (!java.security.MessageDigest.isEqual(
+                request.getHeader("X-API-KEY").getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                config.getOpenListApiKey().getBytes(java.nio.charset.StandardCharsets.UTF_8)))
         {
             log.warn("APIKEY校验不通过");
             return Result.error("APIKEY校验不通过");

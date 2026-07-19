@@ -52,9 +52,9 @@ spring:
                 # 设置白名单，不填则允许所有访问
                 allow:
                 url-pattern: /druid/*
-                # 控制台管理用户名和密码
-                login-username: ruoyi
-                login-password: 123456
+                # 控制台管理用户名和密码：复用已强制要求配置的数据库账号密码，避免硬编码弱口令
+                login-username: ${DB_USERNAME:ruoyi}
+                login-password: ${DB_PASSWORD}
             filter:
                 stat:
                     enabled: true
