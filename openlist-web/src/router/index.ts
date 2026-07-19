@@ -83,6 +83,10 @@ const componentMap: Record<string, Component | (() => Promise<any>)> = {
   'openlist/renameDetail/index': createDeviceView(
     () => import('@/views/openlist/renameDetail/index.vue'),
     () => import('@/views-mobile/renameDetail/index.vue')
+  ),
+  'openlist/renameOrphan/index': createDeviceView(
+    () => import('@/views/openlist/renameOrphan/index.vue'),
+    () => import('@/views-mobile/renameOrphan/index.vue')
   )
 }
 
@@ -148,7 +152,8 @@ const KEEP_ALIVE_COMPONENTS = new Set([
   'openlist/copyTask/index',
   'openlist/copyRecord/index',
   'openlist/renameTask/index',
-  'openlist/renameDetail/index'
+  'openlist/renameDetail/index',
+  'openlist/renameOrphan/index'
 ])
 
 function convertMenuToRoute(menu: MenuRoute): RouteRecordRaw {
