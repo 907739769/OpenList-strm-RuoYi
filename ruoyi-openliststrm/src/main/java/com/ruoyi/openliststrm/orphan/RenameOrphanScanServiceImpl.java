@@ -1,5 +1,8 @@
 package com.ruoyi.openliststrm.orphan;
 
+import com.alibaba.fastjson2.JSONArray;
+import com.alibaba.fastjson2.JSONObject;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.ruoyi.openliststrm.api.OpenlistApi;
 import com.ruoyi.openliststrm.config.OpenlistConfig;
 import com.ruoyi.openliststrm.mybatisplus.domain.RenameDetailPlus;
@@ -12,11 +15,20 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Semaphore;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -37,10 +49,143 @@ public class RenameOrphanScanServiceImpl implements IRenameOrphanScanService {
     @Autowired
     ScrapeService scrapeService;
 
+    private record ScanCandidate(RenameDetailPlus detail, String sourcePath) {
+    }
+
     @Override
     public ScanSummary scan() {
-        // 任务6实现
-        throw new UnsupportedOperationException("待任务6实现");
+        LambdaQueryWrapper<RenameDetailPlus> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(RenameDetailPlus::getStatus, "1").likeLeft(RenameDetailPlus::getNewName, ".strm");
+        List<RenameDetailPlus> candidates = renameDetailService.list(wrapper);
+
+        Map<Integer, RenameOrphanPlus> existingByDetailId = renameOrphanService.list().stream()
+                .collect(Collectors.toMap(RenameOrphanPlus::getDetailId, o -> o, (a, b) -> a));
+
+        String baseUrl = config.getOpenListUrl();
+        boolean encoded = "1".equals(config.getOpenListStrmEncode());
+        Date now = new Date();
+
+        int localMissing = 0;
+        int unparsable = 0;
+        List<ScanCandidate> stage2 = new ArrayList<>();
+
+        for (RenameDetailPlus detail : candidates) {
+            Path file = Paths.get(detail.getNewPath(), detail.getNewName());
+            if (!Files.exists(file)) {
+                applyDecision(OrphanReconciler.reconcile(detail, existingByDetailId.get(detail.getId()), "local_missing", now));
+                localMissing++;
+                continue;
+            }
+            String content;
+            try {
+                content = Files.readString(file, StandardCharsets.UTF_8);
+            } catch (IOException e) {
+                log.warn("读取strm文件内容失败，跳过网盘源检测: {}", file, e);
+                continue;
+            }
+            String sourcePath = StrmSourcePathResolver.resolve(content, baseUrl, encoded);
+            if (sourcePath == null) {
+                unparsable++;
+                continue;
+            }
+            stage2.add(new ScanCandidate(detail, sourcePath));
+        }
+
+        Map<String, List<ScanCandidate>> byDir = stage2.stream()
+                .collect(Collectors.groupingBy(c -> parentDir(c.sourcePath())));
+
+        int sourceMissing = 0;
+        int resolved = 0;
+        if (!byDir.isEmpty()) {
+            Semaphore semaphore = new Semaphore(config.getTraversalConcurrency());
+            List<int[]> counts;
+            try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+                List<CompletableFuture<int[]>> futures = byDir.entrySet().stream()
+                        .map(entry -> CompletableFuture.supplyAsync(() -> {
+                            try {
+                                semaphore.acquire();
+                                try {
+                                    return checkDirGroup(entry.getKey(), entry.getValue(), existingByDetailId, now);
+                                } finally {
+                                    semaphore.release();
+                                }
+                            } catch (InterruptedException e) {
+                                Thread.currentThread().interrupt();
+                                return new int[]{0, 0};
+                            }
+                        }, executor))
+                        .toList();
+                counts = futures.stream().map(CompletableFuture::join).toList();
+            }
+            for (int[] c : counts) {
+                sourceMissing += c[0];
+                resolved += c[1];
+            }
+        }
+
+        ScanSummary summary = new ScanSummary(localMissing, sourceMissing, resolved, unparsable);
+        log.info("重命名一致性检查扫描完成: 本地丢失={}, 网盘源丢失={}, 已恢复正常={}, 无法解析跳过={}",
+                summary.localMissing(), summary.sourceMissing(), summary.resolved(), summary.unparsable());
+        return summary;
+    }
+
+    /**
+     * 核对单个网盘目录下一组候选文件是否仍然存在，返回 {source_missing数量, 已恢复正常数量}。
+     */
+    private int[] checkDirGroup(String dir, List<ScanCandidate> group, Map<Integer, RenameOrphanPlus> existingByDetailId, Date now) {
+        JSONObject resp = openListApi.getOpenlist(dir, false);
+        Set<String> existingNames;
+        boolean dirGone = resp == null || !Integer.valueOf(200).equals(resp.getInteger("code")) || resp.getJSONObject("data") == null;
+        if (dirGone) {
+            existingNames = Set.of();
+        } else {
+            JSONArray content = resp.getJSONObject("data").getJSONArray("content");
+            existingNames = content == null ? Set.of() : content.stream()
+                    .map(o -> ((JSONObject) o).getString("name"))
+                    .collect(Collectors.toCollection(HashSet::new));
+        }
+
+        int sourceMissing = 0;
+        int resolved = 0;
+        for (ScanCandidate candidate : group) {
+            String fileName = fileNameOf(candidate.sourcePath());
+            RenameOrphanPlus existing = existingByDetailId.get(candidate.detail().getId());
+            if (existingNames.contains(fileName)) {
+                OrphanReconciler.Decision decision = OrphanReconciler.reconcile(candidate.detail(), existing, null, now);
+                if (decision.action() == OrphanReconciler.Action.DELETE) {
+                    resolved++;
+                }
+                applyDecision(decision);
+            } else {
+                OrphanReconciler.Decision decision = OrphanReconciler.reconcile(candidate.detail(), existing, "source_missing", now);
+                if (decision.action() != OrphanReconciler.Action.SKIP) {
+                    sourceMissing++;
+                }
+                applyDecision(decision);
+            }
+        }
+        return new int[]{sourceMissing, resolved};
+    }
+
+    private void applyDecision(OrphanReconciler.Decision decision) {
+        switch (decision.action()) {
+            case INSERT -> renameOrphanService.save(decision.toPersist());
+            case UPDATE -> renameOrphanService.updateById(decision.toPersist());
+            case DELETE -> renameOrphanService.removeById(decision.toPersist().getId());
+            case SKIP -> {
+                // 无需处理
+            }
+        }
+    }
+
+    private static String parentDir(String sourcePath) {
+        int idx = sourcePath.lastIndexOf('/');
+        return idx > 0 ? sourcePath.substring(0, idx) : "/";
+    }
+
+    private static String fileNameOf(String sourcePath) {
+        int idx = sourcePath.lastIndexOf('/');
+        return idx >= 0 ? sourcePath.substring(idx + 1) : sourcePath;
     }
 
     @Override

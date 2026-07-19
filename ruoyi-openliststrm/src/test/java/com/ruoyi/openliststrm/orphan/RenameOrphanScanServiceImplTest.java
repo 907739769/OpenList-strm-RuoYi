@@ -1,5 +1,7 @@
 package com.ruoyi.openliststrm.orphan;
 
+import com.alibaba.fastjson2.JSONObject;
+import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.ruoyi.openliststrm.api.OpenlistApi;
 import com.ruoyi.openliststrm.config.OpenlistConfig;
 import com.ruoyi.openliststrm.mybatisplus.domain.RenameDetailPlus;
@@ -9,9 +11,14 @@ import com.ruoyi.openliststrm.mybatisplus.service.IRenameOrphanPlusService;
 import com.ruoyi.openliststrm.scrape.ScrapeService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -32,6 +39,9 @@ class RenameOrphanScanServiceImplTest {
     private ScrapeService scrapeService;
 
     private RenameOrphanScanServiceImpl service;
+
+    @TempDir
+    Path tempDir;
 
     @BeforeEach
     void setUp() {
@@ -101,5 +111,85 @@ class RenameOrphanScanServiceImplTest {
             RenameOrphanPlus updated = list.iterator().next();
             return "2".equals(updated.getStatus()) && updated.getCleanTime() != null;
         }));
+    }
+
+    @Test
+    void scan_本地文件不存在_判定为local_missing并插入孤儿记录() throws IOException {
+        RenameDetailPlus detail = new RenameDetailPlus();
+        detail.setId(1);
+        detail.setStatus("1");
+        detail.setNewPath(tempDir.resolve("missing-dir").toString());
+        detail.setNewName("ghost.strm");
+        detail.setTitle("Ghost");
+        when(renameDetailService.list(any(Wrapper.class))).thenReturn(List.of(detail));
+        when(renameOrphanService.list()).thenReturn(List.of());
+
+        service.scan();
+
+        verify(renameOrphanService).save(argThat(o -> "local_missing".equals(o.getReason()) && o.getDetailId() == 1));
+    }
+
+    @Test
+    void scan_本地文件存在但网盘源已删除_判定为source_missing() throws IOException {
+        Path dir = Files.createDirectories(tempDir.resolve("movies"));
+        Path strmFile = dir.resolve("a.strm");
+        when(config.getOpenListUrl()).thenReturn("http://alist.local");
+        when(config.getOpenListStrmEncode()).thenReturn("0");
+        Files.writeString(strmFile, "http://alist.local/d/movies/a.mkv", StandardCharsets.UTF_8);
+
+        RenameDetailPlus detail = new RenameDetailPlus();
+        detail.setId(2);
+        detail.setStatus("1");
+        detail.setNewPath(dir.toString());
+        detail.setNewName("a.strm");
+        when(renameDetailService.list(any(Wrapper.class))).thenReturn(List.of(detail));
+        when(renameOrphanService.list()).thenReturn(List.of());
+        when(config.getTraversalConcurrency()).thenReturn(4);
+
+        JSONObject dirListing = new JSONObject();
+        dirListing.put("code", 200);
+        JSONObject data = new JSONObject();
+        data.put("content", new com.alibaba.fastjson2.JSONArray());
+        dirListing.put("data", data);
+        when(openListApi.getOpenlist(eq("/movies"), eq(false))).thenReturn(dirListing);
+
+        service.scan();
+
+        verify(renameOrphanService).save(argThat(o -> "source_missing".equals(o.getReason()) && o.getDetailId() == 2));
+    }
+
+    @Test
+    void scan_本地文件和网盘源都存在_不产生孤儿记录() throws IOException {
+        Path dir = Files.createDirectories(tempDir.resolve("movies2"));
+        Path strmFile = dir.resolve("b.strm");
+        when(config.getOpenListUrl()).thenReturn("http://alist.local");
+        when(config.getOpenListStrmEncode()).thenReturn("0");
+        Files.writeString(strmFile, "http://alist.local/d/movies2/b.mkv", StandardCharsets.UTF_8);
+
+        RenameDetailPlus detail = new RenameDetailPlus();
+        detail.setId(3);
+        detail.setStatus("1");
+        detail.setNewPath(dir.toString());
+        detail.setNewName("b.strm");
+        when(renameDetailService.list(any(Wrapper.class))).thenReturn(List.of(detail));
+        when(renameOrphanService.list()).thenReturn(List.of());
+        when(config.getTraversalConcurrency()).thenReturn(4);
+
+        JSONObject dirListing = new JSONObject();
+        dirListing.put("code", 200);
+        JSONObject data = new JSONObject();
+        com.alibaba.fastjson2.JSONArray content = new com.alibaba.fastjson2.JSONArray();
+        JSONObject file = new JSONObject();
+        file.put("name", "b.mkv");
+        file.put("is_dir", false);
+        content.add(file);
+        data.put("content", content);
+        dirListing.put("data", data);
+        when(openListApi.getOpenlist(eq("/movies2"), eq(false))).thenReturn(dirListing);
+
+        service.scan();
+
+        verify(renameOrphanService, never()).save(any());
+        verify(renameOrphanService, never()).updateBatchById(any());
     }
 }
