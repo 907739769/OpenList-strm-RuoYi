@@ -72,8 +72,11 @@ public class RenameOrphanScanServiceImpl implements IRenameOrphanScanService {
         for (RenameDetailPlus detail : candidates) {
             Path file = Paths.get(detail.getNewPath(), detail.getNewName());
             if (!Files.exists(file)) {
-                applyDecision(OrphanReconciler.reconcile(detail, existingByDetailId.get(detail.getId()), "local_missing", now));
-                localMissing++;
+                OrphanReconciler.Decision decision = OrphanReconciler.reconcile(detail, existingByDetailId.get(detail.getId()), "local_missing", now);
+                if (decision.action() != OrphanReconciler.Action.SKIP) {
+                    localMissing++;
+                }
+                applyDecision(decision);
                 continue;
             }
             String content;

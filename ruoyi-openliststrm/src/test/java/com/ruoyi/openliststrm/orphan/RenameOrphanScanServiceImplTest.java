@@ -130,6 +130,29 @@ class RenameOrphanScanServiceImplTest {
     }
 
     @Test
+    void scan_本地文件不存在但该detail已有已忽略的孤儿记录_跳过不落库() throws IOException {
+        RenameDetailPlus detail = new RenameDetailPlus();
+        detail.setId(1);
+        detail.setStatus("1");
+        detail.setNewPath(tempDir.resolve("missing-dir").toString());
+        detail.setNewName("ghost.strm");
+        detail.setTitle("Ghost");
+        when(renameDetailService.list(any(Wrapper.class))).thenReturn(List.of(detail));
+
+        RenameOrphanPlus ignored = new RenameOrphanPlus();
+        ignored.setId(99);
+        ignored.setDetailId(1);
+        ignored.setStatus("2");
+        ignored.setReason("local_missing");
+        when(renameOrphanService.list()).thenReturn(List.of(ignored));
+
+        service.scan();
+
+        verify(renameOrphanService, never()).save(any());
+        verify(renameOrphanService, never()).updateById(any());
+    }
+
+    @Test
     void scan_本地文件存在但网盘源已删除_判定为source_missing() throws IOException {
         Path dir = Files.createDirectories(tempDir.resolve("movies"));
         Path strmFile = dir.resolve("a.strm");
