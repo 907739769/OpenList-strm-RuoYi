@@ -44,6 +44,9 @@ public class OpenListStrmTask {
     @Autowired
     private IRenameTaskPlusService renameTaskPlusService;
 
+    @Autowired
+    private com.ruoyi.openliststrm.orphan.IRenameOrphanScanService renameOrphanScanService;
+
     public void copy() {
         LambdaQueryWrapper<OpenlistCopyTaskPlus> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(OpenlistCopyTaskPlus::getCopyTaskStatus, "1");
@@ -96,6 +99,10 @@ public class OpenListStrmTask {
         taskList.forEach(task -> {
             renameTaskManager.executeTaskNow(task.getId());
         });
+    }
+
+    public void checkRenameOrphan() {
+        renameOrphanScanService.scan();
     }
 
 }
