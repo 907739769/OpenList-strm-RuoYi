@@ -154,4 +154,39 @@ public class RenameTaskManager {
         List<RenameTaskPlus> list = renameTaskService.list(qw);
         return list.stream().collect(Collectors.toMap(RenameTaskPlus::getId, t -> t));
     }
+
+    /**
+     * 批量重试所有失败的重命名记录（最多重试最新 200 条）。
+     * executeRenameDetails 本身只在内部处理了 IOException，其他运行时异常会往外抛，
+     * 这里必须对每条记录单独 try/catch，避免一条异常中断整批。
+     */
+    public RetryOutcome retryAllFailed() {
+        QueryWrapper<RenameDetailPlus> countWrapper = new QueryWrapper<>();
+        countWrapper.eq("status", "0");
+        long total = renameDetailService.count(countWrapper);
+        if (total == 0) {
+            return new RetryOutcome(0, 0);
+        }
+
+        QueryWrapper<RenameDetailPlus> wrapper = new QueryWrapper<>();
+        wrapper.eq("status", "0")
+                .select("id")
+                .orderByDesc("create_time")
+                .last("LIMIT 200");
+        List<RenameDetailPlus> failed = renameDetailService.list(wrapper);
+        for (RenameDetailPlus detail : failed) {
+            try {
+                executeRenameDetails(detail.getId(), null, null, null, null);
+            } catch (Exception e) {
+                log.warn("retryAllFailed: 重试重命名明细失败 id={}", detail.getId(), e);
+            }
+        }
+        return new RetryOutcome(failed.size(), (int) total - failed.size());
+    }
+
+    /**
+     * @param retried   本次提交重试的记录数
+     * @param remaining 超出 200 条上限、未处理的剩余失败记录数
+     */
+    public record RetryOutcome(int retried, int remaining) {}
 }

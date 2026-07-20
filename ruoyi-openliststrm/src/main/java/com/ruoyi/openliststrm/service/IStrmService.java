@@ -18,4 +18,15 @@ public interface IStrmService {
      */
     void retryStrm(List<String> idList);
 
+    /**
+     * 批量重试所有失败的 STRM 记录（最多重试最新 200 条）
+     */
+    RetryOutcome retryAllFailed();
+
+    /**
+     * @param retried   本次提交重试的记录数
+     * @param remaining 超出 200 条上限、未处理的剩余失败记录数
+     */
+    record RetryOutcome(int retried, int remaining) {}
+
 }

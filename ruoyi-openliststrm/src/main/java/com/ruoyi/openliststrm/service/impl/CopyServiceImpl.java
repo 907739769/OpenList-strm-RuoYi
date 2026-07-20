@@ -443,6 +443,25 @@ public class CopyServiceImpl implements ICopyService {
         }
     }
 
+    @Override
+    public RetryOutcome retryAllFailed() {
+        LambdaQueryWrapper<OpenlistCopyPlus> countWrapper = new LambdaQueryWrapper<>();
+        countWrapper.eq(OpenlistCopyPlus::getCopyStatus, "2");
+        long total = openlistCopyPlusService.count(countWrapper);
+        if (total == 0) {
+            return new RetryOutcome(0, 0);
+        }
+
+        LambdaQueryWrapper<OpenlistCopyPlus> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(OpenlistCopyPlus::getCopyStatus, "2")
+                .orderByDesc(OpenlistCopyPlus::getCreateTime)
+                .last("LIMIT 200");
+        List<OpenlistCopyPlus> failed = openlistCopyPlusService.list(wrapper);
+        List<String> idList = failed.stream().map(c -> String.valueOf(c.getCopyId())).toList();
+        retryCopy(idList);
+        return new RetryOutcome(idList.size(), (int) total - idList.size());
+    }
+
     /**
      * 解析 AList 返回的 modified 字段。
      * <p>
