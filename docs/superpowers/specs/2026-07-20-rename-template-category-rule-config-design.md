@@ -45,31 +45,31 @@
 | id | bigint PK | 主键 |
 | media_type | varchar(10) | `movie` / `tv` |
 | seq | int | 排序序号，越小优先级越高 |
-| rule_name | varchar(64) | 展示名，如"国漫"，同时作为审计/日志里的规则标识 |
 | genre_ids | varchar(255) | 逗号分隔的 TMDB genre id，空表示不限 |
 | original_languages | varchar(255) | 逗号分隔语言码，空表示不限 |
 | origin_countries | varchar(255) | 逗号分隔国家码，空表示不限 |
-| target_dir | varchar(128) | 命中后的目标目录名 |
-| is_fallback | tinyint(1) | 是否为兜底规则（每个 media_type 有且只有一条，seq 必须最大） |
+| target_dir | varchar(128) | 命中后的目标目录名，同时兼作该规则的展示名（与原 `CategoryRule.name` 语义一致，不单独设展示名字段） |
+| is_fallback | varchar(1) | 是否为兜底规则，`0`/`1`（每个 media_type 有且只有一条，seq 必须最大），用 varchar 而非 tinyint 与本项目其余布尔态字段（如 `status`/`scrape_enabled`）保持一致 |
 | create_time / update_time | datetime | 常规审计字段 |
 
-初始化数据：随本次建表的 SQL 迁移脚本（`ruoyi-common/src/main/resources/sql/` 下新增一个 `2026xxxx-rename-category-rule.sql`，由 `MysqlDdl` 自动执行）一并 `INSERT` 现有 `defaultRules()` 的 11 条规则（电影3+剧集8）作为种子数据，保证老环境升级后行为不变，不需要额外的应用启动检查逻辑。
+初始化数据：随本次建表的 SQL 迁移脚本（`ruoyi-common/src/main/resources/sql/` 下新增一个 `2026xxxx-rename-category-rule.sql`，由 `MysqlDdl` 自动执行）一并 `INSERT` 现有 `defaultRules()` 的 12 条规则（电影3+剧集9，剧集含8条条件规则+1条兜底）作为种子数据，保证老环境升级后行为不变，不需要额外的应用启动检查逻辑。
 
 ## 后端改造
 
 - `MediaRenameProcessor`：`DEFAULT_FILENAME_TEMPLATE` 改为运行时从 `ISysConfigService.selectConfigByKey("rename.filename.template")` 读取（该服务本身自带缓存，改动后调用 `resetConfigCache` 即可生效，无需额外加缓存层）；找不到配置 fallback 内置默认值。
 - `defaultRules()` 改为 `ICategoryRuleService.listEnabledRules(mediaType)`：从 `rename_category_rule` 按 `seq` 升序查询并转换为运行时 `CategoryRule` 对象；`classify()` 的匹配逻辑（顺序遍历+短路+末位兜底）不变。
 - `RenameTaskRestController` 里重复的 `DEFAULT_FILENAME_TEMPLATE` 常量删除，`/test/parse` 等预览接口改为调用同一个模板读取入口，保证预览和实际渲染永远一致。
-- 新增 `RenameTemplateConfigController`：
+- 新增 `RenameTemplateConfigRestController`：
   - `GET /api/openliststrm/rename-config/template`：返回当前模板字符串
-  - `PUT /api/openliststrm/rename-config/template`：保存前用内置示例 `MediaInfo`（覆盖 season/episode/resolution/videoCodec 等常见字段的典型取值）调用 `PebbleRenderer.render()` 试渲染一次，渲染异常则返回 400 + 具体报错信息（Pebble 异常信息透传），渲染成功才写入 `sys_config` 并刷新缓存
-- 新增 `CategoryRuleController`：规则的增删改查 + 排序（`PUT /reorder` 传入完整 id 顺序数组）：
-  - 保存单条规则时校验 `target_dir` 非空
-  - 任何写操作后校验每个 `media_type` 恰好存在一条 `is_fallback=1` 且其 `seq` 是该 `media_type` 下最大值，不满足则拒绝保存并提示"必须保留且只能保留一条兜底规则，且需排在最后"
+  - `POST /api/openliststrm/rename-config/template/preview`：用内置示例 `MediaInfo`（覆盖 season/episode/resolution/videoCodec 等常见字段的典型取值）试渲染，不落库，供页面实时预览用（不走 TMDb，纯本地渲染，可以高频调用）
+  - `PUT /api/openliststrm/rename-config/template`：复用同一个试渲染逻辑做保存前校验，渲染异常返回具体报错信息，渲染成功才写入 `sys_config` 并刷新缓存
+- 新增 `RenameCategoryRuleRestController`：前端"分类规则"编辑器是整表编辑、点一次保存提交整份列表（而非逐行增删改），后端对应设计为按 `media_type` 整体替换而非单条 CRUD：
+  - `GET /api/openliststrm/rename-category-rules?mediaType=movie|tv`：返回该类型当前规则列表（按 seq 升序）
+  - `PUT /api/openliststrm/rename-category-rules/{mediaType}`：请求体为该类型的完整有序规则列表，后端先校验（每条 `target_dir` 非空；列表中恰好一条 `is_fallback=1` 且必须是最后一条），校验通过后在同一事务内清空该 `media_type` 下旧数据、按提交顺序重新写入（seq=数组下标），校验失败则整体拒绝、不写库
 
 ## 前端设计
 
-新增页面（挂载在系统管理菜单下，命名如"重命名规则设置"，仅管理员可见，复用现有菜单权限模型）：
+新增页面"重命名规则设置"（`/openlist/renameConfig`），挂载在 `OpenListStrm`（menu_id=2006）菜单下，与 `renameTask`/`renameOrphan` 等既有业务页面同级——本项目约定业务相关配置页一律挂在 `OpenListStrm` 下而非 RuoYi 原生的"系统管理"菜单，仅通过 `openliststrm:renameConfig:view` 权限位控制可见性，复用现有菜单权限模型，不新增权限模型。仅提供 PC 端页面，不做移动端适配（与"参数设置"等纯管理向配置页一致，非日常移动端操作场景）：
 
 **Tab 1：文件名模板**
 - Pebble 文本框（沿用现有测试弹窗的输入体验），失焦或点击"预览"按钮后调用后端渲染接口，用固定的示例 `MediaInfo` 展示渲染结果
@@ -93,7 +93,7 @@
 ## 边界情况
 
 - 表 `rename_category_rule` 为空（比如误删全部规则）：`ICategoryRuleService.listEnabledRules()` 查询为空时，`classify()` 无法匹配到任何规则，需要在代码层再加一道兜底——查询结果为空时使用一个硬编码的"未分类"目录名兜底，保证不会因为配置误删而导致重命名任务整体失败
-- 老环境升级：建表迁移脚本自带 11 条种子数据 `INSERT`，随正常的迁移流程执行一次即可，保证升级后行为不变
+- 老环境升级：建表迁移脚本自带 12 条种子数据 `INSERT`，随正常的迁移流程执行一次即可，保证升级后行为不变
 - 模板变量拼写错误（引用了 `MediaInfo` 不存在的字段）：Pebble 对未定义变量默认渲染为空字符串而非报错，不在保存校验的拦截范围内，属于"用户自己造成的命名不完整"，不额外处理
 
 ## 测试计划
