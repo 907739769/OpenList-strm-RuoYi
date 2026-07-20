@@ -102,7 +102,7 @@ public class StrmBot extends AbilityBot {
                             return;
                         }
                         silent.send("==开始执行指定路径strm任务==", ctx.chatId());
-                        IStrmService strmService = SpringUtils.getBean("strmService");
+                        IStrmService strmService = SpringUtils.getBean(IStrmService.class);
                         strmService.strmDir(parameter);
                         silent.send("==执行指定路径strm任务完成==", ctx.chatId());
                     } finally {
@@ -167,7 +167,7 @@ public class StrmBot extends AbilityBot {
                             return;
                         }
                         silent.send("==开始执行同步openlist指定目录任务==", ctx.chatId());
-                        ICopyService copyService = SpringUtils.getBean("copyService");
+                        ICopyService copyService = SpringUtils.getBean(ICopyService.class);
                         copyService.syncFiles(strings[0], strings[1]);
                         silent.send("==执行同步openlist指定目录任务完成==", ctx.chatId());
                     } finally {
