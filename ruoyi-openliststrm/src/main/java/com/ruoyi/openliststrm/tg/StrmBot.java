@@ -2,6 +2,8 @@ package com.ruoyi.openliststrm.tg;
 
 import com.ruoyi.common.utils.ThreadTraceIdUtil;
 import com.ruoyi.common.utils.spring.SpringUtils;
+import com.ruoyi.openliststrm.orphan.IRenameOrphanScanService;
+import com.ruoyi.openliststrm.rename.RenameTaskManager;
 import com.ruoyi.openliststrm.service.ICopyService;
 import com.ruoyi.openliststrm.service.IStrmService;
 import com.ruoyi.openliststrm.task.OpenListStrmTask;
@@ -47,6 +49,9 @@ public class StrmBot extends AbilityBot {
         commands.add(new BotCommand("strmdir", "生成指定路径strm"));
         commands.add(new BotCommand("sync", "执行copy任务"));
         commands.add(new BotCommand("syncdir", "同步openlist指定目录"));
+        commands.add(new BotCommand("retry", "重试所有失败任务"));
+        commands.add(new BotCommand("rename", "执行重命名任务"));
+        commands.add(new BotCommand("checkorphan", "执行重命名一致性检查"));
         try {
             execute(new SetMyCommands(commands, new BotCommandScopeDefault(), null));
         } catch (TelegramApiException e) {
@@ -177,6 +182,101 @@ public class StrmBot extends AbilityBot {
                 .reply((bot, upd) -> responseHandler.replyToSyncDir(getChatId(upd), upd.getMessage().getText(), upd.getMessage().getMessageId()), Flag.REPLY,//回复
                         upd -> upd.getMessage().getReplyToMessage().hasText(), upd -> upd.getMessage().getReplyToMessage().getText().equals("请输入路径(格式：源路径#目标路径)")//回复的是上面的问题
                 )
+                .build();
+    }
+
+    public Ability retry() {
+        return Ability.builder()
+                .name("retry")
+                .info("重试所有失败任务")
+                .privacy(CREATOR)
+                .locality(USER)
+                .input(0)
+                .action(ctx -> {
+                    try {
+                        ThreadTraceIdUtil.initTraceId();
+                        silent.send("==开始重试所有失败任务==", ctx.chatId());
+                        IStrmService strmService = SpringUtils.getBean(IStrmService.class);
+                        ICopyService copyService = SpringUtils.getBean(ICopyService.class);
+                        RenameTaskManager renameTaskManager = SpringUtils.getBean(RenameTaskManager.class);
+
+                        IStrmService.RetryOutcome strmOutcome = strmService.retryAllFailed();
+                        ICopyService.RetryOutcome copyOutcome = copyService.retryAllFailed();
+                        RenameTaskManager.RetryOutcome renameOutcome = renameTaskManager.retryAllFailed();
+
+                        int totalRetried = strmOutcome.retried() + copyOutcome.retried() + renameOutcome.retried();
+                        if (totalRetried == 0) {
+                            silent.send("没有需要重试的失败记录", ctx.chatId());
+                        } else {
+                            StringBuilder sb = new StringBuilder("==已提交重试请求==\n");
+                            sb.append("STRM生成：").append(strmOutcome.retried()).append(" 条");
+                            appendRemainingHint(sb, strmOutcome.remaining());
+                            sb.append("\n同步：").append(copyOutcome.retried()).append(" 条");
+                            appendRemainingHint(sb, copyOutcome.remaining());
+                            sb.append("\n重命名：").append(renameOutcome.retried()).append(" 条");
+                            appendRemainingHint(sb, renameOutcome.remaining());
+                            silent.send(sb.toString(), ctx.chatId());
+                        }
+                    } finally {
+                        MDC.clear();
+                    }
+                })
+                .build();
+    }
+
+    private void appendRemainingHint(StringBuilder sb, int remaining) {
+        if (remaining > 0) {
+            sb.append("（还有 ").append(remaining).append(" 条未提交，可到网页端处理）");
+        }
+    }
+
+    public Ability rename() {
+        return Ability.builder()
+                .name("rename")
+                .info("执行重命名任务")
+                .privacy(CREATOR)
+                .locality(USER)
+                .input(0)
+                .action(ctx -> {
+                    try {
+                        ThreadTraceIdUtil.initTraceId();
+                        silent.send("==开始执行重命名任务==", ctx.chatId());
+                        OpenListStrmTask openListStrmTask = SpringUtils.getBean("openListStrmTask");
+                        openListStrmTask.rename();
+                        silent.send("==执行重命名任务完成==", ctx.chatId());
+                    } finally {
+                        MDC.clear();
+                    }
+                })
+                .build();
+    }
+
+    public Ability checkOrphan() {
+        return Ability.builder()
+                .name("checkorphan")
+                .info("执行重命名一致性检查")
+                .privacy(CREATOR)
+                .locality(USER)
+                .input(0)
+                .action(ctx -> {
+                    try {
+                        ThreadTraceIdUtil.initTraceId();
+                        silent.send("==开始执行一致性检查==", ctx.chatId());
+                        IRenameOrphanScanService scanService = SpringUtils.getBean(IRenameOrphanScanService.class);
+                        IRenameOrphanScanService.ScanSummary summary = scanService.scan();
+                        String text = "==一致性检查完成==\n" +
+                                "本地文件丢失：" + summary.localMissing() + " 条\n" +
+                                "网盘源丢失：" + summary.sourceMissing() + " 条\n" +
+                                "已恢复正常：" + summary.resolved() + " 条\n" +
+                                "无法解析跳过：" + summary.unparsable() + " 条" +
+                                (summary.localMissing() + summary.sourceMissing() > 0
+                                        ? "\n（如有待处理项，请到网页端\"重命名一致性检查\"页面确认清理）"
+                                        : "");
+                        silent.send(text, ctx.chatId());
+                    } finally {
+                        MDC.clear();
+                    }
+                })
                 .build();
     }
 
