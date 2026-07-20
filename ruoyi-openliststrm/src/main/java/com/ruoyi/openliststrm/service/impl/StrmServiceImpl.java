@@ -254,6 +254,26 @@ public class StrmServiceImpl implements IStrmService {
         }
     }
 
+    @Override
+    public RetryOutcome retryAllFailed() {
+        LambdaQueryWrapper<OpenlistStrmPlus> countWrapper = new LambdaQueryWrapper<>();
+        countWrapper.eq(OpenlistStrmPlus::getStrmStatus, "0");
+        long total = openlistStrmPlusService.count(countWrapper);
+        if (total == 0) {
+            return new RetryOutcome(0, 0);
+        }
+
+        LambdaQueryWrapper<OpenlistStrmPlus> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(OpenlistStrmPlus::getStrmStatus, "0")
+                .select(OpenlistStrmPlus::getStrmId)
+                .orderByDesc(OpenlistStrmPlus::getCreateTime)
+                .last("LIMIT 200");
+        List<OpenlistStrmPlus> failed = openlistStrmPlusService.list(wrapper);
+        List<String> idList = failed.stream().map(s -> String.valueOf(s.getStrmId())).toList();
+        retryStrm(idList);
+        return new RetryOutcome(idList.size(), (int) total - idList.size());
+    }
+
     public void getData(String rootPath, String localRootPath) {
         // 单次任务配置快照，避免每文件热循环重复取配置
         StrmCtx ctx = new StrmCtx(config.getOpenListUrl(), shouldEncode(), shouldDownloadSub(),
