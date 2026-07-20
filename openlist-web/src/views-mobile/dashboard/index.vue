@@ -2,7 +2,7 @@
   <div class="mobile-dashboard">
     <div class="welcome-card">
       <h2>欢迎回来, {{ userStore.userInfo?.userName || '管理员' }}</h2>
-      <p class="subtitle">OpenList-strm-RuoYi</p>
+      <p class="subtitle">{{ quote }}</p>
     </div>
 
     <!-- 统计概览 -->
@@ -65,6 +65,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore, type MenuRoute } from '@/stores/user'
 import { getDashboardStatsApi, getCopyStatsApi, getStrmStatsApi, getRenameStatsApi } from '@/api/openlist/dashboard'
+import { getHitokotoApi } from '@/api/openlist/hitokoto'
 import { getIconComponent } from '@/composables/useMenuIcon'
 import {
   Files, VideoCamera, EditPen, CircleCheck, CircleClose, Loading, Menu
@@ -80,10 +81,24 @@ interface StatCard {
   path?: string
 }
 
+/** 一言接口请求失败时的备用文案 */
+const FALLBACK_QUOTES = [
+  '代码写得好，Bug就是少。',
+  '生活明朗，万物可爱。',
+  '愿你被这个世界温柔以待。',
+  '不积跬步，无以至千里。',
+  '心之所向，素履以往。'
+]
+
+function randomFallbackQuote(): string {
+  return FALLBACK_QUOTES[Math.floor(Math.random() * FALLBACK_QUOTES.length)]
+}
+
 const router = useRouter()
 const userStore = useUserStore()
 const loading = ref(true)
 const todayLoading = ref(true)
+const quote = ref(randomFallbackQuote())
 
 const statCards = ref<StatCard[]>([])
 const todayStatCards = ref<StatCard[]>([])
@@ -140,6 +155,14 @@ function flattenMenus(menus: MenuRoute[], parentPath = ''): { path: string; titl
 const quickLinks = computed(() => flattenMenus(userStore.routes))
 
 onMounted(async () => {
+  getHitokotoApi()
+    .then((data) => {
+      quote.value = data.from ? `${data.hitokoto} —— ${data.from}` : data.hitokoto
+    })
+    .catch((e) => {
+      console.error('[MobileDashboard] 每日一言加载失败:', e)
+    })
+
   try {
     const data: any = await getDashboardStatsApi()
     statCards.value = buildStatCards(data)
