@@ -265,7 +265,6 @@ public class StrmServiceImpl implements IStrmService {
 
         LambdaQueryWrapper<OpenlistStrmPlus> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(OpenlistStrmPlus::getStrmStatus, "0")
-                .select(OpenlistStrmPlus::getStrmId)
                 .orderByDesc(OpenlistStrmPlus::getCreateTime)
                 .last("LIMIT 200");
         List<OpenlistStrmPlus> failed = openlistStrmPlusService.list(wrapper);
