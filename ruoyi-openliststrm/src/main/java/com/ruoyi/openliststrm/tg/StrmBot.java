@@ -196,26 +196,32 @@ public class StrmBot extends AbilityBot {
                     try {
                         ThreadTraceIdUtil.initTraceId();
                         silent.send("==开始重试所有失败任务==", ctx.chatId());
-                        IStrmService strmService = SpringUtils.getBean(IStrmService.class);
-                        ICopyService copyService = SpringUtils.getBean(ICopyService.class);
-                        RenameTaskManager renameTaskManager = SpringUtils.getBean(RenameTaskManager.class);
+                        try {
+                            IStrmService strmService = SpringUtils.getBean(IStrmService.class);
+                            ICopyService copyService = SpringUtils.getBean(ICopyService.class);
+                            RenameTaskManager renameTaskManager = SpringUtils.getBean(RenameTaskManager.class);
 
-                        IStrmService.RetryOutcome strmOutcome = strmService.retryAllFailed();
-                        ICopyService.RetryOutcome copyOutcome = copyService.retryAllFailed();
-                        RenameTaskManager.RetryOutcome renameOutcome = renameTaskManager.retryAllFailed();
+                            IStrmService.RetryOutcome strmOutcome = strmService.retryAllFailed();
+                            ICopyService.RetryOutcome copyOutcome = copyService.retryAllFailed();
+                            RenameTaskManager.RetryOutcome renameOutcome = renameTaskManager.retryAllFailed();
 
-                        int totalRetried = strmOutcome.retried() + copyOutcome.retried() + renameOutcome.retried();
-                        if (totalRetried == 0) {
-                            silent.send("没有需要重试的失败记录", ctx.chatId());
-                        } else {
-                            StringBuilder sb = new StringBuilder("==已提交重试请求==\n");
-                            sb.append("STRM生成：").append(strmOutcome.retried()).append(" 条");
-                            appendRemainingHint(sb, strmOutcome.remaining());
-                            sb.append("\n同步：").append(copyOutcome.retried()).append(" 条");
-                            appendRemainingHint(sb, copyOutcome.remaining());
-                            sb.append("\n重命名：").append(renameOutcome.retried()).append(" 条");
-                            appendRemainingHint(sb, renameOutcome.remaining());
-                            silent.send(sb.toString(), ctx.chatId());
+                            int totalRetried = strmOutcome.retried() + copyOutcome.retried() + renameOutcome.retried();
+                            if (totalRetried == 0) {
+                                silent.send("没有需要重试的失败记录", ctx.chatId());
+                            } else {
+                                StringBuilder sb = new StringBuilder("==已提交重试请求==\n");
+                                sb.append("STRM生成：").append(strmOutcome.retried()).append(" 条");
+                                appendRemainingHint(sb, strmOutcome.remaining());
+                                sb.append("\n同步：").append(copyOutcome.retried()).append(" 条");
+                                appendRemainingHint(sb, copyOutcome.remaining());
+                                sb.append("\n重命名：").append(renameOutcome.retried()).append(" 条");
+                                appendRemainingHint(sb, renameOutcome.remaining());
+                                silent.send(sb.toString(), ctx.chatId());
+                            }
+                        } catch (Exception e) {
+                            log.error("Telegram Bot执行/retry指令异常", e);
+                            String reason = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+                            silent.send("==重试失败==\n" + reason, ctx.chatId());
                         }
                     } finally {
                         MDC.clear();
