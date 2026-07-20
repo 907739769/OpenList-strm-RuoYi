@@ -27,7 +27,7 @@ public class ResponseHandler {
     public void replyToStrmDir(long chatId, String parameter, Integer messageId) {
         try {
             sender.execute(SendMessage.builder().chatId(chatId).replyToMessageId(messageId).text("==开始执行指定路径strm任务==").build());
-            IStrmService strmService = SpringUtils.getBean("strmService");
+            IStrmService strmService = SpringUtils.getBean(IStrmService.class);
             strmService.strmDir(parameter);
             sender.execute(SendMessage.builder().chatId(chatId).replyToMessageId(messageId).text("==执行指定路径strm任务完成==").build());
         } catch (Exception e) {
@@ -47,7 +47,7 @@ public class ResponseHandler {
                 return;
             }
             sender.execute(SendMessage.builder().chatId(chatId).replyToMessageId(messageId).text("==开始执行指定路径sync任务==").build());
-            ICopyService copyService = SpringUtils.getBean("copyService");
+            ICopyService copyService = SpringUtils.getBean(ICopyService.class);
             copyService.syncFiles(strings[0], strings[1]);
             sender.execute(SendMessage.builder().chatId(chatId).replyToMessageId(messageId).text("==执行指定路径sync任务完成==").build());
         } catch (Exception e) {
