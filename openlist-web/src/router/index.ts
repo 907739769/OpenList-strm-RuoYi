@@ -87,7 +87,8 @@ const componentMap: Record<string, Component | (() => Promise<any>)> = {
   'openlist/renameOrphan/index': createDeviceView(
     () => import('@/views/openlist/renameOrphan/index.vue'),
     () => import('@/views-mobile/renameOrphan/index.vue')
-  )
+  ),
+  'openlist/renameConfig/index': () => import('@/views/openlist/renameConfig/index.vue')
 }
 
 /**
