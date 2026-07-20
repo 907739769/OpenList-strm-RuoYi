@@ -42,7 +42,8 @@ public class MysqlDdl extends SimpleDdl {
                 "sql/20260718-add-openlist-configs.sql",
                 "sql/20260719-rename-orphan.sql",
                 "sql/20260720-rename-category-rule.sql",
-                "sql/20260721-widen-sys-config-value.sql"
+                "sql/20260721-widen-sys-config-value.sql",
+                "sql/20260722-fix-rename-config-menu-icon.sql"
         );
     }
 }

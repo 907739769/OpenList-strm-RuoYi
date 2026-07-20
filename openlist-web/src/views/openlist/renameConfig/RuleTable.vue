@@ -5,24 +5,47 @@
         <template #default="{ row }">
           <el-input
             v-model="row.targetDir"
-            :disabled="row.isFallback === '1'"
             :placeholder="row.isFallback === '1' ? '兜底目录' : '目录名'"
           />
         </template>
       </el-table-column>
-      <el-table-column label="Genre IDs（逗号分隔）" min-width="160">
+      <el-table-column label="类型（Genre）" min-width="200">
         <template #default="{ row }">
-          <el-input v-model="row.genreIds" :disabled="row.isFallback === '1'" placeholder="不限" />
+          <el-select
+            :model-value="toArray(row.genreIds)"
+            multiple filterable allow-create default-first-option collapse-tags collapse-tags-tooltip
+            :disabled="row.isFallback === '1'"
+            placeholder="不限"
+            @update:model-value="(v: string[]) => { row.genreIds = toCsv(v) }"
+          >
+            <el-option v-for="opt in genreOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+          </el-select>
         </template>
       </el-table-column>
-      <el-table-column label="原始语言（逗号分隔）" min-width="160">
+      <el-table-column label="原始语言" min-width="200">
         <template #default="{ row }">
-          <el-input v-model="row.originalLanguages" :disabled="row.isFallback === '1'" placeholder="不限" />
+          <el-select
+            :model-value="toArray(row.originalLanguages)"
+            multiple filterable allow-create default-first-option collapse-tags collapse-tags-tooltip
+            :disabled="row.isFallback === '1'"
+            placeholder="不限"
+            @update:model-value="(v: string[]) => { row.originalLanguages = toCsv(v) }"
+          >
+            <el-option v-for="opt in LANGUAGE_OPTIONS" :key="opt.value" :label="opt.label" :value="opt.value" />
+          </el-select>
         </template>
       </el-table-column>
-      <el-table-column label="国家/地区（逗号分隔）" min-width="160">
+      <el-table-column label="国家/地区" min-width="200">
         <template #default="{ row }">
-          <el-input v-model="row.originCountries" :disabled="row.isFallback === '1'" placeholder="不限" />
+          <el-select
+            :model-value="toArray(row.originCountries)"
+            multiple filterable allow-create default-first-option collapse-tags collapse-tags-tooltip
+            :disabled="row.isFallback === '1'"
+            placeholder="不限"
+            @update:model-value="(v: string[]) => { row.originCountries = toCsv(v) }"
+          >
+            <el-option v-for="opt in COUNTRY_OPTIONS" :key="opt.value" :label="opt.label" :value="opt.value" />
+          </el-select>
         </template>
       </el-table-column>
       <el-table-column label="操作" width="160" align="center">
@@ -40,9 +63,11 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { CategoryRule } from '@/api/openlist/renameConfig'
+import { MOVIE_GENRE_OPTIONS, TV_GENRE_OPTIONS, LANGUAGE_OPTIONS, COUNTRY_OPTIONS } from '@/constants/categoryRuleOptions'
 
-defineProps<{
+const props = defineProps<{
   rules: CategoryRule[]
   mediaType: string
 }>()
@@ -52,4 +77,11 @@ defineEmits<{
   remove: [mediaType: string, index: number]
   move: [mediaType: string, index: number, direction: -1 | 1]
 }>()
+
+/** 电影和剧集的 TMDB genre 编号含义不同，按 mediaType 选对应的可选项列表 */
+const genreOptions = computed(() => (props.mediaType === 'tv' ? TV_GENRE_OPTIONS : MOVIE_GENRE_OPTIONS))
+
+/** 数据库存的是逗号分隔字符串，下拉多选组件需要数组，两边转换 */
+const toArray = (value?: string) => (value ? value.split(',').map(s => s.trim()).filter(Boolean) : [])
+const toCsv = (arr: string[]) => arr.join(',')
 </script>

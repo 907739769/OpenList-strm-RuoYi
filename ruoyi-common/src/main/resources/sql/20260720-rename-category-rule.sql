@@ -50,4 +50,4 @@ INSERT IGNORE INTO `rename_category_rule` (`id`, `media_type`, `seq`, `genre_ids
 -- ----------------------------
 -- 菜单：挂在 OpenListStrm(2006) 下，显式主键 + INSERT IGNORE 保证幂等
 -- ----------------------------
-INSERT IGNORE INTO `sys_menu`(`menu_id`, `menu_name`, `parent_id`, `order_num`, `url`, `target`, `menu_type`, `visible`, `is_refresh`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (2060, '重命名规则设置', 2006, 8, '/openlist/renameConfig', '', 'C', '0', '1', 'openliststrm:renameConfig:view', '#', 'admin', '2026-07-20 00:00:00', '', NULL, '重命名文件名模板与分类规则可视化配置菜单');
+INSERT IGNORE INTO `sys_menu`(`menu_id`, `menu_name`, `parent_id`, `order_num`, `url`, `target`, `menu_type`, `visible`, `is_refresh`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (2060, '重命名规则设置', 2006, 8, '/openlist/renameConfig', '', 'C', '0', '1', 'openliststrm:renameConfig:view', 'fa fa-sliders', 'admin', '2026-07-20 00:00:00', '', NULL, '重命名文件名模板与分类规则可视化配置菜单');
