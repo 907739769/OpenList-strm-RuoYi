@@ -7,6 +7,7 @@ import com.ruoyi.openliststrm.config.OpenlistConfig;
 import com.ruoyi.openliststrm.mybatisplus.domain.RenameTaskPlus;
 import com.ruoyi.openliststrm.mybatisplus.service.IRenameTaskPlusService;
 import com.ruoyi.openliststrm.rename.*;
+import com.ruoyi.openliststrm.rename.config.IRenameTemplateConfigService;
 import com.ruoyi.openliststrm.rename.model.MediaInfo;
 import com.ruoyi.openliststrm.tmdb.TMDbClient;
 import com.ruoyi.openliststrm.openai.OpenAIClient;
@@ -26,8 +27,6 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/openliststrm/rename-tasks")
 public class RenameTaskRestController extends BaseCrudRestController<IRenameTaskPlusService, RenameTaskPlus>
 {
-    private static final String DEFAULT_FILENAME_TEMPLATE = "{{ title }} {% if year %} ({{ year }}) {% endif %}/{% if season %}Season {{ season }}/{% endif %}{{ title }} {% if year and not season %} ({{ year }}) {% endif %}{% if season %}S{{ season }}{% endif %}{% if episode %}E{{ episode }}{% endif %}{% if resolution %} - {{ resolution }}{% endif %}{% if source %}.{{ source }}{% endif %}{% if videoCodec %}.{{ videoCodec }}{% endif %}{% if audioCodec %}.{{ audioCodec }}{% endif %}{% if tags is not empty %}.{{ tags|join('.') }}{% endif %}{% if releaseGroup %}-{{ releaseGroup }}{% endif %}.{{ extension }}";
-
     @Autowired
     private RenameTaskManager renameTaskManager;
 
@@ -36,6 +35,9 @@ public class RenameTaskRestController extends BaseCrudRestController<IRenameTask
 
     @Autowired
     private OpenlistConfig config;
+
+    @Autowired
+    private IRenameTemplateConfigService templateConfigService;
 
     /**
      * 批量删除重命名任务配置
@@ -124,7 +126,7 @@ public class RenameTaskRestController extends BaseCrudRestController<IRenameTask
         {
             MediaInfo info = parser.parse(filename);
 
-            String renderTemplate = StringUtils.isEmpty(template) ? DEFAULT_FILENAME_TEMPLATE : template;
+            String renderTemplate = StringUtils.isEmpty(template) ? templateConfigService.getTemplate() : template;
             String renamed = parser.render(info, renderTemplate);
 
             Map<String, Object> result = new LinkedHashMap<>();
@@ -161,7 +163,7 @@ public class RenameTaskRestController extends BaseCrudRestController<IRenameTask
         {
             MediaInfo info = parser.parse(filename);
 
-            String renderTemplate = StringUtils.isEmpty(template) ? DEFAULT_FILENAME_TEMPLATE : template;
+            String renderTemplate = StringUtils.isEmpty(template) ? templateConfigService.getTemplate() : template;
             String renamed = parser.render(info, renderTemplate);
 
             Map<String, Object> result = new LinkedHashMap<>();
