@@ -4,15 +4,19 @@ import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.common.utils.spring.SpringUtils;
 import com.ruoyi.openliststrm.config.OpenlistConfig;
 import com.ruoyi.openliststrm.helper.OpenListHelper;
+import com.ruoyi.openliststrm.mybatisplus.domain.RenameCategoryRulePlus;
 import com.ruoyi.openliststrm.mybatisplus.domain.RenameDetailPlus;
 import com.ruoyi.openliststrm.mybatisplus.domain.RenameTaskPlus;
+import com.ruoyi.openliststrm.mybatisplus.service.IRenameCategoryRulePlusService;
 import com.ruoyi.openliststrm.mybatisplus.service.IRenameDetailPlusService;
 import com.ruoyi.openliststrm.mybatisplus.service.IRenameTaskPlusService;
-import com.ruoyi.openliststrm.rename.CategoryRule;
 import com.ruoyi.openliststrm.rename.MediaParser;
 import com.ruoyi.openliststrm.rename.RenameClientProvider;
 import com.ruoyi.openliststrm.rename.RenameEventListener;
+import com.ruoyi.openliststrm.rename.config.IRenameTemplateConfigService;
 import com.ruoyi.openliststrm.rename.model.MediaInfo;
+import com.ruoyi.openliststrm.rename.rule.CategoryClassifier;
+import com.ruoyi.openliststrm.rename.rule.CategoryRuleConverter;
 import com.ruoyi.openliststrm.scrape.ScrapeService;
 import lombok.extern.slf4j.Slf4j;
 
@@ -44,10 +48,9 @@ public class MediaRenameProcessor implements FileProcessor {
 
     private final RenameClientProvider clientProvider;
     private final IRenameTaskPlusService taskService;
+    private final IRenameCategoryRulePlusService categoryRuleService;
+    private final IRenameTemplateConfigService templateConfigService;
     private ScrapeService scrapeService;
-
-    private static final Map<String, List<CategoryRule>> rules = defaultRules();
-    private static final String DEFAULT_FILENAME_TEMPLATE = "{{ title }} {% if year %} ({{ year }}) {% endif %}/{% if season %}Season {{ season }}/{% endif %}{{ title }} {% if year and not season %} ({{ year }}) {% endif %}{% if season %}S{{ season }}{% endif %}{% if episode %}E{{ episode }}{% endif %}{% if resolution %} - {{ resolution }}{% endif %}{% if source %}.{{ source }}{% endif %}{% if videoCodec %}.{{ videoCodec }}{% endif %}{% if audioCodec %}.{{ audioCodec }}{% endif %}{% if tags is not empty %}.{{ tags|join('.') }}{% endif %}{% if releaseGroup %}-{{ releaseGroup }}{% endif %}.{{ extension }}";
 
     /** 按目标路径加锁，使用引用计数避免"释放后又被新线程复用同一把已失效锁"的竞态 */
     private static final ConcurrentMap<String, LockEntry> FILE_LOCKS = new ConcurrentHashMap<>();
@@ -113,6 +116,8 @@ public class MediaRenameProcessor implements FileProcessor {
                         .orElse(10 * 1024 * 1024L);
         this.clientProvider = clientProvider;
         this.taskService = SpringUtils.getBean(IRenameTaskPlusService.class);
+        this.categoryRuleService = SpringUtils.getBean(IRenameCategoryRulePlusService.class);
+        this.templateConfigService = SpringUtils.getBean(IRenameTemplateConfigService.class);
         this.scrapeService = SpringUtils.getBean(ScrapeService.class);
     }
 
@@ -301,7 +306,7 @@ public class MediaRenameProcessor implements FileProcessor {
         Path destDir = targetRoot.resolve(topLevel).resolve(category);
         Files.createDirectories(destDir);
 
-        String rendered = parser.render(info, DEFAULT_FILENAME_TEMPLATE);
+        String rendered = parser.render(info, templateConfigService.getTemplate());
         String filename = p.getFileName().toString();
         String newFilename = (rendered == null || rendered.trim().isEmpty()) ? filename : rendered.trim();
         newFilename = newFilename.replace('\\', '/');
@@ -434,36 +439,13 @@ public class MediaRenameProcessor implements FileProcessor {
     }
 
     private String classify(MediaInfo info, String mediaType) {
-        List<CategoryRule> list = rules.getOrDefault(mediaType, Collections.emptyList());
-        for (CategoryRule r : list) {
-            if (r.matches(info)) return r.getName();
+        List<RenameCategoryRulePlus> rows = categoryRuleService.listEnabledRules(mediaType);
+        if (rows.isEmpty()) {
+            log.warn("未配置 mediaType={} 的分类规则，使用兜底目录", mediaType);
+            return "未分类";
         }
-        return null;
-    }
-
-    private static Map<String, List<CategoryRule>> defaultRules() {
-        Map<String, List<CategoryRule>> m = new HashMap<>();
-        // movie rules in order
-        List<CategoryRule> movie = new ArrayList<>();
-        movie.add(new CategoryRule("动画电影").withGenreIds("16"));
-        movie.add(new CategoryRule("华语电影").withOriginalLanguage("zh", "cn", "bo", "za"));
-        movie.add(new CategoryRule("外语电影")); // fallback if not matched above
-        m.put("movie", movie);
-
-        // tv rules
-        List<CategoryRule> tv = new ArrayList<>();
-        tv.add(new CategoryRule("国漫").withGenreIds("16").withOriginCountry("CN", "TW", "HK"));
-        tv.add(new CategoryRule("日番").withGenreIds("16").withOriginCountry("JP"));
-        tv.add(new CategoryRule("纪录片").withGenreIds("99"));
-        tv.add(new CategoryRule("儿童").withGenreIds("10762"));
-        tv.add(new CategoryRule("综艺").withGenreIds("10764", "10767"));
-        tv.add(new CategoryRule("国产剧").withOriginCountry("CN", "TW", "HK"));
-        tv.add(new CategoryRule("欧美剧").withOriginCountry("US", "FR", "GB", "DE", "ES", "IT", "NL", "PT", "RU", "UK"));
-        tv.add(new CategoryRule("日韩剧").withOriginCountry("JP", "KP", "KR", "TH", "IN", "SG"));
-        tv.add(new CategoryRule("未分类"));
-        m.put("tv", tv);
-
-        return Collections.unmodifiableMap(m);
+        String category = CategoryClassifier.classify(CategoryRuleConverter.toCategoryRules(rows), info);
+        return category != null ? category : "未分类";
     }
 
 }
