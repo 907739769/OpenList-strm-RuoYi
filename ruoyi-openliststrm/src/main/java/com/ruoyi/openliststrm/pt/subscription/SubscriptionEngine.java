@@ -1,0 +1,329 @@
+package com.ruoyi.openliststrm.pt.subscription;
+
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
+import com.ruoyi.openliststrm.mybatisplus.domain.PtDownloadRecordPlus;
+import com.ruoyi.openliststrm.mybatisplus.domain.PtDownloaderPlus;
+import com.ruoyi.openliststrm.mybatisplus.domain.PtFilterConfigPlus;
+import com.ruoyi.openliststrm.mybatisplus.domain.PtSubscriptionEpisodePlus;
+import com.ruoyi.openliststrm.mybatisplus.domain.PtSubscriptionPlus;
+import com.ruoyi.openliststrm.mybatisplus.service.IPtDownloadRecordPlusService;
+import com.ruoyi.openliststrm.mybatisplus.service.IPtDownloaderPlusService;
+import com.ruoyi.openliststrm.mybatisplus.service.IPtFilterConfigPlusService;
+import com.ruoyi.openliststrm.mybatisplus.service.IPtSubscriptionEpisodePlusService;
+import com.ruoyi.openliststrm.mybatisplus.service.IPtSubscriptionPlusService;
+import com.ruoyi.openliststrm.pt.downloader.DownloaderClientFactory;
+import com.ruoyi.openliststrm.pt.filter.FilterCriteria;
+import com.ruoyi.openliststrm.pt.filter.FilterCriteriaFactory;
+import com.ruoyi.openliststrm.pt.filter.TorrentFilterEngine;
+import com.ruoyi.openliststrm.pt.indexer.GuidHasher;
+import com.ruoyi.openliststrm.pt.model.TorrentInfo;
+import com.ruoyi.openliststrm.pt.subscription.dto.MatchResult;
+import com.ruoyi.openliststrm.rename.MediaParser;
+import com.ruoyi.openliststrm.rename.model.MediaInfo;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+/**
+ * 订阅推送引擎：把一批 RSS 种子变成「推给下载器的决策」并落好账。
+ * <p>
+ * 不加 {@code @Transactional}——方法体内含推送下载器的网络调用，长事务是反模式。
+ * 各步写库各自独立，推送失败时显式回滚（删记录 + 集状态改回 MISSING）。
+ * </p>
+ *
+ * @author Jack
+ */
+@Slf4j
+@Component
+public class SubscriptionEngine {
+
+    private static final String STATE_MISSING = "MISSING";
+    private static final String STATE_IN_FLIGHT = "IN_FLIGHT";
+    private static final String RECORD_PUSHED = "PUSHED";
+
+    /** 唯一标签前缀，用于把下载记录回映到下载器里的种子 */
+    private static final String TAG_PREFIX = "osr-pt-";
+
+    private final IPtSubscriptionPlusService subscriptionService;
+    private final IPtSubscriptionEpisodePlusService episodeService;
+    private final IPtDownloadRecordPlusService recordService;
+    private final IPtDownloaderPlusService downloaderService;
+    private final IPtFilterConfigPlusService filterConfigService;
+    private final DownloaderClientFactory downloaderClientFactory;
+    private final TorrentFilterEngine filterEngine;
+    private final SubscriptionMatcher matcher;
+    private final MediaParser mediaParser;
+
+    public SubscriptionEngine(IPtSubscriptionPlusService subscriptionService,
+                              IPtSubscriptionEpisodePlusService episodeService,
+                              IPtDownloadRecordPlusService recordService,
+                              IPtDownloaderPlusService downloaderService,
+                              IPtFilterConfigPlusService filterConfigService,
+                              DownloaderClientFactory downloaderClientFactory,
+                              TorrentFilterEngine filterEngine,
+                              SubscriptionMatcher matcher,
+                              MediaParser mediaParser) {
+        this.subscriptionService = subscriptionService;
+        this.episodeService = episodeService;
+        this.recordService = recordService;
+        this.downloaderService = downloaderService;
+        this.filterConfigService = filterConfigService;
+        this.downloaderClientFactory = downloaderClientFactory;
+        this.filterEngine = filterEngine;
+        this.matcher = matcher;
+        this.mediaParser = mediaParser;
+    }
+
+    /**
+     * 处理一批种子：匹配订阅 → 分组 → 过滤择优 → 占位 → 推送 → 落账。
+     *
+     * @return 成功推送给下载器的种子数
+     */
+    public int process(List<TorrentInfo> torrents) {
+        List<PtSubscriptionPlus> subscriptions = subscriptionService.listActive();
+        if (subscriptions.isEmpty() || torrents.isEmpty()) {
+            return 0;
+        }
+        PtFilterConfigPlus globalConfig = filterConfigService.getConfig();
+
+        // 按 (订阅id, 集号) 分组；集号 -1 表示季包
+        Map<String, List<TorrentInfo>> groups = new LinkedHashMap<>();
+        Map<String, MatchResult> groupMatch = new LinkedHashMap<>();
+        for (TorrentInfo torrent : torrents) {
+            fillParsed(torrent);
+            MatchResult match = matcher.match(torrent, subscriptions);
+            if (match == null) {
+                log.debug("种子未匹配到任何订阅：{}", torrent.getTitle());
+                continue;
+            }
+            String key = match.getSubscription().getId() + "#" + match.getEpisode();
+            groups.computeIfAbsent(key, k -> new ArrayList<>()).add(torrent);
+            groupMatch.putIfAbsent(key, match);
+        }
+
+        int pushed = 0;
+        Map<Integer, List<PtSubscriptionEpisodePlus>> episodeCache = new LinkedHashMap<>();
+        for (Map.Entry<String, List<TorrentInfo>> entry : groups.entrySet()) {
+            MatchResult match = groupMatch.get(entry.getKey());
+            if (handleGroup(match, entry.getValue(), globalConfig, episodeCache)) {
+                pushed++;
+            }
+        }
+        return pushed;
+    }
+
+    /**
+     * @return 是否成功推送了一个种子
+     */
+    private boolean handleGroup(MatchResult match, List<TorrentInfo> candidates,
+                                PtFilterConfigPlus globalConfig,
+                                Map<Integer, List<PtSubscriptionEpisodePlus>> episodeCache) {
+        PtSubscriptionPlus sub = match.getSubscription();
+        List<PtSubscriptionEpisodePlus> allEpisodes = episodeCache.computeIfAbsent(
+                sub.getId(), episodeService::listBySubscription);
+
+        List<PtSubscriptionEpisodePlus> targets = resolveTargets(match, allEpisodes);
+        if (targets.isEmpty()) {
+            log.debug("订阅[{}] 集{} 无可占位的缺失集，跳过", sub.getId(), match.getEpisode());
+            return false;
+        }
+
+        List<TorrentInfo> fresh = excludeAlreadyRecorded(candidates);
+        if (fresh.isEmpty()) {
+            log.debug("订阅[{}] 集{} 的候选都已有下载记录，跳过", sub.getId(), match.getEpisode());
+            return false;
+        }
+
+        FilterCriteria criteria = FilterCriteriaFactory.build(globalConfig, sub.getFilterOverride());
+        TorrentInfo best = filterEngine.pickBest(filterEngine.filter(fresh, criteria), criteria);
+        if (best == null) {
+            return false;
+        }
+
+        PtDownloaderPlus downloader = resolveDownloader(sub);
+        if (downloader == null) {
+            log.warn("没有可用的下载器，订阅[{}] 本轮跳过", sub.getId());
+            return false;
+        }
+
+        // 原子占位：条件更新按影响行数判断，防止并发轮询给同一集推两个种子
+        List<PtSubscriptionEpisodePlus> claimed = new ArrayList<>();
+        for (PtSubscriptionEpisodePlus target : targets) {
+            if (claim(target)) {
+                claimed.add(target);
+            }
+        }
+        if (claimed.isEmpty()) {
+            log.debug("订阅[{}] 集{} 已被并发轮询占位，跳过", sub.getId(), match.getEpisode());
+            return false;
+        }
+
+        String guidHash = GuidHasher.hash(best.getGuid());
+        PtDownloadRecordPlus record = buildRecord(sub, match.getEpisode(), best, guidHash, downloader);
+        if (!recordService.save(record)) {
+            releaseAll(claimed);
+            return false;
+        }
+
+        try {
+            String tags = downloader.getTag() + "," + record.getTrackingTag();
+            downloaderClientFactory.get(downloader)
+                    .addTorrent(downloader, best.getDownloadUrl(), downloader.getSavePath(), tags);
+        } catch (Exception e) {
+            log.error("推送种子到下载器失败，已回滚：{}", best.getTitle(), e);
+            recordService.removeById(record.getId());
+            releaseAll(claimed);
+            return false;
+        }
+
+        for (PtSubscriptionEpisodePlus ep : claimed) {
+            ep.setDownloadId(record.getId());
+            ep.setState(STATE_IN_FLIGHT);
+        }
+        episodeService.updateBatchById(claimed);
+
+        sub.setLastMatchTime(new Date());
+        subscriptionService.updateById(sub);
+
+        log.info("订阅[{}] {} 已推送种子：{}（占位 {} 集）",
+                sub.getId(), sub.getTitle(), best.getTitle(), claimed.size());
+        return true;
+    }
+
+    /** 用本地解析结果填充种子的 parsedXxx 字段，不发任何网络请求 */
+    private void fillParsed(TorrentInfo torrent) {
+        MediaInfo info = mediaParser.parseLocal(torrent.getTitle());
+        // 注意：parseLocal 不做 TMDb 富化，MediaInfo.title 恒为 null
+        // （TitleProcessor.processTitle 只写 originalTitle/englishTitle，见该类第46-48行的注释代码）。
+        // 必须用 originalTitle，否则本地解析出的种子标题永远匹配不到任何订阅。
+        torrent.setParsedTitle(info.getOriginalTitle());
+        torrent.setParsedYear(info.getYear());
+        torrent.setParsedSeason(toInt(info.getSeason()));
+        torrent.setParsedEpisode(toInt(info.getEpisode()));
+        torrent.setParsedResolution(info.getResolution());
+        torrent.setParsedSource(info.getSource());
+    }
+
+    private Integer toInt(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return Integer.valueOf(value.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /**
+     * 确定要占位的集：普通集就它自己，季包则是该订阅所有 MISSING 的集。
+     */
+    private List<PtSubscriptionEpisodePlus> resolveTargets(MatchResult match,
+                                                           List<PtSubscriptionEpisodePlus> allEpisodes) {
+        List<PtSubscriptionEpisodePlus> targets = new ArrayList<>();
+        if (match.getEpisode() == SubscriptionMatcher.SEASON_PACK) {
+            for (PtSubscriptionEpisodePlus ep : allEpisodes) {
+                if (STATE_MISSING.equals(ep.getState())) {
+                    targets.add(ep);
+                }
+            }
+            return targets;
+        }
+        for (PtSubscriptionEpisodePlus ep : allEpisodes) {
+            if (ep.getEpisode() == match.getEpisode() && STATE_MISSING.equals(ep.getState())) {
+                targets.add(ep);
+            }
+        }
+        return targets;
+    }
+
+    /**
+     * 剔除已有下载记录的候选。按 (indexer_id, guid_hash) 判断——这正是表上的唯一约束，
+     * 提前剔除既避免重复下载，也避免插入时撞约束。
+     */
+    private List<TorrentInfo> excludeAlreadyRecorded(List<TorrentInfo> candidates) {
+        List<String> hashes = candidates.stream()
+                .map(t -> GuidHasher.hash(t.getGuid()))
+                .toList();
+        List<PtDownloadRecordPlus> existing = recordService.list(
+                new QueryWrapper<PtDownloadRecordPlus>().in("guid_hash", hashes));
+        Set<String> taken = new HashSet<>();
+        for (PtDownloadRecordPlus record : existing) {
+            taken.add(record.getGuidHash());
+        }
+        List<TorrentInfo> fresh = new ArrayList<>();
+        for (TorrentInfo torrent : candidates) {
+            if (!taken.contains(GuidHasher.hash(torrent.getGuid()))) {
+                fresh.add(torrent);
+            }
+        }
+        return fresh;
+    }
+
+    /** 条件更新占位：只有仍是 MISSING 才能占位成功 */
+    private boolean claim(PtSubscriptionEpisodePlus target) {
+        PtSubscriptionEpisodePlus set = new PtSubscriptionEpisodePlus();
+        set.setState(STATE_IN_FLIGHT);
+        return episodeService.update(set, new UpdateWrapper<PtSubscriptionEpisodePlus>()
+                .eq("id", target.getId())
+                .eq("state", STATE_MISSING));
+    }
+
+    /** 回滚占位 */
+    private void releaseAll(List<PtSubscriptionEpisodePlus> claimed) {
+        for (PtSubscriptionEpisodePlus ep : claimed) {
+            PtSubscriptionEpisodePlus set = new PtSubscriptionEpisodePlus();
+            set.setState(STATE_MISSING);
+            episodeService.update(set, new UpdateWrapper<PtSubscriptionEpisodePlus>()
+                    .eq("id", ep.getId())
+                    .eq("state", STATE_IN_FLIGHT));
+        }
+    }
+
+    private PtDownloadRecordPlus buildRecord(PtSubscriptionPlus sub, int episode, TorrentInfo torrent,
+                                             String guidHash, PtDownloaderPlus downloader) {
+        PtDownloadRecordPlus record = new PtDownloadRecordPlus();
+        record.setSubId(sub.getId());
+        record.setEpisode(episode);
+        record.setIndexerId(torrent.getIndexerId());
+        record.setGuid(torrent.getGuid());
+        record.setGuidHash(guidHash);
+        // 插入前生成，不依赖自增 id：否则要「插入→回填 tag→推送」两次写库，
+        // 中间崩溃会留下没有 tag、永远回映不到的失联种子
+        record.setTrackingTag(TAG_PREFIX + guidHash.substring(0, 16));
+        record.setTorrentHash(torrent.getInfoHash());
+        record.setTitle(torrent.getTitle());
+        record.setSize(torrent.getSize());
+        record.setSeeders(torrent.getSeeders());
+        record.setDownloaderId(downloader.getId());
+        record.setState(RECORD_PUSHED);
+        record.setPushedTime(new Date());
+        return record;
+    }
+
+    /** 订阅指定了下载器就用它，否则用唯一启用的那个 */
+    private PtDownloaderPlus resolveDownloader(PtSubscriptionPlus sub) {
+        List<PtDownloaderPlus> enabled = downloaderService.list(
+                new QueryWrapper<PtDownloaderPlus>().eq("enabled", "1"));
+        if (enabled.isEmpty()) {
+            return null;
+        }
+        if (sub.getDownloaderId() != null) {
+            for (PtDownloaderPlus downloader : enabled) {
+                if (sub.getDownloaderId().equals(downloader.getId())) {
+                    return downloader;
+                }
+            }
+            log.warn("订阅[{}] 指定的下载器 {} 不可用，改用第一个启用的", sub.getId(), sub.getDownloaderId());
+        }
+        return enabled.get(0);
+    }
+}
