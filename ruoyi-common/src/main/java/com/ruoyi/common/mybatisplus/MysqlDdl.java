@@ -47,7 +47,8 @@ public class MysqlDdl extends SimpleDdl {
                 "sql/20260723-fix-menu-icons-mapped-values.sql",
                 "sql/20260724-pt-base.sql",
                 "sql/20260725-pt-subscription.sql",
-                "sql/20260726-pt-filter-and-record-fix.sql"
+                "sql/20260726-pt-filter-and-record-fix.sql",
+                "sql/20260727-pt-subscription-menu.sql"
         );
     }
 }
