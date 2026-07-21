@@ -57,7 +57,7 @@ class SubscriptionEngineTest {
         engine = new SubscriptionEngine(
                 subscriptionService, episodeService, recordService, downloaderService,
                 filterConfigService, downloaderClientFactory,
-                new TorrentFilterEngine(), new SubscriptionMatcher(), new MediaParser(null, null));
+                new TorrentFilterEngine(), new SubscriptionMatcher());
 
         PtFilterConfigPlus config = new PtFilterConfigPlus();
         config.setMinSeeders(0);

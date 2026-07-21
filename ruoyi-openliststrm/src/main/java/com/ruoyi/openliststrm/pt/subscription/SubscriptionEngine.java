@@ -60,7 +60,13 @@ public class SubscriptionEngine {
     private final DownloaderClientFactory downloaderClientFactory;
     private final TorrentFilterEngine filterEngine;
     private final SubscriptionMatcher matcher;
-    private final MediaParser mediaParser;
+
+    /**
+     * 本地标题解析器。parseLocal 只做本地正则抽取，不查 TMDb、不调 AI，所以传 null 客户端即可；
+     * 而且 MediaParser 不是 Spring bean（它一直靠 new + RenameClientProvider 管理），
+     * 若通过构造器注入会导致 SubscriptionEngine 装配时找不到 MediaParser bean 而启动失败。
+     */
+    private final MediaParser mediaParser = new MediaParser(null, null);
 
     public SubscriptionEngine(IPtSubscriptionPlusService subscriptionService,
                               IPtSubscriptionEpisodePlusService episodeService,
@@ -69,8 +75,7 @@ public class SubscriptionEngine {
                               IPtFilterConfigPlusService filterConfigService,
                               DownloaderClientFactory downloaderClientFactory,
                               TorrentFilterEngine filterEngine,
-                              SubscriptionMatcher matcher,
-                              MediaParser mediaParser) {
+                              SubscriptionMatcher matcher) {
         this.subscriptionService = subscriptionService;
         this.episodeService = episodeService;
         this.recordService = recordService;
@@ -79,7 +84,6 @@ public class SubscriptionEngine {
         this.downloaderClientFactory = downloaderClientFactory;
         this.filterEngine = filterEngine;
         this.matcher = matcher;
-        this.mediaParser = mediaParser;
     }
 
     /**
