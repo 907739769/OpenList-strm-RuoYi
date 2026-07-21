@@ -1,0 +1,90 @@
+package com.ruoyi.openliststrm.mybatisplus.domain;
+
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+import com.ruoyi.common.mybatisplus.BaseEntity;
+import lombok.Getter;
+import lombok.Setter;
+
+import java.util.Date;
+
+/**
+ * <p>
+ * PT 下载记录
+ * </p>
+ *
+ * @author Jack
+ * @since 2026-07-25
+ */
+@Getter
+@Setter
+@TableName("pt_download_record")
+public class PtDownloadRecordPlus extends BaseEntity {
+
+    private static final long serialVersionUID = 1L;
+
+    @TableId(value = "id", type = IdType.AUTO)
+    private Integer id;
+
+    /** 订阅ID */
+    @TableField("sub_id")
+    private Integer subId;
+
+    /** 集号，电影恒为 0 */
+    @TableField("episode")
+    private Integer episode;
+
+    /** 来源索引器ID */
+    @TableField("indexer_id")
+    private Integer indexerId;
+
+    /** 索引器给出的条目唯一标识(RSS guid) */
+    @TableField("guid")
+    private String guid;
+
+    /** guid 的 SHA-256 十六进制，用于唯一索引 */
+    @TableField("guid_hash")
+    private String guidHash;
+
+    /** 种子hash，从下载器回填，仅供排查 */
+    @TableField("torrent_hash")
+    private String torrentHash;
+
+    /** 推送时打的唯一标签 osr-pt-{id} */
+    @TableField("tracking_tag")
+    private String trackingTag;
+
+    /** 原始种子标题 */
+    @TableField("title")
+    private String title;
+
+    /** 体积(字节) */
+    @TableField("size")
+    private Long size;
+
+    /** 做种数 */
+    @TableField("seeders")
+    private Integer seeders;
+
+    /** 推送到的下载器ID */
+    @TableField("downloader_id")
+    private Integer downloaderId;
+
+    /** 状态 PUSHED/DOWNLOADING/COMPLETED/FAILED */
+    @TableField("state")
+    private String state;
+
+    /** 失败原因 */
+    @TableField("fail_reason")
+    private String failReason;
+
+    /** 推送时间 */
+    @TableField("pushed_time")
+    private Date pushedTime;
+
+    /** 完成时间 */
+    @TableField("completed_time")
+    private Date completedTime;
+}

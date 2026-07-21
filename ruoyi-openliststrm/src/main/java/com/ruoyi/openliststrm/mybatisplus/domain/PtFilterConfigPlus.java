@@ -1,0 +1,67 @@
+package com.ruoyi.openliststrm.mybatisplus.domain;
+
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+import com.ruoyi.common.mybatisplus.BaseEntity;
+import lombok.Getter;
+import lombok.Setter;
+
+/**
+ * <p>
+ * PT 全局过滤与排序配置（单行表，id 恒为 1）
+ * </p>
+ *
+ * @author Jack
+ * @since 2026-07-25
+ */
+@Getter
+@Setter
+@TableName("pt_filter_config")
+public class PtFilterConfigPlus extends BaseEntity {
+
+    private static final long serialVersionUID = 1L;
+
+    /** 本表恒定只有一行 */
+    public static final int SINGLETON_ID = 1;
+
+    @TableId(value = "id", type = IdType.AUTO)
+    private Integer id;
+
+    /** 最低做种数，低于此值淘汰 */
+    @TableField("min_seeders")
+    private Integer minSeeders;
+
+    /** 最小体积(字节)，0 表示不限 */
+    @TableField("min_size")
+    private Long minSize;
+
+    /** 最大体积(字节)，0 表示不限 */
+    @TableField("max_size")
+    private Long maxSize;
+
+    /** 是否仅下载免费种 0-否 1-是 */
+    @TableField("free_only")
+    private String freeOnly;
+
+    /** 逗号分隔，标题须命中其一，空表示不限 */
+    @TableField("include_keywords")
+    private String includeKeywords;
+
+    /** 逗号分隔，标题命中任一则淘汰 */
+    @TableField("exclude_keywords")
+    private String excludeKeywords;
+
+    /** 分辨率优先级，逗号分隔，越靠前越优先 */
+    @TableField("resolution_priority")
+    private String resolutionPriority;
+
+    /** 排序维度顺序，逗号分隔，取值见 SortDimension 枚举 */
+    @TableField("sort_priority")
+    private String sortPriority;
+
+    /** 体积接近度的目标值(字节)，0 表示该维度不参与比较 */
+    @TableField("preferred_size")
+    private Long preferredSize;
+}

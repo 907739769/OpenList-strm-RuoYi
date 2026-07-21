@@ -1,0 +1,74 @@
+package com.ruoyi.openliststrm.mybatisplus.domain;
+
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+import com.ruoyi.common.mybatisplus.BaseEntity;
+import lombok.Getter;
+import lombok.Setter;
+
+import java.util.Date;
+
+/**
+ * <p>
+ * PT 订阅
+ * </p>
+ *
+ * @author Jack
+ * @since 2026-07-25
+ */
+@Getter
+@Setter
+@TableName("pt_subscription")
+public class PtSubscriptionPlus extends BaseEntity {
+
+    private static final long serialVersionUID = 1L;
+
+    @TableId(value = "id", type = IdType.AUTO)
+    private Integer id;
+
+    /** TMDb ID */
+    @TableField("tmdb_id")
+    private String tmdbId;
+
+    /** 媒体类型 TV/MOVIE */
+    @TableField("media_type")
+    private String mediaType;
+
+    /** 作品标题 */
+    @TableField("title")
+    private String title;
+
+    /** 年份 */
+    @TableField("year")
+    private String year;
+
+    /** 季号；电影恒为 0（哨兵值，不用 null——否则唯一索引对电影失效） */
+    @TableField("season")
+    private Integer season;
+
+    /** 总集数，电影恒为 1 */
+    @TableField("total_episodes")
+    private Integer totalEpisodes;
+
+    /** 状态 ACTIVE/COMPLETED/PAUSED */
+    @TableField("status")
+    private String status;
+
+    /** 订阅级过滤覆盖(JSON)，空表示全用全局配置 */
+    @TableField("filter_override")
+    private String filterOverride;
+
+    /** 指定下载器，空表示用唯一启用的那个 */
+    @TableField("downloader_id")
+    private Integer downloaderId;
+
+    /** TMDb 海报路径，列表展示用 */
+    @TableField("poster_path")
+    private String posterPath;
+
+    /** 上次命中种子的时间 */
+    @TableField("last_match_time")
+    private Date lastMatchTime;
+}
