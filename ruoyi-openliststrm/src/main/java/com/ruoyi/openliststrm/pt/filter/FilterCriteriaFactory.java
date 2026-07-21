@@ -40,6 +40,7 @@ public final class FilterCriteriaFactory {
                 FilterCriteria.splitCsv(strOf(patch, "includeKeywords", global.getIncludeKeywords())),
                 FilterCriteria.splitCsv(strOf(patch, "excludeKeywords", global.getExcludeKeywords())),
                 FilterCriteria.splitCsv(strOf(patch, "resolutionPriority", global.getResolutionPriority())),
+                FilterCriteria.splitCsv(strOf(patch, "resolutionWhitelist", global.getResolutionWhitelist())),
                 SortDimension.parseCsv(strOf(patch, "sortPriority", global.getSortPriority())),
                 longOf(patch, "preferredSize", global.getPreferredSize()));
     }

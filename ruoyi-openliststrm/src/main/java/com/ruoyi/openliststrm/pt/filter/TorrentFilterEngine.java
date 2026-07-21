@@ -97,6 +97,15 @@ public class TorrentFilterEngine {
         if (criteria.freeOnly() && !torrent.isFree()) {
             return "非免费种(下载量系数 " + torrent.getDownloadVolumeFactor() + ")，而配置为仅要免费";
         }
+        List<String> whitelist = criteria.resolutionWhitelist();
+        if (!whitelist.isEmpty()) {
+            String resolution = torrent.getParsedResolution();
+            // 解析不出分辨率时无法判定是否在白名单内，不能放行；只有白名单为空(不限)才不受此约束
+            if (StringUtils.isBlank(resolution) || !containsIgnoreCase(whitelist, resolution.trim())) {
+                String actual = StringUtils.isBlank(resolution) ? "(未知)" : resolution;
+                return "分辨率 " + actual + " 不在白名单 " + whitelist + " 内";
+            }
+        }
 
         String title = torrent.getTitle();
         // 标题缺失的条目无法做关键词判定，一律淘汰而非放行
@@ -119,6 +128,16 @@ public class TorrentFilterEngine {
     private boolean containsAny(String lowerTitle, List<String> keywords) {
         for (String keyword : keywords) {
             if (lowerTitle.contains(keyword.toLowerCase(Locale.ROOT))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** 白名单命中判定：整词相等而非子串包含，大小写不敏感——索引器标题里 1080P 与 1080p 都出现过 */
+    private boolean containsIgnoreCase(List<String> whitelist, String resolution) {
+        for (String allowed : whitelist) {
+            if (allowed.equalsIgnoreCase(resolution)) {
                 return true;
             }
         }

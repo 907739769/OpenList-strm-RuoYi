@@ -18,6 +18,7 @@ import java.util.List;
  * @param includeKeywords   标题须命中其一，空列表表示不限
  * @param excludeKeywords   标题命中任一则淘汰
  * @param resolutionPriority 分辨率优先级，越靠前越优先
+ * @param resolutionWhitelist 分辨率白名单，非空时硬性过滤——不在白名单里的直接淘汰；空列表表示不限
  * @param sortPriority      排序维度顺序；传空列表时回退到 {@link #DEFAULT_SORT_PRIORITY}
  * @param preferredSize     体积接近度的目标值(字节)，0 表示该维度不参与比较
  * @author Jack
@@ -30,6 +31,7 @@ public record FilterCriteria(
         List<String> includeKeywords,
         List<String> excludeKeywords,
         List<String> resolutionPriority,
+        List<String> resolutionWhitelist,
         List<SortDimension> sortPriority,
         long preferredSize) {
 
@@ -38,12 +40,20 @@ public record FilterCriteria(
             List.of(SortDimension.RESOLUTION, SortDimension.FREE, SortDimension.SEEDERS, SortDimension.SIZE);
 
     public FilterCriteria {
-        // 防御性拷贝 + 不可变化：调用方之后修改传入的列表不应影响已构造的条件
-        includeKeywords = List.copyOf(includeKeywords);
-        excludeKeywords = List.copyOf(excludeKeywords);
-        resolutionPriority = List.copyOf(resolutionPriority);
+        // 防御性拷贝 + 不可变化：调用方之后修改传入的列表不应影响已构造的条件。
+        // null 一律归一为空列表——与"空列表表示不限/回退默认"的既有语义保持一致，
+        // 这是 public record，后续阶段会直接 new，不能指望调用方永远传非 null。
+        includeKeywords = nullSafeCopy(includeKeywords);
+        excludeKeywords = nullSafeCopy(excludeKeywords);
+        resolutionPriority = nullSafeCopy(resolutionPriority);
+        resolutionWhitelist = nullSafeCopy(resolutionWhitelist);
         // 空的排序配置会让择优退化成"随便挑一个"，必须有兜底
-        sortPriority = sortPriority.isEmpty() ? DEFAULT_SORT_PRIORITY : List.copyOf(sortPriority);
+        List<SortDimension> normalizedSortPriority = nullSafeCopy(sortPriority);
+        sortPriority = normalizedSortPriority.isEmpty() ? DEFAULT_SORT_PRIORITY : normalizedSortPriority;
+    }
+
+    private static <T> List<T> nullSafeCopy(List<T> list) {
+        return list == null ? List.of() : List.copyOf(list);
     }
 
     /**

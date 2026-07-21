@@ -57,6 +57,13 @@ public class PtFilterConfigPlus extends BaseEntity {
     @TableField("resolution_priority")
     private String resolutionPriority;
 
+    /**
+     * 分辨率白名单，逗号分隔，空表示不限。
+     * 与 resolutionPriority 不同：这是硬性过滤(不在白名单里的直接淘汰)，priority 只影响排序
+     */
+    @TableField("resolution_whitelist")
+    private String resolutionWhitelist;
+
     /** 排序维度顺序，逗号分隔，取值见 SortDimension 枚举 */
     @TableField("sort_priority")
     private String sortPriority;

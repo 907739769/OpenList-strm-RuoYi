@@ -35,11 +35,14 @@ public enum SortDimension {
         }
     },
 
-    /** 是否免费种，免费优先 */
+    /**
+     * 下载量计量系数，越小越优——免费(0.0)排最前，同时正确处理 PT 站常见的半价促销(0.5)。
+     * 用连续比较而非二值判断，否则 0.5 与 1.0 会被判同级，择优可能随机落到全价种上。
+     */
     FREE {
         @Override
         public Comparator<TorrentInfo> comparator(FilterCriteria criteria) {
-            return Comparator.comparingInt(t -> t.isFree() ? 0 : 1);
+            return Comparator.comparingDouble(TorrentInfo::getDownloadVolumeFactor);
         }
     },
 
