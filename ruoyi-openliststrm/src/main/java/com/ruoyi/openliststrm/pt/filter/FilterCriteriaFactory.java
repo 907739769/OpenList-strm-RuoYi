@@ -22,22 +22,35 @@ public final class FilterCriteriaFactory {
     }
 
     /**
-     * @param global   全局配置，字段允许为 null（使用安全默认值）
+     * @param global   全局配置，允许整体为 null 或字段为 null（均使用安全默认值）
      * @param override 订阅级覆盖 JSON，允许为 null / 空白 / 格式损坏
      */
     public static FilterCriteria build(PtFilterConfigPlus global, String override) {
+        if (global == null) {
+            log.warn("全局过滤配置为 null，已使用安全默认值兜底");
+            global = new PtFilterConfigPlus();
+        }
         JSONObject patch = parseOverride(override);
 
         return new FilterCriteria(
                 intOf(patch, "minSeeders", global.getMinSeeders()),
                 longOf(patch, "minSize", global.getMinSize()),
                 longOf(patch, "maxSize", global.getMaxSize()),
-                "1".equals(strOf(patch, "freeOnly", global.getFreeOnly())),
+                isFreeOnly(strOf(patch, "freeOnly", global.getFreeOnly())),
                 FilterCriteria.splitCsv(strOf(patch, "includeKeywords", global.getIncludeKeywords())),
                 FilterCriteria.splitCsv(strOf(patch, "excludeKeywords", global.getExcludeKeywords())),
                 FilterCriteria.splitCsv(strOf(patch, "resolutionPriority", global.getResolutionPriority())),
                 SortDimension.parseCsv(strOf(patch, "sortPriority", global.getSortPriority())),
                 longOf(patch, "preferredSize", global.getPreferredSize()));
+    }
+
+    /**
+     * freeOnly 的真值判定。数据库里存的是 "0"/"1"，但订阅级覆盖是用户手填的 JSON，
+     * 前端表单很可能提交原生布尔值 true/false —— 那种情况下必须也认作「是」，
+     * 否则「只要免费种」会被静默关掉，结果下到收费种。
+     */
+    private static boolean isFreeOnly(String value) {
+        return "1".equals(value) || "true".equalsIgnoreCase(value);
     }
 
     /**
@@ -59,26 +72,51 @@ public final class FilterCriteriaFactory {
 
     private static String strOf(JSONObject patch, String key, String fallback) {
         // 注意用 containsKey 而非判空：显式传 "" 意味着「这部剧不设该项」，是有效覆盖
-        return patch.containsKey(key) ? patch.getString(key) : fallback;
+        if (!patch.containsKey(key)) {
+            return fallback;
+        }
+        try {
+            // 实测 fastjson2 的 getString 对数组/对象/布尔/数字值都不会抛异常，
+            // 而是转成其 JSON 字面量的字符串形式，因此这里不属于「取值异常」的高危路径；
+            // 仍包一层 try/catch 是防御性收尾，与 intOf/longOf 保持同样的容错承诺。
+            return patch.getString(key);
+        } catch (Exception e) {
+            log.warn("订阅级过滤覆盖字段 {} 的值 {} 无法解析为字符串，已回退全局配置：{}",
+                    key, patch.get(key), e.getMessage());
+            return fallback;
+        }
     }
 
     private static int intOf(JSONObject patch, String key, Integer fallback) {
-        if (patch.containsKey(key)) {
-            Integer value = patch.getInteger(key);
-            if (value != null) {
-                return value;
-            }
+        int fallbackValue = fallback == null ? 0 : fallback;
+        if (!patch.containsKey(key)) {
+            return fallbackValue;
         }
-        return fallback == null ? 0 : fallback;
+        try {
+            Integer value = patch.getInteger(key);
+            return value == null ? fallbackValue : value;
+        } catch (Exception e) {
+            // 典型场景：体积/做种数字段被用户填成 "abc"、[] 等不是整数的值。
+            // 取值阶段的异常同样要回退全局值，不能让它从 build() 逃出去。
+            log.warn("订阅级过滤覆盖字段 {} 的值 {} 不是合法整数，已回退全局配置：{}",
+                    key, patch.get(key), e.getMessage());
+            return fallbackValue;
+        }
     }
 
     private static long longOf(JSONObject patch, String key, Long fallback) {
-        if (patch.containsKey(key)) {
-            Long value = patch.getLong(key);
-            if (value != null) {
-                return value;
-            }
+        long fallbackValue = fallback == null ? 0L : fallback;
+        if (!patch.containsKey(key)) {
+            return fallbackValue;
         }
-        return fallback == null ? 0L : fallback;
+        try {
+            Long value = patch.getLong(key);
+            return value == null ? fallbackValue : value;
+        } catch (Exception e) {
+            // 典型场景：体积字段被用户填成 "5GB" 这种带单位的字符串
+            log.warn("订阅级过滤覆盖字段 {} 的值 {} 不是合法数字，已回退全局配置：{}",
+                    key, patch.get(key), e.getMessage());
+            return fallbackValue;
+        }
     }
 }
