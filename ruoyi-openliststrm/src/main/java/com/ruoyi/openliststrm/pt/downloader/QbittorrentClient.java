@@ -75,7 +75,23 @@ public class QbittorrentClient implements IDownloaderClient {
         if (!OK.equalsIgnoreCase(response.trim())) {
             throw new IOException("qBittorrent 拒绝添加种子，响应：" + response);
         }
-        log.info("已推送种子到下载器[{}]：{}", config.getName(), downloadUrl);
+        log.info("已推送种子到下载器[{}]：{}", config.getName(), maskUrl(downloadUrl));
+    }
+
+    /**
+     * 去掉 URL 的查询串再记日志。
+     * <p>
+     * 索引器给出的下载链接常把凭据放在查询参数里（例如 Prowlarr 的
+     * {@code /download?apikey=xxx&link=yyy}），原样打进日志等于把 API Key
+     * 明文写进挂载出来的日志文件。
+     * </p>
+     */
+    private String maskUrl(String url) {
+        if (StringUtils.isBlank(url)) {
+            return url;
+        }
+        int idx = url.indexOf('?');
+        return idx < 0 ? url : url.substring(0, idx) + "?<已省略参数>";
     }
 
     @Override

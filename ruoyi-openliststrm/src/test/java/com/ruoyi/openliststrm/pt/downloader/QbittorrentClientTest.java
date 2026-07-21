@@ -1,8 +1,13 @@
 package com.ruoyi.openliststrm.pt.downloader;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.ruoyi.openliststrm.mybatisplus.domain.PtDownloaderPlus;
 import com.ruoyi.openliststrm.pt.downloader.model.DownloaderTorrent;
 import okhttp3.OkHttpClient;
+import org.slf4j.LoggerFactory;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
@@ -57,6 +62,34 @@ class QbittorrentClientTest {
     @Test
     void type_返回QBITTORRENT() {
         assertEquals("QBITTORRENT", client.type());
+    }
+
+    @Test
+    void addTorrent_日志不得泄漏下载链接中的凭据() throws Exception {
+        // 索引器给出的下载链接常把凭据放在查询参数里（Prowlarr 的 /download?apikey=xxx&link=yyy），
+        // 日志会落到挂载出来的 /data/logs，原样打印等于把 API Key 明文写进宿主机文件。
+        Logger logger = (Logger) LoggerFactory.getLogger(QbittorrentClient.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        logger.setLevel(Level.INFO);
+        try {
+            server.enqueue(loginOk());
+            server.enqueue(new MockResponse().setBody("Ok."));
+
+            String secret = "super-secret-apikey";
+            client.addTorrent(config(11),
+                    "http://prowlarr:9696/1/download?apikey=" + secret + "&link=abc",
+                    "/data/downloads", "osr-pt");
+
+            String logged = appender.list.stream()
+                    .map(ILoggingEvent::getFormattedMessage)
+                    .reduce("", (a, b) -> a + "\n" + b);
+            assertFalse(logged.contains(secret), "日志中不应出现下载链接里的凭据，实际内容：" + logged);
+            assertTrue(logged.contains("http://prowlarr:9696/1/download"), "应保留可排查的链接主体");
+        } finally {
+            logger.detachAppender(appender);
+        }
     }
 
     @Test
