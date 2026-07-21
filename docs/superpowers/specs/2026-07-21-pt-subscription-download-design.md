@@ -255,3 +255,57 @@ pt/
 | 新增排序维度 | 加一个 `Comparator<TorrentInfo>` + 一个枚举值，`sort_priority` 可引用 |
 | 优先级规则组 | 在 `pt_filter_config` 之上叠加一层，不改现有结构 |
 | qB 完成回调 | `IDownloaderClient` 的事件触发入口 |
+
+---
+
+## 附录：第二阶段完成后的设计决定（2026-07-21）
+
+整体审查暴露出若干跨阶段缺口，以下决定已落地到代码与数据库，**第三、四阶段必须遵守**。
+
+### A. 季包/多集种子：支持，用 `episode = -1` 表示
+
+PT 上连载剧的存量集几乎全是季包（`S01`、`S01E01-E12`）。若按「标题解析不出集数就丢弃」处理，用户订阅一部已播 8 集的剧时前 8 集永远补不上，这是产品级缺口。
+
+**做法**：`pt_download_record.episode = -1` 表示该记录对应一个整季包。推送时把该订阅当前所有 `MISSING` 的集置为 `IN_FLIGHT` 并把 `download_id` 都指向这条记录；Emby 确认后各自转 `IN_LIBRARY`。
+
+**为什么不需要额外的关联表**：`pt_subscription_episode.download_id` 没有唯一约束，多行指向同一条下载记录本就允许。而下游链路（FileMonitor → 上传 → 重命名 → STRM → Emby）本来就是**逐文件**处理的，季包解压后每个文件各自走完整链路，Emby 最终看到的就是 N 集。所以季包只是「记账」问题，不是流程问题。
+
+### B. 失败重试：择优前剔除已有记录的 guid，失败即放弃该种子
+
+原先的矛盾：§4.3 承诺下载失败后集回退 `MISSING`、「下一轮 RSS 可重新捡起」，但下一轮若再次选中同一个 guid 会撞 `(indexer_id, guid_hash)` 唯一约束。
+
+**做法**：§4.2 的择优**之前**增加一步——剔除「本订阅本集已存在下载记录」的候选 guid。`FAILED` 的 guid 视为该集的永久黑名单，不再重试；该集靠 feed 里出现的**其他**种子恢复。
+
+代价是「一次失败等于放弃该种子」，换来的是不改表、逻辑简单、不会出现无限重试同一个坏种。
+
+### C. `tracking_tag` 在插入前生成，不依赖自增 id
+
+原设计 `osr-pt-{自增id}` 要求「先插入拿 id → 再更新 tag → 再推送」两次写库，中间崩溃会产生「有记录无 tag」的永久失联种子，对应集永久停在 `IN_FLIGHT` 且无从发现。
+
+**做法**：tag 值在插入**前**生成（如 `osr-pt-` + `guid_hash` 前 16 位），一次 insert 完成，推送前 tag 已确定。`pt_download_record` 的 `tracking_tag` 索引已由普通索引升级为 **UNIQUE**（`uk_tracking_tag`），防止重复 tag 导致把一个种子的状态写到另一条记录上。
+
+第四阶段仍需一条兜底清理：`IN_FLIGHT` 且 `pushed_time` 超过 N 小时的记录回退 `MISSING`。
+
+### D. 分辨率白名单：`resolution_priority` 只排序，新增 `resolution_whitelist` 做硬过滤
+
+`resolution_priority` 只影响排序权重，不在列表里的分辨率只是排最后、**不会被淘汰**。用户无法表达「只在 4K 和 1080p 之间选，720p 一律不要」。
+
+**做法**：`pt_filter_config` 新增 `resolution_whitelist` 列（逗号分隔，空表示不限），作为 `TorrentFilterEngine` 的第 7 条硬性过滤规则，大小写不敏感。**解析不出分辨率时，若白名单非空一律淘汰**——无法判定的不放行。
+
+### E. `FREE` 排序维度改为按 `downloadVolumeFactor` 连续比较
+
+原先 `isFree() ? 0 : 1` 的二值判断使 PT 站常见的 50% 促销种（系数 0.5）与全价种（1.0）判同级。改为 `comparingDouble(downloadVolumeFactor)`，语义是「计量系数越小越优」。`freeOnly` 的**硬过滤**仍用 `isFree()`（「只要免费」就是只要 0，不含半价）。
+
+### F. 严禁用 `season == 0` 判断是否为电影
+
+`media_type` 是判断电影的**唯一**依据。电影的 `season` 用 0 做哨兵值（避免 MySQL 唯一索引对多个 NULL 失效），而剧集的特别篇在 TMDb 里也是第 0 季。二者在数据层不冲突（唯一索引含 `media_type`），但代码里任何一处写出 `if (season == 0) { 当成电影 }`，订阅特别篇就会立刻串台。
+
+### G. 第四阶段必须处理的两件事（本阶段无法验证）
+
+1. **多索引器并发轮询**：`pt_indexer` 每个索引器有独立的 `poll_interval`，轮询可能并发。两个线程同时读到某集 `MISSING` 会各推一个种子，破坏「同一集只下一个」。必须二选一：串行轮询所有索引器，或用 `UPDATE pt_subscription_episode SET state='IN_FLIGHT' WHERE id=? AND state='MISSING'` 的条件更新按影响行数原子占位。
+2. **`total_episodes` 的刷新**：TMDb 对正在播出的季常给偏小的总集数。若不刷新，连载剧会提前 `COMPLETED` 后永久停更。`LibrarySyncTask` 需重新拉取总集数并补齐 `pt_subscription_episode` 行，同时明确 `COMPLETED` 订阅在总集数增加时是否自动回到 `ACTIVE`。
+
+### H. 联调时优先验证的假设（MockWebServer 验不了）
+
+- 真实索引器是否提供 `seeders` 与 `downloadvolumefactor` 属性。若不提供，默认配置 `min_seeders=1` 会把**全部候选整批淘汰**，且只落 debug 日志——现象是「订阅了但什么都不下」，排查成本极高。建议第四阶段在每轮轮询结束时打一条 INFO 汇总（本轮 N 条、带 seeders 的 M 条、带促销信息的 K 条、各规则各淘汰多少）。
+- `EmbyClient.listEpisodes` 的 `season` 参数大小写。若被服务端忽略会返回全部季的集号，导致对账把别的季的集误判为已入库。
