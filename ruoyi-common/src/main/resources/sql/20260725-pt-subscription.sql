@@ -29,11 +29,11 @@ CREATE TABLE IF NOT EXISTS `pt_subscription` (
     `media_type` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL COMMENT '媒体类型 TV/MOVIE',
     `title` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL COMMENT '作品标题',
     `year` varchar(8) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '年份',
-    `season` int(10) NULL DEFAULT NULL COMMENT '季号，电影为NULL',
+    `season` int(10) NOT NULL DEFAULT 0 COMMENT '季号；电影恒为0。用哨兵值而非NULL，否则MySQL唯一索引允许多个NULL会导致同一电影可被重复订阅。与media_type共同保证唯一，不会和剧集的特别篇(季0)冲突',
     `total_episodes` int(10) NOT NULL DEFAULT 1 COMMENT '总集数，电影恒为1',
     `status` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'ACTIVE' COMMENT '状态 ACTIVE/COMPLETED/PAUSED',
     `filter_override` varchar(1024) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '订阅级过滤覆盖(JSON)，空表示全用全局配置',
-    `downloader_id` int(10) NULL DEFAULT NULL COMMENT '指定下载器，空表示用唯一启用的那个',
+    `downloader_id` int(10) UNSIGNED NULL DEFAULT NULL COMMENT '指定下载器，空表示用唯一启用的那个',
     `poster_path` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT 'TMDb海报路径，列表展示用',
     `last_match_time` datetime(0) NULL DEFAULT NULL COMMENT '上次命中种子的时间，用于识别长期空转的订阅',
     `create_time` datetime(0) NULL DEFAULT NULL COMMENT '创建时间',
@@ -86,7 +86,10 @@ CREATE TABLE IF NOT EXISTS `pt_download_record` (
 -- ----------------------------
 -- 菜单：挂在 OpenListStrm(2006) 下。图标类名必须存在于 useMenuIcon.ts 的映射表中，
 -- 否则菜单图标不显示(历史bug，见 commit 0248e124)。本次复用已在表中的 'fa fa-bookmark-o'。
+-- visible 先设为 '1'(隐藏)：本脚本仅创建数据表，对应前端页面要到第三阶段才会开发，
+-- 现在放出来点进去只会 404。第三阶段前端页面上线后，再用 UPDATE 把这两条菜单的
+-- visible 翻回 '0'(显示)。
 -- ----------------------------
 INSERT IGNORE INTO `sys_menu`(`menu_id`, `menu_name`, `parent_id`, `order_num`, `url`, `target`, `menu_type`, `visible`, `is_refresh`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES
-(2064, 'PT订阅', 2006, 13, '/openlist/ptSubscription', '', 'C', '0', '1', 'openliststrm:ptSubscription:view', 'fa fa-bookmark-o', 'admin', '2026-07-25 00:00:00', '', NULL, 'PT 订阅管理'),
-(2065, 'PT过滤规则', 2006, 14, '/openlist/ptFilterConfig', '', 'C', '0', '1', 'openliststrm:ptFilterConfig:view', 'fa fa-sliders', 'admin', '2026-07-25 00:00:00', '', NULL, 'PT 种子过滤与排序规则');
+(2064, 'PT订阅', 2006, 13, '/openlist/ptSubscription', '', 'C', '1', '1', 'openliststrm:ptSubscription:view', 'fa fa-bookmark-o', 'admin', '2026-07-25 00:00:00', '', NULL, 'PT 订阅管理'),
+(2065, 'PT过滤规则', 2006, 14, '/openlist/ptFilterConfig', '', 'C', '1', '1', 'openliststrm:ptFilterConfig:view', 'fa fa-sliders', 'admin', '2026-07-25 00:00:00', '', NULL, 'PT 种子过滤与排序规则');
