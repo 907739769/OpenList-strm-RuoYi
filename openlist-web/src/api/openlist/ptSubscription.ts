@@ -1,0 +1,62 @@
+import request from '@/api/request'
+import type { PageResult, SearchParams } from '@/types'
+
+export function getPtSubscriptionListApi(params: SearchParams) {
+  return request.get<any, PageResult<any>>('/openliststrm/pt-subscriptions', { params })
+}
+
+export function addPtSubscriptionApi(data: any) {
+  return request.post('/openliststrm/pt-subscriptions', data)
+}
+
+export function updatePtSubscriptionApi(data: any) {
+  return request.put('/openliststrm/pt-subscriptions', data)
+}
+
+export function deletePtSubscriptionApi(id: number) {
+  return request.delete(`/openliststrm/pt-subscriptions/${id}`)
+}
+
+/** TMDb 搜索，供建订阅时选片 */
+export function tmdbSearchApi(mediaType: string, keyword: string) {
+  return request.get<any, any[]>('/openliststrm/pt-subscriptions/tmdb-search', {
+    params: { mediaType, keyword }
+  })
+}
+
+/** 查某剧指定季在 TMDb 上的总集数 */
+export function tmdbSeasonEpisodeCountApi(tmdbId: string, season: number) {
+  return request.get<any, number>(`/openliststrm/pt-subscriptions/tmdb-seasons/${tmdbId}`, {
+    params: { season }
+  })
+}
+
+/** 建订阅 */
+export function subscribeApi(data: any) {
+  return request.post('/openliststrm/pt-subscriptions/subscribe', data)
+}
+
+/** 查订阅进度 */
+export function getSubscriptionProgressApi(id: number) {
+  return request.get<any, any>(`/openliststrm/pt-subscriptions/${id}/progress`)
+}
+
+/** 查订阅的每集明细 */
+export function getSubscriptionEpisodesApi(id: number) {
+  return request.get<any, any[]>(`/openliststrm/pt-subscriptions/${id}/episodes`)
+}
+
+/** 立即与媒体库对账刷新 */
+export function refreshSubscriptionApi(id: number) {
+  return request.post(`/openliststrm/pt-subscriptions/${id}/refresh`)
+}
+
+/** 暂停订阅 */
+export function pauseSubscriptionApi(id: number) {
+  return request.post(`/openliststrm/pt-subscriptions/${id}/pause`)
+}
+
+/** 恢复订阅 */
+export function resumeSubscriptionApi(id: number) {
+  return request.post(`/openliststrm/pt-subscriptions/${id}/resume`)
+}
