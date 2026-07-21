@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 
@@ -39,6 +40,45 @@ public class TorrentFilterEngine {
             }
         }
         return survivors;
+    }
+
+    /**
+     * 从候选中挑出最优的一个。
+     * <p>
+     * 按 {@link FilterCriteria#sortPriority()} 的维度顺序，把各维度的比较器用
+     * thenComparing 串联后取排在最前的那个。维度顺序由配置决定，因此同一批候选
+     * 在不同配置下会选出不同的赢家——这正是「排序权重可调」的实现方式。
+     * </p>
+     * <p>
+     * 全部维度都判同级时返回列表中的第一个（比较过程不改变入参列表的顺序）。
+     * </p>
+     *
+     * @return 最优候选；候选为空时返回 null
+     */
+    public TorrentInfo pickBest(List<TorrentInfo> candidates, FilterCriteria criteria) {
+        if (candidates.isEmpty()) {
+            return null;
+        }
+        Comparator<TorrentInfo> comparator = null;
+        for (SortDimension dimension : criteria.sortPriority()) {
+            Comparator<TorrentInfo> next = dimension.comparator(criteria);
+            comparator = (comparator == null) ? next : comparator.thenComparing(next);
+        }
+        if (comparator == null) {
+            // FilterCriteria 保证 sortPriority 非空，这里只是防御
+            return candidates.get(0);
+        }
+
+        TorrentInfo best = candidates.get(0);
+        for (int i = 1; i < candidates.size(); i++) {
+            // 严格小于才替换，保证同级时保留先出现的那个
+            if (comparator.compare(candidates.get(i), best) < 0) {
+                best = candidates.get(i);
+            }
+        }
+        log.debug("择优结果：{}（候选 {} 个，维度顺序 {}）",
+                best.getTitle(), candidates.size(), criteria.sortPriority());
+        return best;
     }
 
     /**
