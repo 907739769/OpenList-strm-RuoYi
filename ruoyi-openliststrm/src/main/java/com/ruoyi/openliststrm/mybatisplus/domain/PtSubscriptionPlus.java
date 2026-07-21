@@ -40,6 +40,10 @@ public class PtSubscriptionPlus extends BaseEntity {
     @TableField("title")
     private String title;
 
+    /** 英文原名，与中文 title 一起用于匹配种子标题 */
+    @TableField("original_title")
+    private String originalTitle;
+
     /** 年份 */
     @TableField("year")
     private String year;
