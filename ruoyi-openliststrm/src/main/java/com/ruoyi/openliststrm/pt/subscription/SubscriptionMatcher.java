@@ -1,0 +1,90 @@
+package com.ruoyi.openliststrm.pt.subscription;
+
+import com.ruoyi.common.utils.StringUtils;
+import com.ruoyi.openliststrm.mybatisplus.domain.PtSubscriptionPlus;
+import com.ruoyi.openliststrm.pt.model.TorrentInfo;
+import com.ruoyi.openliststrm.pt.subscription.dto.MatchResult;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+
+import java.util.List;
+import java.util.Locale;
+
+/**
+ * 把一条已本地解析的种子匹配到某个订阅的某一集。
+ *
+ * @author Jack
+ */
+@Slf4j
+@Component
+public class SubscriptionMatcher {
+
+    /** 季包的集号哨兵值：种子含整季 */
+    public static final int SEASON_PACK = -1;
+
+    /** 电影的集号哨兵值 */
+    public static final int MOVIE_EPISODE = 0;
+
+    private static final String TYPE_MOVIE = "MOVIE";
+
+    /**
+     * @return 匹配结果；匹配不上返回 null
+     */
+    public MatchResult match(TorrentInfo torrent, List<PtSubscriptionPlus> subscriptions) {
+        String torrentTitle = normalize(torrent.getParsedTitle());
+        if (torrentTitle == null) {
+            return null;
+        }
+        for (PtSubscriptionPlus sub : subscriptions) {
+            if (!torrentTitle.equals(normalize(sub.getTitle()))) {
+                continue;
+            }
+            MatchResult result = matchEpisode(torrent, sub);
+            if (result != null) {
+                return result;
+            }
+        }
+        return null;
+    }
+
+    private MatchResult matchEpisode(TorrentInfo torrent, PtSubscriptionPlus sub) {
+        // 判断电影只看 media_type：剧集的特别篇在 TMDb 里也是第 0 季，用 season==0 判断会串台
+        if (TYPE_MOVIE.equalsIgnoreCase(sub.getMediaType())) {
+            // 带季集信息的一定是剧集，不该匹配电影订阅
+            if (torrent.getParsedSeason() != null || torrent.getParsedEpisode() != null) {
+                return null;
+            }
+            // 同名翻拍常见，年份不符宁可漏也不能串台
+            if (StringUtils.isBlank(torrent.getParsedYear()) || StringUtils.isBlank(sub.getYear())
+                    || !torrent.getParsedYear().equals(sub.getYear())) {
+                return null;
+            }
+            return new MatchResult(sub, MOVIE_EPISODE);
+        }
+
+        if (torrent.getParsedSeason() == null || sub.getSeason() == null
+                || !torrent.getParsedSeason().equals(sub.getSeason())) {
+            return null;
+        }
+        // 有季无集 = 季包
+        int episode = torrent.getParsedEpisode() == null ? SEASON_PACK : torrent.getParsedEpisode();
+        return new MatchResult(sub, episode);
+    }
+
+    /**
+     * 标题归一化：转小写、把点/下划线/连字符/连续空白压成单空格、去首尾空白。
+     * <p>
+     * 归一化后做<b>全等</b>比较而非子串包含——否则「The Office」会吃掉「The Office US」的种子。
+     * </p>
+     */
+    private String normalize(String title) {
+        if (StringUtils.isBlank(title)) {
+            return null;
+        }
+        String normalized = title.toLowerCase(Locale.ROOT)
+                .replaceAll("[._\\-]+", " ")
+                .replaceAll("\\s+", " ")
+                .trim();
+        return normalized.isEmpty() ? null : normalized;
+    }
+}
