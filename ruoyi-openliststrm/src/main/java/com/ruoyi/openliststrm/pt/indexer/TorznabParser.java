@@ -97,8 +97,17 @@ public final class TorznabParser {
             return null;
         }
 
+        // guid 是 RSS 规范中的可选元素，索引器缺失时回退用下载地址，
+        // 宁可去重键偶尔失效（同种子当成两条），也不能因缺 guid 丢弃整条数据。
+        String guid = childText(item, "guid");
+        if (StringUtils.isBlank(guid)) {
+            log.debug("Torznab条目缺少guid，已降级使用下载地址作为去重标识：{}", title);
+            guid = downloadUrl;
+        }
+
         TorrentInfo info = new TorrentInfo();
         info.setTitle(title);
+        info.setGuid(guid);
         info.setDownloadUrl(downloadUrl);
         info.setPubDate(childText(item, "pubDate"));
 

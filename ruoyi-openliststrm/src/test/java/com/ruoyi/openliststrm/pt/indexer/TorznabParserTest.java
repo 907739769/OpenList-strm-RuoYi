@@ -52,6 +52,23 @@ class TorznabParserTest {
         assertEquals("ABCDEF0123456789", t.getInfoHash());
         assertEquals("Mon, 20 Jul 2026 10:00:00 +0800", t.getPubDate());
         assertTrue(t.isFree());
+        assertEquals("https://pt.example.com/details.php?id=1", t.getGuid());
+    }
+
+    @Test
+    void parse_条目缺少guid_回退使用下载地址且不丢弃条目() {
+        String xml = wrap("""
+                    <item>
+                      <title>Movie.2026.1080p.WEB-DL</title>
+                      <link>https://pt.example.com/download.php?id=10</link>
+                      <size>1073741824</size>
+                    </item>
+                """);
+
+        List<TorrentInfo> list = TorznabParser.parse(xml);
+
+        assertEquals(1, list.size());
+        assertEquals("https://pt.example.com/download.php?id=10", list.get(0).getGuid());
     }
 
     @Test
@@ -59,6 +76,7 @@ class TorznabParserTest {
         String xml = wrap("""
                     <item>
                       <title>大明王朝1566.S01E12.2160p.WEB-DL</title>
+                      <guid>https://pt.example.com/details.php?id=2</guid>
                       <link>https://pt.example.com/download.php?id=2</link>
                       <size>5368709120</size>
                     </item>
@@ -67,6 +85,7 @@ class TorznabParserTest {
         List<TorrentInfo> list = TorznabParser.parse(xml);
 
         assertEquals("大明王朝1566.S01E12.2160p.WEB-DL", list.get(0).getTitle());
+        assertEquals("https://pt.example.com/details.php?id=2", list.get(0).getGuid());
     }
 
     @Test

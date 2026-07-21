@@ -22,6 +22,17 @@ public class TorrentInfo {
     /** 种子 info hash，部分索引器不提供，可为空 */
     private String infoHash;
 
+    /**
+     * 索引器给出的条目唯一标识（RSS &lt;guid&gt;），用于下载记录去重。
+     * <p>
+     * 不含 apikey 等凭据，比 downloadUrl 更适合做去重键（downloadUrl 常带 apikey，
+     * apikey 重置后同一种子的 downloadUrl 会变化，导致去重失效）。
+     * 索引器未提供 guid 时，由 {@link com.ruoyi.openliststrm.pt.indexer.TorznabParser}
+     * 回退为 downloadUrl，本字段因此恒不为空。
+     * </p>
+     */
+    private String guid;
+
     /** .torrent 下载链接或磁力链，推送下载器时使用 */
     private String downloadUrl;
 
