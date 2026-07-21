@@ -67,6 +67,8 @@ export function usePtSubscription() {
       ElMessage.warning('请输入片名')
       return
     }
+    // 换关键词重搜时必须清掉上一次的选择，否则用户没重新点选就点「订阅」会提交旧作品
+    picked.value = null
     searchLoading.value = true
     try {
       searchResults.value = (await tmdbSearchApi(searchForm.mediaType, searchForm.keyword)) || []
