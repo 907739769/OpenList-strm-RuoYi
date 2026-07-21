@@ -1,0 +1,149 @@
+package com.ruoyi.openliststrm.pt.subscription;
+
+import com.alibaba.fastjson2.JSONArray;
+import com.alibaba.fastjson2.JSONObject;
+import com.ruoyi.common.utils.StringUtils;
+import com.ruoyi.openliststrm.config.OpenlistConfig;
+import com.ruoyi.openliststrm.pt.subscription.dto.TmdbSearchItem;
+import com.ruoyi.openliststrm.tmdb.TMDbApiService;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * 把 TMDb 返回的原始 JSON 转成结构化 DTO。
+ * <p>
+ * 剧集与电影的字段名不同：剧集用 name / original_name / first_air_date，
+ * 电影用 title / original_title / release_date。本类屏蔽这个差异。
+ * </p>
+ *
+ * @author Jack
+ */
+@Slf4j
+@Service
+public class TmdbSearchService {
+
+    /** 媒体类型：剧集 */
+    public static final String TYPE_TV = "TV";
+
+    /** 媒体类型：电影 */
+    public static final String TYPE_MOVIE = "MOVIE";
+
+    @Autowired
+    private TMDbApiService tmDbApiService;
+
+    @Autowired
+    private OpenlistConfig openlistConfig;
+
+    /**
+     * 按关键词搜索。
+     *
+     * @param mediaType TV / MOVIE
+     * @return 搜索结果；关键词为空、响应异常或无结果时返回空列表（不抛异常，搜索失败不该让页面报错）
+     */
+    public List<TmdbSearchItem> search(String mediaType, String keyword) {
+        List<TmdbSearchItem> result = new ArrayList<>();
+        if (StringUtils.isBlank(keyword)) {
+            return result;
+        }
+        String raw = tmDbApiService.search(openlistConfig.getTmdbApiKey(), tmdbType(mediaType), keyword.trim(), null);
+        JSONArray results = readArray(raw, "results");
+        if (results == null) {
+            return result;
+        }
+        for (int i = 0; i < results.size(); i++) {
+            result.add(toItem(results.getJSONObject(i), mediaType));
+        }
+        return result;
+    }
+
+    /**
+     * 按 TMDb ID 取详情，用于建订阅时补全标题/年份/海报。
+     *
+     * @throws IllegalArgumentException 响应无法解析
+     */
+    public TmdbSearchItem getDetail(String mediaType, String tmdbId) {
+        JSONObject detail = readObject(tmDbApiService.getDetails(
+                openlistConfig.getTmdbApiKey(), tmdbType(mediaType), Integer.parseInt(tmdbId)));
+        if (detail == null) {
+            throw new IllegalArgumentException("TMDb 未返回 " + tmdbId + " 的详情");
+        }
+        return toItem(detail, mediaType);
+    }
+
+    /**
+     * 取剧集指定季的总集数。
+     * <p>
+     * 注意季号 0 是**特别篇**（TMDb 约定），不是电影——电影不该走这个方法。
+     * </p>
+     *
+     * @throws IllegalArgumentException 响应无 seasons，或该季不存在
+     */
+    public int getSeasonEpisodeCount(String tmdbId, int season) {
+        String raw = tmDbApiService.getDetails(openlistConfig.getTmdbApiKey(), "tv", Integer.parseInt(tmdbId));
+        JSONArray seasons = readArray(raw, "seasons");
+        if (seasons == null) {
+            throw new IllegalArgumentException("TMDb 未返回剧集 " + tmdbId + " 的季信息");
+        }
+        for (int i = 0; i < seasons.size(); i++) {
+            JSONObject item = seasons.getJSONObject(i);
+            Integer number = item.getInteger("season_number");
+            if (number != null && number == season) {
+                Integer count = item.getInteger("episode_count");
+                if (count == null || count <= 0) {
+                    throw new IllegalArgumentException("TMDb 中剧集 " + tmdbId + " 第 " + season + " 季的集数无效");
+                }
+                return count;
+            }
+        }
+        throw new IllegalArgumentException("TMDb 中剧集 " + tmdbId + " 不存在第 " + season + " 季");
+    }
+
+    private TmdbSearchItem toItem(JSONObject json, String mediaType) {
+        boolean tv = !TYPE_MOVIE.equalsIgnoreCase(mediaType);
+        TmdbSearchItem item = new TmdbSearchItem();
+        item.setTmdbId(json.getString("id"));
+        item.setMediaType(tv ? TYPE_TV : TYPE_MOVIE);
+        item.setTitle(json.getString(tv ? "name" : "title"));
+        item.setOriginalTitle(json.getString(tv ? "original_name" : "original_title"));
+        item.setYear(extractYear(json.getString(tv ? "first_air_date" : "release_date")));
+        item.setPosterPath(json.getString("poster_path"));
+        item.setOverview(json.getString("overview"));
+        return item;
+    }
+
+    /**
+     * 从 yyyy-MM-dd 取年份。TMDb 对未定档作品会给空串或非常规值，此时返回 null。
+     */
+    private String extractYear(String date) {
+        if (StringUtils.isBlank(date) || date.length() < 4) {
+            return null;
+        }
+        String year = date.substring(0, 4);
+        return year.chars().allMatch(Character::isDigit) ? year : null;
+    }
+
+    private String tmdbType(String mediaType) {
+        return TYPE_MOVIE.equalsIgnoreCase(mediaType) ? "movie" : "tv";
+    }
+
+    private JSONObject readObject(String raw) {
+        if (StringUtils.isBlank(raw)) {
+            return null;
+        }
+        try {
+            return JSONObject.parseObject(raw);
+        } catch (Exception e) {
+            log.warn("TMDb 响应不是合法 JSON：{}", e.getMessage());
+            return null;
+        }
+    }
+
+    private JSONArray readArray(String raw, String key) {
+        JSONObject json = readObject(raw);
+        return json == null ? null : json.getJSONArray(key);
+    }
+}
