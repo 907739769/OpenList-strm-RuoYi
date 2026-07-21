@@ -19,8 +19,13 @@ class TorrentFilterEngineFilterTest {
 
     private FilterCriteria criteria(int minSeeders, long minSize, long maxSize, boolean freeOnly,
                                     List<String> include, List<String> exclude) {
+        return criteriaWithWhitelist(minSeeders, minSize, maxSize, freeOnly, include, exclude, List.of());
+    }
+
+    private FilterCriteria criteriaWithWhitelist(int minSeeders, long minSize, long maxSize, boolean freeOnly,
+                                    List<String> include, List<String> exclude, List<String> resolutionWhitelist) {
         return new FilterCriteria(minSeeders, minSize, maxSize, freeOnly, include, exclude,
-                List.of("1080p"), List.of(SortDimension.SEEDERS), 0L);
+                List.of("1080p"), resolutionWhitelist, List.of(SortDimension.SEEDERS), 0L);
     }
 
     private TorrentInfo torrent(String title, int seeders, long size, boolean free) {
@@ -29,6 +34,12 @@ class TorrentFilterEngineFilterTest {
         t.setSeeders(seeders);
         t.setSize(size);
         t.setDownloadVolumeFactor(free ? 0.0 : 1.0);
+        return t;
+    }
+
+    private TorrentInfo torrentWithResolution(String title, String resolution) {
+        TorrentInfo t = torrent(title, 10, 5_000_000_000L, false);
+        t.setParsedResolution(resolution);
         return t;
     }
 
@@ -207,6 +218,87 @@ class TorrentFilterEngineFilterTest {
             assertTrue(logged.contains("做种数"), "应指明是哪条规则淘汰的，实际内容：" + logged);
             assertTrue(logged.contains("10"), "应带上配置的阈值，实际内容：" + logged);
             assertTrue(logged.contains("2"), "应带上种子的实际值，实际内容：" + logged);
+        } finally {
+            logger.setLevel(originalLevel);
+            logger.detachAppender(appender);
+        }
+    }
+
+    // ---------- 分辨率白名单(硬性过滤，不同于只影响排序的 resolutionPriority) ----------
+
+    @Test
+    void 白名单命中_保留() {
+        List<TorrentInfo> result = engine.filter(
+                List.of(torrentWithResolution("t", "1080p")),
+                criteriaWithWhitelist(0, 0L, 0L, false, List.of(), List.of(), List.of("2160p", "1080p")));
+
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    void 白名单未命中_淘汰() {
+        List<TorrentInfo> result = engine.filter(
+                List.of(torrentWithResolution("t", "720p")),
+                criteriaWithWhitelist(0, 0L, 0L, false, List.of(), List.of(), List.of("2160p", "1080p")));
+
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void 白名单大小写不敏感() {
+        List<TorrentInfo> result = engine.filter(
+                List.of(torrentWithResolution("t", "1080P")),
+                criteriaWithWhitelist(0, 0L, 0L, false, List.of(), List.of(), List.of("2160p", "1080p")));
+
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    void 白名单非空_解析不出分辨率则淘汰() {
+        // 无法判定是否在白名单内的一律不放行，而不是当作"无所谓"直接通过
+        List<TorrentInfo> resultNull = engine.filter(
+                List.of(torrentWithResolution("t", null)),
+                criteriaWithWhitelist(0, 0L, 0L, false, List.of(), List.of(), List.of("2160p", "1080p")));
+        List<TorrentInfo> resultBlank = engine.filter(
+                List.of(torrentWithResolution("t2", "   ")),
+                criteriaWithWhitelist(0, 0L, 0L, false, List.of(), List.of(), List.of("2160p", "1080p")));
+
+        assertTrue(resultNull.isEmpty());
+        assertTrue(resultBlank.isEmpty());
+    }
+
+    @Test
+    void 白名单为空_不限制分辨率() {
+        List<TorrentInfo> result = engine.filter(
+                List.of(torrentWithResolution("t", "480p")),
+                criteriaWithWhitelist(0, 0L, 0L, false, List.of(), List.of(), List.of()));
+
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    void 白名单未命中_淘汰原因写明白名单内容与实际分辨率() {
+        Logger logger = (Logger) LoggerFactory.getLogger(TorrentFilterEngine.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        Level originalLevel = logger.getLevel();
+        logger.setLevel(Level.DEBUG);
+        try {
+            List<TorrentInfo> result = engine.filter(
+                    List.of(torrentWithResolution("t", "720p")),
+                    criteriaWithWhitelist(0, 0L, 0L, false, List.of(), List.of(), List.of("2160p", "1080p")));
+
+            assertTrue(result.isEmpty());
+
+            String logged = appender.list.stream()
+                    .filter(e -> e.getLevel() == Level.DEBUG)
+                    .map(ILoggingEvent::getFormattedMessage)
+                    .reduce("", (a, b) -> a + "\n" + b);
+
+            assertTrue(logged.contains("720p"), "应带上种子的实际分辨率，实际内容：" + logged);
+            assertTrue(logged.contains("2160p") && logged.contains("1080p"),
+                    "应带上白名单内容，实际内容：" + logged);
         } finally {
             logger.setLevel(originalLevel);
             logger.detachAppender(appender);

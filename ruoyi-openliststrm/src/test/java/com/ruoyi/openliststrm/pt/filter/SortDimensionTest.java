@@ -13,7 +13,7 @@ class SortDimensionTest {
 
     private FilterCriteria criteria(List<String> resolutions, long preferredSize) {
         return new FilterCriteria(0, 0L, 0L, false, List.of(), List.of(),
-                resolutions, List.of(SortDimension.SEEDERS), preferredSize);
+                resolutions, List.of(), List.of(SortDimension.SEEDERS), preferredSize);
     }
 
     private TorrentInfo torrent(String resolution, boolean free, int seeders, long size) {
@@ -23,6 +23,13 @@ class SortDimensionTest {
         t.setDownloadVolumeFactor(free ? 0.0 : 1.0);
         t.setSeeders(seeders);
         t.setSize(size);
+        return t;
+    }
+
+    private TorrentInfo torrentWithFactor(double downloadVolumeFactor) {
+        TorrentInfo t = new TorrentInfo();
+        t.setTitle("t-factor-" + downloadVolumeFactor);
+        t.setDownloadVolumeFactor(downloadVolumeFactor);
         return t;
     }
 
@@ -75,6 +82,29 @@ class SortDimensionTest {
         assertTrue(c.compare(torrent("1080p", true, 0, 0), torrent("1080p", false, 0, 0)) < 0);
         assertTrue(c.compare(torrent("1080p", false, 0, 0), torrent("1080p", true, 0, 0)) > 0);
         assertEquals(0, c.compare(torrent("1080p", true, 0, 0), torrent("1080p", true, 0, 0)));
+    }
+
+    @Test
+    void free_五折优于全价() {
+        // PT 站常见的半价促销种(downloadVolumeFactor=0.5)必须优于全价种，
+        // 二值判断会把两者判同级，导致择优随机落到全价种上
+        Comparator<TorrentInfo> c = SortDimension.FREE.comparator(criteria(List.of(), 0L));
+
+        assertTrue(c.compare(torrentWithFactor(0.5), torrentWithFactor(1.0)) < 0);
+    }
+
+    @Test
+    void free_全免优于五折() {
+        Comparator<TorrentInfo> c = SortDimension.FREE.comparator(criteria(List.of(), 0L));
+
+        assertTrue(c.compare(torrentWithFactor(0.0), torrentWithFactor(0.5)) < 0);
+    }
+
+    @Test
+    void free_相同计量系数判同级() {
+        Comparator<TorrentInfo> c = SortDimension.FREE.comparator(criteria(List.of(), 0L));
+
+        assertEquals(0, c.compare(torrentWithFactor(0.5), torrentWithFactor(0.5)));
     }
 
     // ---------- SEEDERS ----------

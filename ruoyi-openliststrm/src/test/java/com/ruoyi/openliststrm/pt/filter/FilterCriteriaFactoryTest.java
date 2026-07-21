@@ -21,6 +21,7 @@ class FilterCriteriaFactoryTest {
         c.setIncludeKeywords(null);
         c.setExcludeKeywords("预告,花絮");
         c.setResolutionPriority("2160p,1080p,720p");
+        c.setResolutionWhitelist(null);
         c.setSortPriority("RESOLUTION,FREE,SEEDERS,SIZE");
         c.setPreferredSize(0L);
         return c;
@@ -36,6 +37,7 @@ class FilterCriteriaFactoryTest {
         assertFalse(c.freeOnly());
         assertEquals(List.of("预告", "花絮"), c.excludeKeywords());
         assertEquals(List.of("2160p", "1080p", "720p"), c.resolutionPriority());
+        assertTrue(c.resolutionWhitelist().isEmpty());
         assertEquals(FilterCriteria.DEFAULT_SORT_PRIORITY, c.sortPriority());
     }
 
@@ -72,6 +74,13 @@ class FilterCriteriaFactoryTest {
     void 覆盖仅免费开关() {
         assertTrue(FilterCriteriaFactory.build(globalConfig(), "{\"freeOnly\":\"1\"}").freeOnly());
         assertFalse(FilterCriteriaFactory.build(globalConfig(), "{\"freeOnly\":\"0\"}").freeOnly());
+    }
+
+    @Test
+    void 覆盖分辨率白名单() {
+        FilterCriteria c = FilterCriteriaFactory.build(globalConfig(), "{\"resolutionWhitelist\":\"2160p,1080p\"}");
+
+        assertEquals(List.of("2160p", "1080p"), c.resolutionWhitelist());
     }
 
     @Test
@@ -117,6 +126,7 @@ class FilterCriteriaFactoryTest {
         assertTrue(c.includeKeywords().isEmpty());
         assertTrue(c.excludeKeywords().isEmpty());
         assertTrue(c.resolutionPriority().isEmpty());
+        assertTrue(c.resolutionWhitelist().isEmpty());
         assertEquals(FilterCriteria.DEFAULT_SORT_PRIORITY, c.sortPriority());
         assertEquals(0L, c.preferredSize());
     }
@@ -172,6 +182,7 @@ class FilterCriteriaFactoryTest {
         assertTrue(c.includeKeywords().isEmpty());
         assertTrue(c.excludeKeywords().isEmpty());
         assertTrue(c.resolutionPriority().isEmpty());
+        assertTrue(c.resolutionWhitelist().isEmpty());
         assertEquals(FilterCriteria.DEFAULT_SORT_PRIORITY, c.sortPriority());
         assertEquals(0L, c.preferredSize());
     }

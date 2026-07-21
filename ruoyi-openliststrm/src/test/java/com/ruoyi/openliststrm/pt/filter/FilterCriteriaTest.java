@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -36,7 +37,7 @@ class FilterCriteriaTest {
     void 列表字段被防御性拷贝_外部修改不影响已构造的条件() {
         List<String> mutable = new java.util.ArrayList<>(List.of("1080p"));
         FilterCriteria criteria = new FilterCriteria(
-                1, 0L, 0L, false, List.of(), List.of(), mutable, List.of(SortDimension.SEEDERS), 0L);
+                1, 0L, 0L, false, List.of(), List.of(), mutable, List.of(), List.of(SortDimension.SEEDERS), 0L);
 
         mutable.add("720p");
 
@@ -46,7 +47,7 @@ class FilterCriteriaTest {
     @Test
     void 列表字段不可变_尝试修改抛异常() {
         FilterCriteria criteria = new FilterCriteria(
-                1, 0L, 0L, false, List.of(), List.of(), List.of("1080p"), List.of(SortDimension.SEEDERS), 0L);
+                1, 0L, 0L, false, List.of(), List.of(), List.of("1080p"), List.of(), List.of(SortDimension.SEEDERS), 0L);
 
         assertThrows(UnsupportedOperationException.class, () -> criteria.resolutionPriority().add("720p"));
     }
@@ -54,9 +55,23 @@ class FilterCriteriaTest {
     @Test
     void 排序维度为空_回退到内置默认顺序() {
         FilterCriteria criteria = new FilterCriteria(
-                1, 0L, 0L, false, List.of(), List.of(), List.of(), List.of(), 0L);
+                1, 0L, 0L, false, List.of(), List.of(), List.of(), List.of(), List.of(), 0L);
 
         // 空的排序配置会让择优退化成"随便挑一个"，必须有兜底
+        assertEquals(FilterCriteria.DEFAULT_SORT_PRIORITY, criteria.sortPriority());
+    }
+
+    @Test
+    void 各列表分量传null_归一为空列表而非NPE() {
+        // 后续阶段会直接 new 这个 public record，不能指望调用方永远传非 null；
+        // null 应归一为空列表，与"空 -> 不限/回退默认"的既有语义保持一致
+        FilterCriteria criteria = assertDoesNotThrow(() -> new FilterCriteria(
+                1, 0L, 0L, false, null, null, null, null, null, 0L));
+
+        assertTrue(criteria.includeKeywords().isEmpty());
+        assertTrue(criteria.excludeKeywords().isEmpty());
+        assertTrue(criteria.resolutionPriority().isEmpty());
+        assertTrue(criteria.resolutionWhitelist().isEmpty());
         assertEquals(FilterCriteria.DEFAULT_SORT_PRIORITY, criteria.sortPriority());
     }
 }
