@@ -101,11 +101,11 @@ CREATE TABLE IF NOT EXISTS `pt_subscription` (
     `media_type` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL COMMENT '媒体类型 TV/MOVIE',
     `title` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL COMMENT '作品标题',
     `year` varchar(8) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '年份',
-    `season` int(10) NULL DEFAULT NULL COMMENT '季号，电影为NULL',
+    `season` int(10) NOT NULL DEFAULT 0 COMMENT '季号；电影恒为0。用哨兵值而非NULL，否则MySQL唯一索引允许多个NULL会导致同一电影可被重复订阅。与media_type共同保证唯一，不会和剧集的特别篇(季0)冲突',
     `total_episodes` int(10) NOT NULL DEFAULT 1 COMMENT '总集数，电影恒为1',
     `status` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'ACTIVE' COMMENT '状态 ACTIVE/COMPLETED/PAUSED',
     `filter_override` varchar(1024) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '订阅级过滤覆盖(JSON)，空表示全用全局配置',
-    `downloader_id` int(10) NULL DEFAULT NULL COMMENT '指定下载器，空表示用唯一启用的那个',
+    `downloader_id` int(10) UNSIGNED NULL DEFAULT NULL COMMENT '指定下载器，空表示用唯一启用的那个',
     `poster_path` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT 'TMDb海报路径，列表展示用',
     `last_match_time` datetime(0) NULL DEFAULT NULL COMMENT '上次命中种子的时间，用于识别长期空转的订阅',
     `create_time` datetime(0) NULL DEFAULT NULL COMMENT '创建时间',
@@ -157,11 +157,13 @@ CREATE TABLE IF NOT EXISTS `pt_download_record` (
 
 -- ----------------------------
 -- 菜单：挂在 OpenListStrm(2006) 下。图标类名必须存在于 useMenuIcon.ts 的映射表中，
--- 否则菜单图标不显示(历史bug，见 commit 0248e124)。本次复用已在表中的 'fa fa-bookmark-o'。
+-- 否则菜单图标不显示(历史bug，见 commit 0248e124)。
+-- visible 一律先设为 '1'(隐藏)：这两个页面要到第三阶段才创建，现在放出来点进去是 404。
+-- 第三阶段页面上线时用一条幂等的 UPDATE 翻成 '0'(显示)。
 -- ----------------------------
 INSERT IGNORE INTO `sys_menu`(`menu_id`, `menu_name`, `parent_id`, `order_num`, `url`, `target`, `menu_type`, `visible`, `is_refresh`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES
-(2064, 'PT订阅', 2006, 13, '/openlist/ptSubscription', '', 'C', '0', '1', 'openliststrm:ptSubscription:view', 'fa fa-bookmark-o', 'admin', '2026-07-25 00:00:00', '', NULL, 'PT 订阅管理'),
-(2065, 'PT过滤规则', 2006, 14, '/openlist/ptFilterConfig', '', 'C', '0', '1', 'openliststrm:ptFilterConfig:view', 'fa fa-sliders', 'admin', '2026-07-25 00:00:00', '', NULL, 'PT 种子过滤与排序规则');
+(2064, 'PT订阅', 2006, 13, '/openlist/ptSubscription', '', 'C', '1', '1', 'openliststrm:ptSubscription:view', 'fa fa-bookmark-o', 'admin', '2026-07-25 00:00:00', '', NULL, 'PT 订阅管理'),
+(2065, 'PT过滤规则', 2006, 14, '/openlist/ptFilterConfig', '', 'C', '1', '1', 'openliststrm:ptFilterConfig:view', 'fa fa-sliders', 'admin', '2026-07-25 00:00:00', '', NULL, 'PT 种子过滤与排序规则');
 ```
 
 > **`guid_hash` 为什么存在：** MySQL 的 InnoDB 单个索引键最长 3072 字节（utf8mb4 下约 768 字符），而 `guid` 声明为 varchar(512) 已接近上限，且与 `indexer_id` 组成复合唯一索引会超限。所以存一列 `guid` 的 SHA-256 十六进制（固定 64 字符）专门用于唯一索引，`guid` 原文保留供排查。写入时两列必须同时赋值。
@@ -336,7 +338,7 @@ public class PtSubscriptionPlus extends BaseEntity {
     @TableField("year")
     private String year;
 
-    /** 季号，电影为 null */
+    /** 季号；电影恒为 0（哨兵值，不用 null——否则唯一索引对电影失效） */
     @TableField("season")
     private Integer season;
 
@@ -2178,7 +2180,7 @@ git commit -m "fix(pt): 修正订阅表验收中发现的问题"
 
 ## 后续计划
 
-- **计划 3：订阅管理** — 订阅创建服务（TMDb 查总集数、初始化每集状态、查 Emby 初始化已入库集）、订阅 CRUD 与 TMDb 搜索 REST 接口、订阅页面（进度展示「已入库 5/12，缺 3、7」）、过滤规则配置页
+- **计划 3：订阅管理**（其迁移脚本第一件事就是 `UPDATE sys_menu SET visible = '0' WHERE menu_id IN (2064, 2065);` 把本阶段隐藏的两个菜单翻出来）— 订阅创建服务（TMDb 查总集数、初始化每集状态、查 Emby 初始化已入库集）、订阅 CRUD 与 TMDb 搜索 REST 接口、订阅页面（进度展示「已入库 5/12，缺 3、7」）、过滤规则配置页
 - **计划 4：编排与调度** — `MediaParser` 的纯本地解析入口（不触发 TMDb/AI）、`SubscriptionEngine`、`RssPollTask` / `DownloadTrackTask` / `LibrarySyncTask` 三个调度器、Telegram 通知
 
 **计划 3 开工前必须先读**计划 1 文档末尾的「留给计划 2 的已知约束」一节（凭据脱敏与编辑功能的耦合、Emby 多条命中取并集、SID 缓存并发、多媒体服务器只有 id 最小的生效）。
