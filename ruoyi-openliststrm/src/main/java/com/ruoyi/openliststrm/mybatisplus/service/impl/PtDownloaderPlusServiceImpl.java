@@ -7,9 +7,11 @@ import com.ruoyi.openliststrm.mybatisplus.domain.PtDownloaderPlus;
 import com.ruoyi.openliststrm.mybatisplus.mapper.PtDownloaderPlusMapper;
 import com.ruoyi.openliststrm.mybatisplus.service.IOpenlistCopyTaskPlusService;
 import com.ruoyi.openliststrm.mybatisplus.service.IPtDownloaderPlusService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
@@ -22,6 +24,7 @@ import java.util.List;
  * @author Jack
  * @since 2026-07-24
  */
+@Slf4j
 @Service
 public class PtDownloaderPlusServiceImpl extends ServiceImpl<PtDownloaderPlusMapper, PtDownloaderPlus> implements IPtDownloaderPlusService {
 
@@ -33,7 +36,13 @@ public class PtDownloaderPlusServiceImpl extends ServiceImpl<PtDownloaderPlusMap
         if (StringUtils.isBlank(savePath)) {
             return "保存路径不能为空";
         }
-        Path target = Paths.get(savePath).toAbsolutePath().normalize();
+        Path target;
+        try {
+            target = Paths.get(savePath).toAbsolutePath().normalize();
+        } catch (InvalidPathException e) {
+            // 本方法契约是「只提示不阻断」，路径解析失败也不能抛异常拖垮保存流程
+            return "保存路径格式不合法，请检查路径中是否包含非法字符";
+        }
         List<OpenlistCopyTaskPlus> tasks = copyTaskService.list();
         for (OpenlistCopyTaskPlus task : tasks) {
             // 只认启用中的同步任务：停用的任务不会启动 FileMonitor，落在它目录下的文件同样不会被上传
@@ -44,7 +53,14 @@ public class PtDownloaderPlusServiceImpl extends ServiceImpl<PtDownloaderPlusMap
             if (StringUtils.isBlank(monitorDir)) {
                 continue;
             }
-            Path dir = Paths.get(monitorDir).toAbsolutePath().normalize();
+            Path dir;
+            try {
+                dir = Paths.get(monitorDir).toAbsolutePath().normalize();
+            } catch (InvalidPathException e) {
+                // 单条同步任务配置的监听目录非法，跳过它继续校验其余任务，不让一条坏配置拖垮整体校验
+                log.warn("同步任务监听目录格式不合法，已跳过: {}", monitorDir, e);
+                continue;
+            }
             if (target.startsWith(dir)) {
                 return null;
             }

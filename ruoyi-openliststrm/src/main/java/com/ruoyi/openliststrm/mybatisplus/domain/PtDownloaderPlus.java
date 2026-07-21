@@ -73,6 +73,26 @@ public class PtDownloaderPlus extends BaseEntity {
      */
     public String baseUrl() {
         String scheme = "1".equals(useHttps) ? "https" : "http";
-        return scheme + "://" + host + ":" + port;
+        return scheme + "://" + cleanHost(host) + ":" + port;
+    }
+
+    /**
+     * 清洗 host 用于拼接 URL：去首尾空白、去掉误填的 http(s):// 前缀、去掉末尾斜杠。
+     * 仅在拼 URL 时清洗，不改写字段本身的值。
+     */
+    private static String cleanHost(String rawHost) {
+        if (rawHost == null) {
+            return null;
+        }
+        String cleaned = rawHost.trim();
+        if (cleaned.regionMatches(true, 0, "https://", 0, 8)) {
+            cleaned = cleaned.substring(8);
+        } else if (cleaned.regionMatches(true, 0, "http://", 0, 7)) {
+            cleaned = cleaned.substring(7);
+        }
+        while (cleaned.endsWith("/")) {
+            cleaned = cleaned.substring(0, cleaned.length() - 1);
+        }
+        return cleaned;
     }
 }
