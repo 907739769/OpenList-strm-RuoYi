@@ -4014,3 +4014,14 @@ git commit -m "fix(pt): 修正配置页面验收中发现的问题"
 
 - **计划 2：订阅模型与过滤引擎** — `pt_filter_config` / `pt_subscription` / `pt_subscription_episode` / `pt_download_record` 四张表，`TorrentFilterEngine`（Comparator 串联的可配置排序），订阅 CRUD + TMDb 搜索建订阅，前端订阅页
 - **计划 3：编排与调度** — `MediaParser.parseLocal`（不触发 TMDb/AI 的纯本地解析）、`SubscriptionEngine`、`RssPollTask` / `DownloadTrackTask` / `LibrarySyncTask` 三个调度器、Telegram 通知
+
+---
+
+## 执行期变更记录
+
+计划文本中的代码是起点，执行过程中经代码审查发现的问题及修正记录于此（避免重跑计划时重蹈覆辙）：
+
+- **任务 3**：`parse()` 原用 `doc.getElementsByTagName("item")` 会跨全文档任意深度匹配，与类内只遍历直接子节点的做法矛盾。已改为只取 `<channel>` 的直接子元素，`<channel>` 缺失返回空列表。另补测试覆盖 size 三级回退的第三级（`torznab:attr name="size"`）。
+- **任务 4**：`PtIndexerPlus.lastPollTime` 原写 `String`，与项目既有约定不符（`OpenlistCopyTaskPlus.lastSyncTime`、`RenameOrphanPlus.foundTime`、`TmdbCache.expireTime` 均用 `java.util.Date`）。已改为 `Date`，计划正文同步修正。
+- **任务 7**：`PtDownloaderPlus.baseUrl()` 增加 host 清洗（去首尾空白、剥离大小写不敏感的 `http(s)://` 前缀、去末尾斜杠），清洗只在拼 URL 时发生、不回写字段。`validateSavePath` 增加 `InvalidPathException` 捕获：`savePath` 非法返回提示文案而非抛异常，单个任务 `monitorDir` 非法则跳过该任务继续遍历。均补了单元测试。
+- **全局**：所有 `mvn -pl ruoyi-openliststrm -am test -Dtest=X` 命令必须追加 `-Dsurefire.failIfNoSpecifiedTests=false`，否则多模块 reactor 下上游模块会因无匹配测试类而报假失败。多个测试类用逗号分隔（`-Dtest=A,B`），`+` 号语法在 Maven 3.6.3 下静默失效。
