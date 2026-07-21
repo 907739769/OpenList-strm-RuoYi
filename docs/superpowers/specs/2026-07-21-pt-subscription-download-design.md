@@ -106,7 +106,7 @@ pt/
 
 ### `pt_subscription` — 订阅主体
 
-`id` / `tmdb_id` / `media_type`（`TV` / `MOVIE`）/ `title` / `year` / `season`（电影为 null）/ `total_episodes`（电影恒为 1）/ `status`（`ACTIVE` / `COMPLETED` / `PAUSED`）/ `filter_override`（JSON，订阅级过滤覆盖）/ `downloader_id` / `last_match_time` / 标准审计字段
+`id` / `tmdb_id` / `media_type`（`TV` / `MOVIE`）/ `title` / `year` / `season`（电影恒为 0 的哨兵值，见附录 F）/ `total_episodes`（电影恒为 1）/ `status`（`ACTIVE` / `COMPLETED` / `PAUSED`）/ `filter_override`（JSON，订阅级过滤覆盖）/ `downloader_id` / `last_match_time` / 标准审计字段
 
 ### `pt_subscription_episode` — 每集状态（核心表）
 
@@ -120,7 +120,7 @@ pt/
 
 `id` / `sub_id` / `episode` / `guid`（索引器给出的条目唯一标识）/ `torrent_hash`（可空，从下载器回填，仅供排查）/ `tracking_tag`（推送时打的唯一标签）/ `title`（原始种子标题）/ `size` / `seeders` / `indexer_id` / `downloader_id` / `state`（`PUSHED` / `DOWNLOADING` / `COMPLETED` / `FAILED`）/ `pushed_time` / `completed_time` / `fail_reason`
 
-唯一约束：`(indexer_id, guid)`
+唯一约束：`(indexer_id, guid_hash)`——`guid` 是 URL 过长无法直接建索引，故另存一列它的 SHA-256 十六进制专供唯一索引，`guid` 原文保留供排查，两列必须同时赋值
 
 **为何不用 `torrent_hash` 做唯一约束（实测结论，2026-07-21）**：真实环境（Prowlarr + Rousi.pro）返回的 Torznab 条目**不含 `infohash` 属性**，只有 `<guid>` / `<link>` / `<category>`。若以 `torrent_hash` 为唯一键，该列会大面积为 NULL，而 MySQL 唯一索引允许多个 NULL，去重形同虚设。`<link>` 也不能用——Prowlarr 的下载链接内嵌 apikey，重新生成 key 后同一种子的 link 就变了。`guid` 是 RSS 规范定义的条目唯一标识，索引器必定提供、不含凭据、不随凭据变化；加 `indexer_id` 组成复合键是因为 guid 的唯一性只在单个 feed 内有保证。
 
@@ -142,7 +142,7 @@ pt/
 
 - **被过滤掉的种子不落库**，仅记录日志（含过滤原因），避免表体积失控。
 - **双重去重**：`(indexer_id, guid)` 唯一约束防同一种子重复推送；`(sub_id, episode)` 唯一约束防同一集下载多个不同种子。
-- **下载记录与下载器中种子的映射靠唯一标签，而非 hash**：推送时给种子打两个标签——公共标签（`pt_downloader.tag`，用于批量拉取）和唯一标签 `osr-pt-{download_record_id}`。轮询时按公共标签拉全量，再用唯一标签精确回映到下载记录。这样绕开了「推送时拿不到 hash」的问题（qBittorrent 的 `/torrents/add` 不返回 hash），无需下载 .torrent 文件解析 bencode 计算 SHA1。
+- **下载记录与下载器中种子的映射靠唯一标签，而非 hash**：推送时给种子打两个标签——公共标签（`pt_downloader.tag`，用于批量拉取）和唯一标签 `osr-pt-{guid_hash 前16位}`（**插入前生成，不依赖自增 id**，见附录 C）。轮询时按公共标签拉全量，再用唯一标签精确回映到下载记录。这样绕开了「推送时拿不到 hash」的问题（qBittorrent 的 `/torrents/add` 不返回 hash），无需下载 .torrent 文件解析 bencode 计算 SHA1。
 - **订阅级覆盖用 JSON 而非独立列**，避免为少数可选字段扩展十余列。
 - **电影统一为「只有 1 集的剧」**（`episode = 0`，`total_episodes = 1`），使 RSS 匹配、过滤择优、下载追踪、入库确认四段核心逻辑完全复用，分支仅存在于标题解析与 Emby 查询两处。
 
