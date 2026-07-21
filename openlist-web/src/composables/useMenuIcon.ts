@@ -1,7 +1,7 @@
 import {
   Setting, Document, Picture, Monitor, Tools, Calendar, Coin, Promotion,
   Watermelon, Menu as IconMenu, VideoPlay, RefreshRight, EditPen,
-  FolderOpened, DocumentCopy, MagicStick
+  FolderOpened, DocumentCopy, MagicStick, Connection, Download, Film
 } from '@element-plus/icons-vue'
 import type { Component } from 'vue'
 
@@ -30,7 +30,10 @@ const iconMap: Record<string, Component> = {
   'fa fa-video-play': VideoPlay,
   'fa fa-copy': RefreshRight,
   'fa fa-edit': EditPen,
-  'fa fa-magic': MagicStick
+  'fa fa-magic': MagicStick,
+  'fa fa-rss': Connection,
+  'fa fa-download': Download,
+  'fa fa-server': Film
 }
 
 export function getIconComponent(icon?: string): Component | undefined {
