@@ -20,6 +20,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -128,6 +130,7 @@ class TmdbSearchServiceTest {
     @Test
     void search_关键词为空_直接返回空列表且不调TMDb() {
         assertTrue(service.search("TV", "  ").isEmpty());
+        verify(tmDbApiService, never()).search(anyString(), anyString(), anyString(), any());
     }
 
     @Test
