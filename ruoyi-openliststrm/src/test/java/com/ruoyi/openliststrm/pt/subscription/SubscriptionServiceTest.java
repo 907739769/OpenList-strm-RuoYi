@@ -57,8 +57,13 @@ class SubscriptionServiceTest {
     private SubscriptionService service;
 
     private TmdbSearchItem detail(String title, String year) {
+        return detail(title, title, year);
+    }
+
+    private TmdbSearchItem detail(String title, String originalTitle, String year) {
         TmdbSearchItem item = new TmdbSearchItem();
         item.setTitle(title);
+        item.setOriginalTitle(originalTitle);
         item.setYear(year);
         item.setPosterPath("/p.jpg");
         return item;
@@ -121,7 +126,7 @@ class SubscriptionServiceTest {
 
     @Test
     void subscribe_剧集_落库字段正确() throws Exception {
-        when(tmdbSearchService.getDetail(anyString(), anyString())).thenReturn(detail("绝命毒师", "2008"));
+        when(tmdbSearchService.getDetail(anyString(), anyString())).thenReturn(detail("绝命毒师", "Breaking Bad", "2008"));
         when(tmdbSearchService.getSeasonEpisodeCount(anyString(), anyInt())).thenReturn(7);
         stubSaveAssignsId(10);
         when(mediaServerService.getActive()).thenReturn(null);
@@ -135,6 +140,7 @@ class SubscriptionServiceTest {
         assertEquals("1396", sub.getTmdbId());
         assertEquals("TV", sub.getMediaType());
         assertEquals("绝命毒师", sub.getTitle());
+        assertEquals("Breaking Bad", sub.getOriginalTitle());
         assertEquals("2008", sub.getYear());
         assertEquals(1, sub.getSeason());
         assertEquals(7, sub.getTotalEpisodes());

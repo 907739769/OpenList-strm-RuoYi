@@ -205,6 +205,7 @@ public class SubscriptionEngine {
         // （TitleProcessor.processTitle 只写 originalTitle/englishTitle，见该类第46-48行的注释代码）。
         // 必须用 originalTitle，否则本地解析出的种子标题永远匹配不到任何订阅。
         torrent.setParsedTitle(info.getOriginalTitle());
+        torrent.setParsedTitleEn(info.getEnglishTitle());
         torrent.setParsedYear(info.getYear());
         torrent.setParsedSeason(toInt(info.getSeason()));
         torrent.setParsedEpisode(toInt(info.getEpisode()));

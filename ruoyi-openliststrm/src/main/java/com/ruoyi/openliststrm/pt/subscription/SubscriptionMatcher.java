@@ -7,8 +7,11 @@ import com.ruoyi.openliststrm.pt.subscription.dto.MatchResult;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 /**
  * 把一条已本地解析的种子匹配到某个订阅的某一集。
@@ -31,12 +34,13 @@ public class SubscriptionMatcher {
      * @return 匹配结果；匹配不上返回 null
      */
     public MatchResult match(TorrentInfo torrent, List<PtSubscriptionPlus> subscriptions) {
-        String torrentTitle = normalize(torrent.getParsedTitle());
-        if (torrentTitle == null) {
+        Set<String> torrentTitles = normalizeAll(torrent.getParsedTitle(), torrent.getParsedTitleEn());
+        if (torrentTitles.isEmpty()) {
             return null;
         }
         for (PtSubscriptionPlus sub : subscriptions) {
-            if (!torrentTitle.equals(normalize(sub.getTitle()))) {
+            Set<String> subTitles = normalizeAll(sub.getTitle(), sub.getOriginalTitle());
+            if (Collections.disjoint(torrentTitles, subTitles)) {
                 continue;
             }
             MatchResult result = matchEpisode(torrent, sub);
@@ -86,5 +90,23 @@ public class SubscriptionMatcher {
                 .replaceAll("\\s+", " ")
                 .trim();
         return normalized.isEmpty() ? null : normalized;
+    }
+
+    /**
+     * 把多个原始标题（中文/英文）各自归一化后收进集合，null/空串归一化结果被丢弃。
+     * <p>
+     * 种子候选标题与订阅候选标题各自求出这样一个集合，两个集合有交集即视为标题匹配——
+     * 中英双标题任一命中即可，天然规避子串包含误匹配（求交集要求归一化后完全相等）。
+     * </p>
+     */
+    private Set<String> normalizeAll(String... titles) {
+        Set<String> result = new LinkedHashSet<>();
+        for (String title : titles) {
+            String normalized = normalize(title);
+            if (normalized != null) {
+                result.add(normalized);
+            }
+        }
+        return result;
     }
 }

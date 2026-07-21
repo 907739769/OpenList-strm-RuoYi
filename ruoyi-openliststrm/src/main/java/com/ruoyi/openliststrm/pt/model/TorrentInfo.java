@@ -62,6 +62,9 @@ public class TorrentInfo {
     /** 解析出的作品标题 */
     private String parsedTitle;
 
+    /** 解析出的英文标题（种子中英混排时的英文部分），与 parsedTitle 一起参与订阅匹配 */
+    private String parsedTitleEn;
+
     /** 解析出的年份 */
     private String parsedYear;
 

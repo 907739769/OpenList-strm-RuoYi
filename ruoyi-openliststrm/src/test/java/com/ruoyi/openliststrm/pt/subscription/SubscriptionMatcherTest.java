@@ -24,6 +24,12 @@ class SubscriptionMatcherTest {
         return sub;
     }
 
+    private PtSubscriptionPlus tvSub(int id, String title, String originalTitle, int season) {
+        PtSubscriptionPlus sub = tvSub(id, title, season);
+        sub.setOriginalTitle(originalTitle);
+        return sub;
+    }
+
     private PtSubscriptionPlus movieSub(int id, String title, String year) {
         PtSubscriptionPlus sub = new PtSubscriptionPlus();
         sub.setId(id);
@@ -41,6 +47,12 @@ class SubscriptionMatcherTest {
         t.setParsedYear(year);
         t.setParsedSeason(season);
         t.setParsedEpisode(episode);
+        return t;
+    }
+
+    private TorrentInfo torrent(String parsedTitle, String parsedTitleEn, String year, Integer season, Integer episode) {
+        TorrentInfo t = torrent(parsedTitle, year, season, episode);
+        t.setParsedTitleEn(parsedTitleEn);
         return t;
     }
 
@@ -174,5 +186,45 @@ class SubscriptionMatcherTest {
 
         assertNotNull(result);
         assertEquals(12, result.getSubscription().getId());
+    }
+
+    // ---------- 中英双标题匹配 ----------
+
+    @Test
+    void 种子只有英文标题_订阅英文原名匹配_能匹配() {
+        // 种子纯英文命名：parsedTitle 落的就是英文（TitleProcessor 中文优先字段拿到的仍是英文），
+        // parsedTitleEn 也可能同步有值；订阅只在 originalTitle 存了英文原名
+        MatchResult result = matcher.match(torrent("Breaking Bad", "Breaking Bad", null, 1, 5),
+                List.of(tvSub(10, "绝命毒师", "Breaking Bad", 1)));
+
+        assertNotNull(result);
+        assertEquals(10, result.getSubscription().getId());
+        assertEquals(5, result.getEpisode());
+    }
+
+    @Test
+    void 种子中英混排_订阅只有中文标题_靠中文匹配() {
+        MatchResult result = matcher.match(torrent("绝命毒师", "Breaking Bad", null, 1, 5),
+                List.of(tvSub(10, "绝命毒师", 1)));
+
+        assertNotNull(result);
+        assertEquals(10, result.getSubscription().getId());
+    }
+
+    @Test
+    void 种子英文_订阅中文标题加英文原名_靠英文匹配() {
+        MatchResult result = matcher.match(torrent("Breaking Bad", null, null, 1, 5),
+                List.of(tvSub(10, "绝命毒师", "Breaking Bad", 1)));
+
+        assertNotNull(result);
+        assertEquals(10, result.getSubscription().getId());
+    }
+
+    @Test
+    void 双标题求交集_TheOffice仍不误匹配TheOfficeUS() {
+        assertNull(matcher.match(torrent("The Office", "The Office", null, 1, 5),
+                List.of(tvSub(10, "The Office US", "The Office US", 1))));
+        assertNull(matcher.match(torrent("The Office US", "The Office US", null, 1, 5),
+                List.of(tvSub(10, "The Office", "The Office", 1))));
     }
 }
