@@ -1,7 +1,12 @@
 package com.ruoyi.openliststrm.pt.filter;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.ruoyi.openliststrm.pt.model.TorrentInfo;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
@@ -177,5 +182,34 @@ class TorrentFilterEngineFilterTest {
         // 返回新列表而非原列表的视图
         result.add(ok());
         assertEquals(2, result.size());
+    }
+
+    @Test
+    void 淘汰记录写debug日志且原因具体到规则阈值与实际值() {
+        // 规格要求：被淘汰的种子记 debug 日志，且原因必须具体（哪条规则、阈值、实际值），
+        // 不能只写一句"被过滤"。用 ListAppender 把日志内容锁住，而不是靠人工阅读代码保证。
+        Logger logger = (Logger) LoggerFactory.getLogger(TorrentFilterEngine.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        Level originalLevel = logger.getLevel();
+        // debug 日志默认级别通常不输出，不显式调低级别就看不到这条日志
+        logger.setLevel(Level.DEBUG);
+        try {
+            engine.filter(List.of(torrent("做种不足的种子", 2, 5_000_000_000L, false)),
+                    criteria(10, 0L, 0L, false, List.of(), List.of()));
+
+            String logged = appender.list.stream()
+                    .filter(e -> e.getLevel() == Level.DEBUG)
+                    .map(ILoggingEvent::getFormattedMessage)
+                    .reduce("", (a, b) -> a + "\n" + b);
+
+            assertTrue(logged.contains("做种数"), "应指明是哪条规则淘汰的，实际内容：" + logged);
+            assertTrue(logged.contains("10"), "应带上配置的阈值，实际内容：" + logged);
+            assertTrue(logged.contains("2"), "应带上种子的实际值，实际内容：" + logged);
+        } finally {
+            logger.setLevel(originalLevel);
+            logger.detachAppender(appender);
+        }
     }
 }

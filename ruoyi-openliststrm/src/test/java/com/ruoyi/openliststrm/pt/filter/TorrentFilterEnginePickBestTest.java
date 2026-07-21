@@ -139,4 +139,30 @@ class TorrentFilterEnginePickBestTest {
 
         assertEquals(before, candidates.stream().map(TorrentInfo::getTitle).toList());
     }
+
+    /**
+     * 调用方的真实用法是「先 filter 淘汰不合格候选，再从存活候选里 pickBest」。
+     * 这里构造一个各维度都最优（分辨率最高、免费）但做种数不达标的种子，
+     * 用来证明它会先在 filter 阶段被淘汰、赢家只能从存活候选中产生——
+     * 而不是 pickBest 单独在全量候选里选出这个本应出局的"完美种"。
+     */
+    @Test
+    void filter淘汰后再pickBest_赢家必须来自存活候选而非被淘汰的最优种() {
+        TorrentInfo eliminatedButOtherwisePerfect = torrent("做种不达标的完美种", "2160p", true, 2, 5_000_000_000L);
+        TorrentInfo survivorLowerResolution = torrent("存活但分辨率较低", "720p", false, 15, 1_000_000_000L);
+        TorrentInfo survivorHigherResolution = torrent("存活且分辨率较高", "1080p", false, 50, 3_000_000_000L);
+
+        FilterCriteria criteria = new FilterCriteria(10, 0L, 0L, false, List.of(), List.of(),
+                List.of("2160p", "1080p", "720p"),
+                List.of(SortDimension.RESOLUTION), 0L);
+
+        List<TorrentInfo> survivors = engine.filter(
+                List.of(eliminatedButOtherwisePerfect, survivorLowerResolution, survivorHigherResolution),
+                criteria);
+        TorrentInfo best = engine.pickBest(survivors, criteria);
+
+        assertEquals(2, survivors.size(), "做种数 2 低于下限 10，应在 filter 阶段被淘汰");
+        assertEquals("存活且分辨率较高", best.getTitle(),
+                "赢家应是存活候选中分辨率最高的那个，而不是被淘汰的\"完美种\"");
+    }
 }

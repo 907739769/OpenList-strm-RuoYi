@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -108,6 +109,61 @@ class FilterCriteriaFactoryTest {
         PtFilterConfigPlus empty = new PtFilterConfigPlus();
 
         FilterCriteria c = FilterCriteriaFactory.build(empty, null);
+
+        assertEquals(0, c.minSeeders());
+        assertEquals(0L, c.minSize());
+        assertEquals(0L, c.maxSize());
+        assertFalse(c.freeOnly());
+        assertTrue(c.includeKeywords().isEmpty());
+        assertTrue(c.excludeKeywords().isEmpty());
+        assertTrue(c.resolutionPriority().isEmpty());
+        assertEquals(FilterCriteria.DEFAULT_SORT_PRIORITY, c.sortPriority());
+        assertEquals(0L, c.preferredSize());
+    }
+
+    @Test
+    void 体积字段填成带单位的字符串_不抛异常且回退全局值() {
+        // 用户最可能的误填形态：以为体积字段支持 "5GB" 这种写法
+        FilterCriteria c = assertDoesNotThrow(
+                () -> FilterCriteriaFactory.build(globalConfig(), "{\"minSize\":\"5GB\"}"));
+
+        assertEquals(1_000L, c.minSize(), "取值失败时应回退全局值，而不是 0 或抛异常");
+    }
+
+    @Test
+    void 做种数字段填成非数字字符串_不抛异常且回退全局值() {
+        FilterCriteria c = assertDoesNotThrow(
+                () -> FilterCriteriaFactory.build(globalConfig(), "{\"minSeeders\":\"abc\"}"));
+
+        assertEquals(3, c.minSeeders());
+    }
+
+    @Test
+    void 做种数字段类型为JSON数组_不抛异常且回退全局值() {
+        FilterCriteria c = assertDoesNotThrow(
+                () -> FilterCriteriaFactory.build(globalConfig(), "{\"minSeeders\":[]}"));
+
+        assertEquals(3, c.minSeeders());
+    }
+
+    @Test
+    void 覆盖freeOnly为布尔true_视为仅要免费() {
+        // 表单/前端提交的 JSON 里 freeOnly 可能是原生布尔值而非字符串 "1"
+        FilterCriteria c = FilterCriteriaFactory.build(globalConfig(), "{\"freeOnly\":true}");
+
+        assertTrue(c.freeOnly(), "freeOnly:true 不应被静默当成\"否\"，否则会下到收费种");
+    }
+
+    @Test
+    void 覆盖freeOnly为字符串true_大小写不敏感() {
+        assertTrue(FilterCriteriaFactory.build(globalConfig(), "{\"freeOnly\":\"TRUE\"}").freeOnly());
+        assertTrue(FilterCriteriaFactory.build(globalConfig(), "{\"freeOnly\":\"True\"}").freeOnly());
+        assertFalse(FilterCriteriaFactory.build(globalConfig(), "{\"freeOnly\":\"false\"}").freeOnly());
+    }
+
+    @Test
+    void global参数为null_不抛异常且使用安全默认值() {
+        FilterCriteria c = assertDoesNotThrow(() -> FilterCriteriaFactory.build(null, null));
 
         assertEquals(0, c.minSeeders());
         assertEquals(0L, c.minSize());
