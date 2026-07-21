@@ -92,6 +92,20 @@ public class MediaParser {
         return info;
     }
 
+    /**
+     * 只做本地正则抽取，<b>不发任何网络请求</b>（不查 TMDb、不调 AI）。
+     * <p>
+     * 供 PT 订阅的 RSS 轮询使用：一轮轮询有几十上百条种子标题，逐条查 TMDb 会打爆配额、
+     * 把一次轮询拖成几分钟，而且其中大部分种子根本不匹配任何订阅，那些调用是纯浪费。
+     * 匹配阶段只需要标题/年份/季/集/分辨率这些能从标题正则抽出来的信息。
+     * </p>
+     *
+     * @param name 种子标题或文件名，允许没有扩展名
+     */
+    public MediaInfo parseLocal(String name) {
+        return extractBase(name);
+    }
+
     private MediaInfo extractBase(String filename) {
         String extension = "";
         String baseName = filename;
