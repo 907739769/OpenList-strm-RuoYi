@@ -257,7 +257,7 @@ class TorrentInfoTest {
 
 - [ ] **步骤 2：运行测试验证失败**
 
-运行：`mvn -pl ruoyi-openliststrm -am test -Dtest=TorrentInfoTest`
+运行：`mvn -pl ruoyi-openliststrm -am test -Dtest=TorrentInfoTest -Dsurefire.failIfNoSpecifiedTests=false`
 
 预期：编译失败，报 `TorrentInfo` 找不到符号
 
@@ -340,7 +340,7 @@ public class TorrentInfo {
 
 - [ ] **步骤 4：运行测试验证通过**
 
-运行：`mvn -pl ruoyi-openliststrm -am test -Dtest=TorrentInfoTest`
+运行：`mvn -pl ruoyi-openliststrm -am test -Dtest=TorrentInfoTest -Dsurefire.failIfNoSpecifiedTests=false`
 
 预期：Tests run: 4, Failures: 0, Errors: 0
 
@@ -596,7 +596,7 @@ class TorznabParserTest {
 
 - [ ] **步骤 2：运行测试验证失败**
 
-运行：`mvn -pl ruoyi-openliststrm -am test -Dtest=TorznabParserTest`
+运行：`mvn -pl ruoyi-openliststrm -am test -Dtest=TorznabParserTest -Dsurefire.failIfNoSpecifiedTests=false`
 
 预期：编译失败，报 `TorznabParser` 找不到符号
 
@@ -786,7 +786,7 @@ public final class TorznabParser {
 
 - [ ] **步骤 4：运行测试验证通过**
 
-运行：`mvn -pl ruoyi-openliststrm -am test -Dtest=TorznabParserTest`
+运行：`mvn -pl ruoyi-openliststrm -am test -Dtest=TorznabParserTest -Dsurefire.failIfNoSpecifiedTests=false`
 
 预期：Tests run: 14, Failures: 0, Errors: 0
 
@@ -1158,7 +1158,7 @@ class TorznabClientTest {
 
 - [ ] **步骤 3：运行测试验证失败**
 
-运行：`mvn -pl ruoyi-openliststrm -am test -Dtest=TorznabClientTest`
+运行：`mvn -pl ruoyi-openliststrm -am test -Dtest=TorznabClientTest -Dsurefire.failIfNoSpecifiedTests=false`
 
 预期：编译失败，报 `TorznabClient` 找不到符号
 
@@ -1257,7 +1257,7 @@ public class TorznabClient {
 
 - [ ] **步骤 5：运行测试验证通过**
 
-运行：`mvn -pl ruoyi-openliststrm -am test -Dtest=TorznabClientTest`
+运行：`mvn -pl ruoyi-openliststrm -am test -Dtest=TorznabClientTest -Dsurefire.failIfNoSpecifiedTests=false`
 
 预期：Tests run: 8, Failures: 0, Errors: 0
 
@@ -1322,7 +1322,7 @@ class DownloaderTorrentTest {
 
 - [ ] **步骤 2：运行测试验证失败**
 
-运行：`mvn -pl ruoyi-openliststrm -am test -Dtest=DownloaderTorrentTest`
+运行：`mvn -pl ruoyi-openliststrm -am test -Dtest=DownloaderTorrentTest -Dsurefire.failIfNoSpecifiedTests=false`
 
 预期：编译失败，报 `DownloaderTorrent` 找不到符号
 
@@ -1420,7 +1420,7 @@ public interface IDownloaderClient {
 
 - [ ] **步骤 4：运行测试验证通过**
 
-运行：`mvn -pl ruoyi-openliststrm -am test -Dtest=DownloaderTorrentTest`
+运行：`mvn -pl ruoyi-openliststrm -am test -Dtest=DownloaderTorrentTest -Dsurefire.failIfNoSpecifiedTests=false`
 
 预期：Tests run: 3, Failures: 0, Errors: 0
 
@@ -1866,7 +1866,7 @@ class QbittorrentClientTest {
 
 - [ ] **步骤 2：运行测试验证失败**
 
-运行：`mvn -pl ruoyi-openliststrm -am test -Dtest=QbittorrentClientTest`
+运行：`mvn -pl ruoyi-openliststrm -am test -Dtest=QbittorrentClientTest -Dsurefire.failIfNoSpecifiedTests=false`
 
 预期：编译失败，报 `QbittorrentClient` 找不到符号
 
@@ -2123,7 +2123,7 @@ public class DownloaderClientFactory {
 
 - [ ] **步骤 4：运行测试验证通过**
 
-运行：`mvn -pl ruoyi-openliststrm -am test -Dtest=QbittorrentClientTest`
+运行：`mvn -pl ruoyi-openliststrm -am test -Dtest=QbittorrentClientTest -Dsurefire.failIfNoSpecifiedTests=false`
 
 预期：Tests run: 11, Failures: 0, Errors: 0
 
@@ -2471,7 +2471,7 @@ class EmbyClientTest {
 
 - [ ] **步骤 3：运行测试验证失败**
 
-运行：`mvn -pl ruoyi-openliststrm -am test -Dtest=EmbyClientTest`
+运行：`mvn -pl ruoyi-openliststrm -am test -Dtest=EmbyClientTest -Dsurefire.failIfNoSpecifiedTests=false`
 
 预期：编译失败，报 `EmbyClient` 找不到符号
 
@@ -2713,7 +2713,7 @@ public class MediaServerClientFactory {
 
 - [ ] **步骤 5：运行测试验证通过**
 
-运行：`mvn -pl ruoyi-openliststrm -am test -Dtest=EmbyClientTest`
+运行：`mvn -pl ruoyi-openliststrm -am test -Dtest=EmbyClientTest -Dsurefire.failIfNoSpecifiedTests=false`
 
 预期：Tests run: 11, Failures: 0, Errors: 0
 
