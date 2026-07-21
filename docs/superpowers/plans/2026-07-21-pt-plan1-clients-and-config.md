@@ -824,6 +824,8 @@ import com.ruoyi.common.mybatisplus.BaseEntity;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.Date;
+
 /**
  * <p>
  * PT Torznab 索引器配置
@@ -869,7 +871,7 @@ public class PtIndexerPlus extends BaseEntity {
 
     /** 上次轮询时间 */
     @TableField("last_poll_time")
-    private String lastPollTime;
+    private Date lastPollTime;
 
     /** 上次轮询结果，OK 或错误信息 */
     @TableField("last_status")
