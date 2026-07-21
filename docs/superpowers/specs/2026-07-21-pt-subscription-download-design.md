@@ -74,7 +74,7 @@ pt/
 - TMDb 查询复用 `tmdb/TMDbApiService` + `TmdbCacheService`
 - 通知复用 `helper/TgHelper`
 - HTTP 客户端复用 `config/HttpClientConfig`
-- 敏感配置（下载器密码、API Key）沿用现有 Cipher 加密存储方式
+- 凭据（下载器密码、各类 API Key）沿用现有约定**明文存储**：代码库中不存在加密工具类，现有的 `openlist.server.token`、`openlist.tg.token`、`openlist.tmdb.apikey` 均明文存于 `sys_config`。不为本功能单独引入加密体系（YAGNI）
 
 ### 2.3 调度器
 
@@ -98,7 +98,7 @@ pt/
 
 ### `pt_downloader` — 下载器配置
 
-`id` / `name` / `type`（枚举，第一版仅 `QBITTORRENT`）/ `host` / `port` / `username` / `password`（Cipher 加密）/ `save_path` / `tag`（默认 `osr-pt`）/ `enabled`
+`id` / `name` / `type`（枚举，第一版仅 `QBITTORRENT`）/ `host` / `port` / `use_https` / `username` / `password`（明文，见 §2.2）/ `save_path` / `tag`（默认 `osr-pt`）/ `enabled`
 
 ### `pt_media_server` — Emby / Jellyfin
 
