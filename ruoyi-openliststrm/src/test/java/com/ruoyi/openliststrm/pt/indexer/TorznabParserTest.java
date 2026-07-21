@@ -106,6 +106,19 @@ class TorznabParserTest {
     }
 
     @Test
+    void parse_体积仅在torznab属性中_从属性取值() {
+        String xml = wrap("""
+                    <item>
+                      <title>Movie.2026.1080p</title>
+                      <link>https://pt.example.com/download.php?id=9</link>
+                      <torznab:attr name="size" value="1234567890"/>
+                    </item>
+                """);
+
+        assertEquals(1234567890L, TorznabParser.parse(xml).get(0).getSize());
+    }
+
+    @Test
     void parse_无link仅有enclosure_下载地址取enclosure的url() {
         String xml = wrap("""
                     <item>

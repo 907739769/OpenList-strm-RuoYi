@@ -44,11 +44,18 @@ public final class TorznabParser {
             return result;
         }
         Document doc = buildDocument(xml);
-        NodeList items = doc.getElementsByTagName("item");
-        for (int i = 0; i < items.getLength(); i++) {
-            TorrentInfo info = parseItem((Element) items.item(i));
-            if (info != null) {
-                result.add(info);
+        Element channel = firstChildElement(doc.getDocumentElement(), "channel");
+        if (channel == null) {
+            return result;
+        }
+        NodeList children = channel.getChildNodes();
+        for (int i = 0; i < children.getLength(); i++) {
+            Node node = children.item(i);
+            if (node.getNodeType() == Node.ELEMENT_NODE && "item".equals(node.getNodeName())) {
+                TorrentInfo info = parseItem((Element) node);
+                if (info != null) {
+                    result.add(info);
+                }
             }
         }
         return result;
