@@ -118,11 +118,13 @@ pt/
 
 ### `pt_download_record` — 下载记录
 
-`id` / `sub_id` / `episode` / `guid`（索引器给出的条目唯一标识）/ `torrent_hash`（可空，从下载器回填，仅供排查）/ `tracking_tag`（推送时打的唯一标签）/ `title`（原始种子标题）/ `size` / `seeders` / `indexer_id` / `downloader_id` / `state`（`PUSHED` / `DOWNLOADING` / `COMPLETED` / `FAILED`）/ `pushed_time` / `completed_time` / `fail_reason`
+`id` / `sub_id` / `episode` / `guid`（索引器给出的条目唯一标识）/ `torrent_hash`（可空。优先取索引器的 `infohash` 属性，缺失时留空、待下载器回填；供排查与将来的跨索引器去重）/ `tracking_tag`（推送时打的唯一标签）/ `title`（原始种子标题）/ `size` / `seeders` / `indexer_id` / `downloader_id` / `state`（`PUSHED` / `DOWNLOADING` / `COMPLETED` / `FAILED`）/ `pushed_time` / `completed_time` / `fail_reason`
 
 唯一约束：`(indexer_id, guid_hash)`——`guid` 是 URL 过长无法直接建索引，故另存一列它的 SHA-256 十六进制专供唯一索引，`guid` 原文保留供排查，两列必须同时赋值
 
-**为何不用 `torrent_hash` 做唯一约束（实测结论，2026-07-21）**：真实环境（Prowlarr + Rousi.pro）返回的 Torznab 条目**不含 `infohash` 属性**，只有 `<guid>` / `<link>` / `<category>`。若以 `torrent_hash` 为唯一键，该列会大面积为 NULL，而 MySQL 唯一索引允许多个 NULL，去重形同虚设。`<link>` 也不能用——Prowlarr 的下载链接内嵌 apikey，重新生成 key 后同一种子的 link 就变了。`guid` 是 RSS 规范定义的条目唯一标识，索引器必定提供、不含凭据、不随凭据变化；加 `indexer_id` 组成复合键是因为 guid 的唯一性只在单个 feed 内有保证。
+**为何不用 `torrent_hash` 做唯一约束**：⚠️ **更正（2026-07-21）**——此前本节声称「实测发现 Prowlarr 返回的条目不含 infohash 属性」，该结论是错的，源于只查看了响应的前 1200 字符、`torznab:attr` 元素被截断。复测确认真实响应中 **25/25 条都带 `infohash`**。
+
+保持 `guid` 方案的真实理由是：`infohash` 在 Torznab 规范中是**可选**属性，不同索引器实现不一，一旦某个索引器不提供，以它为唯一键的那一列就会大面积为 NULL，而 MySQL 唯一索引允许多个 NULL，去重会静默失效。`guid` 由 Prowlarr 等聚合器稳定提供且不含凭据，作为唯一键更不易被索引器差异击穿。`<link>` 也不能用——Prowlarr 的下载链接内嵌 apikey，重新生成 key 后同一种子的 link 就变了。`guid` 是 RSS 规范定义的条目唯一标识，索引器必定提供、不含凭据、不随凭据变化；加 `indexer_id` 组成复合键是因为 guid 的唯一性只在单个 feed 内有保证。
 
 ### `pt_filter_config` — 全局过滤规则（单行表）
 
