@@ -124,9 +124,17 @@ pt/
 
 ### `pt_filter_config` — 全局过滤规则（单行表）
 
-仿现有 `RenameTemplateConfig` 的单行配置表模式。字段：`resolution_priority`（有序列表，如 `2160p,1080p,720p`）/ `min_seeders` / `min_size` / `max_size` / `free_only` / `include_keywords` / `exclude_keywords`。
+仿现有 `RenameTemplateConfig` 的单行配置表模式。
 
-订阅可通过 `pt_subscription.filter_override`（JSON）覆盖其中部分项，典型场景为「这部剧要 4K，其余保持默认」。
+**过滤项：** `min_seeders` / `min_size` / `max_size` / `free_only` / `include_keywords` / `exclude_keywords`
+
+**排序项：** `resolution_priority`（有序列表，如 `2160p,1080p,720p`）/ `sort_priority`（有序维度列表，默认 `resolution,free,seeders,size`）/ `preferred_size`（体积接近度的目标值）
+
+`sort_priority` 决定多候选择优时各维度的比较顺序。例如调整为 `free,seeders,resolution,size` 即表示「宁可要免费的 1080p，也不要收费的 4K」。
+
+**实现方式**：`TorrentFilterEngine` 内部将每个排序维度实现为独立的 `Comparator<TorrentInfo>`，运行时按 `sort_priority` 配置顺序以 `thenComparing` 串联。新增排序维度只需新增一个 Comparator 与一个枚举值，排序逻辑本身不变。
+
+订阅可通过 `pt_subscription.filter_override`（JSON）覆盖上述任意项，包括 `sort_priority`。典型场景为「这部剧要 4K，其余保持默认」。
 
 ### 3.1 数据模型取舍说明
 
@@ -161,7 +169,8 @@ pt/
      state = IN_FLIGHT / IN_LIBRARY → 整组丢弃
 5. 每组内的多个候选交由 TorrentFilterEngine：
      过滤：做种数 < min_seeders、体积越界、free_only 不满足、命中 exclude_keywords、未命中 include_keywords
-     排序：分辨率匹配度 → 是否免费 → 做种数 → 体积接近偏好值
+     排序：按 sort_priority 配置的维度顺序比较，默认为
+           分辨率匹配度 → 是否免费 → 做种数 → 体积接近偏好值
      取 Top 1，无候选则本轮跳过
 6. 先写 pt_download_record（state = PUSHED），再推送 qBittorrent
      save_path = downloader.save_path，tag = downloader.tag
@@ -218,7 +227,7 @@ pt/
 **单元测试（重点，无外部依赖）**
 
 - `TorznabParser`：使用固定 XML 样本，覆盖中英文标题、字段缺失、命名空间异常、空结果
-- `TorrentFilterEngine`：构造候选列表，验证过滤判定与排序结果的确定性
+- `TorrentFilterEngine`：构造候选列表，验证过滤判定与排序结果的确定性；需覆盖多种 `sort_priority` 配置下同一候选集产出不同 Top 1 的场景
 - `MediaParser` 在 PT 场景下的解析：使用真实 PT 种子标题样本集
 
 以上两类是 bug 高发区，必须覆盖。
@@ -239,5 +248,7 @@ pt/
 | 站点原生 RSS | 同上，`TorznabClient` 之外新增解析器 |
 | Transmission | 实现 `IDownloaderClient`，`pt_downloader.type` 增加枚举值 |
 | 洗版 | 读 `pt_subscription_episode.quality` |
+| 新增过滤维度（发布组黑名单、编码偏好等） | `pt_filter_config` 加列，`TorrentFilterEngine` 加一个判定 |
+| 新增排序维度 | 加一个 `Comparator<TorrentInfo>` + 一个枚举值，`sort_priority` 可引用 |
 | 优先级规则组 | 在 `pt_filter_config` 之上叠加一层，不改现有结构 |
 | qB 完成回调 | `IDownloaderClient` 的事件触发入口 |
