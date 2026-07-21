@@ -13,8 +13,8 @@ export interface TaskListApiConfig<TQuery extends SearchParams = SearchParams> {
   deleteApi: (id: number) => Promise<any>
   /** 批量删除 API。不传则退化为逐条调用 deleteApi */
   batchDeleteApi?: (ids: number[]) => Promise<any>
-  /** 执行 API */
-  executeApi: (ids: number[]) => Promise<any>
+  /** 执行 API。配置类页面（如 PT 索引器/下载器/媒体服务器）没有执行动作，可不传 */
+  executeApi?: (ids: number[]) => Promise<any>
   /** ID 字段名 */
   idField: string
   /** 创建初始表单数据的函数 */
@@ -158,6 +158,10 @@ export function useTaskList<TQuery extends SearchParams = SearchParams>(config: 
 
   // --- 执行 ---
   const handleExecuteOne = async (row: any, confirmMsg: string) => {
+    if (!executeApi) {
+      ElMessage.warning('该列表不支持执行操作')
+      return
+    }
     try {
       await ElMessageBox.confirm(confirmMsg, '提示', { type: 'warning' })
       await executeApi([row[idField]])
@@ -167,6 +171,10 @@ export function useTaskList<TQuery extends SearchParams = SearchParams>(config: 
   }
 
   const handleExecute = async (confirmMsg: string) => {
+    if (!executeApi) {
+      ElMessage.warning('该列表不支持执行操作')
+      return
+    }
     try {
       await ElMessageBox.confirm(confirmMsg, '警告', { type: 'warning' })
       await executeApi(selectedIds.value)
