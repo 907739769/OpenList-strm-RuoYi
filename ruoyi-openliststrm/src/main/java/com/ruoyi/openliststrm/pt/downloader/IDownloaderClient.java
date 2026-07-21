@@ -1,0 +1,44 @@
+package com.ruoyi.openliststrm.pt.downloader;
+
+import com.ruoyi.openliststrm.mybatisplus.domain.PtDownloaderPlus;
+import com.ruoyi.openliststrm.pt.downloader.model.DownloaderTorrent;
+
+import java.io.IOException;
+import java.util.List;
+
+/**
+ * 下载器抽象接口。新增下载器类型时实现本接口并注册为 Spring Bean，
+ * {@link DownloaderClientFactory} 会自动按 {@link #type()} 分发，
+ * 调用方（订阅引擎）无需改动。
+ *
+ * @author Jack
+ */
+public interface IDownloaderClient {
+
+    /**
+     * 支持的下载器类型，与 pt_downloader.type 取值一致，如 QBITTORRENT。
+     */
+    String type();
+
+    /**
+     * 连通性测试。任何异常均视为不连通，不向上抛。
+     */
+    boolean testConnection(PtDownloaderPlus config);
+
+    /**
+     * 添加种子。
+     *
+     * @param downloadUrl .torrent 链接或磁力链
+     * @param savePath    保存路径
+     * @param tag         标签，后续按此标签过滤查询
+     * @throws IOException 网络异常或下载器拒绝
+     */
+    void addTorrent(PtDownloaderPlus config, String downloadUrl, String savePath, String tag) throws IOException;
+
+    /**
+     * 查询指定标签下的全部种子。
+     *
+     * @throws IOException 网络异常
+     */
+    List<DownloaderTorrent> listByTag(PtDownloaderPlus config, String tag) throws IOException;
+}
