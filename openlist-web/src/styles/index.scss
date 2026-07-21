@@ -380,3 +380,14 @@ a {
   box-shadow: var(--osr-shadow-md);
   border: 1px solid var(--osr-border-light);
 }
+
+/* ============================================
+   Form Helpers
+   ============================================ */
+
+/* 表单项旁的补充说明文字，如"秒"这类单位提示 */
+.form-tip {
+  margin-left: 8px;
+  font-size: 12px;
+  color: var(--osr-text-secondary);
+}

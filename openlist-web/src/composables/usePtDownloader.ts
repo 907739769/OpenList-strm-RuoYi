@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useTaskList } from './useTaskList'
 import {
@@ -79,6 +79,7 @@ export function usePtDownloader() {
   /**
    * 保存路径失焦时校验。不阻断保存，仅提示——
    * 路径不在文件同步任务的监听目录下时，下载完成的文件不会被自动上传网盘。
+   * 只传 savePath 字段：后端 validateSavePath 只用这一个字段，没必要把包含明文密码的整个表单发出去。
    */
   const handleSavePathBlur = async () => {
     if (!base.form.value.savePath) {
@@ -86,13 +87,42 @@ export function usePtDownloader() {
       return
     }
     try {
-      savePathWarning.value = (await validateSavePathApi(base.form.value)) || ''
-    } catch {
-      savePathWarning.value = ''
+      savePathWarning.value = (await validateSavePathApi({ savePath: base.form.value.savePath })) || ''
+    } catch (e) {
+      // 校验请求失败 ≠ 路径没问题。这条警告是本阶段唯一保障"下载完成的文件能被
+      // FileMonitor 链路接管并上传网盘"的护栏，清空警告会让用户误读为路径已通过校验。
+      console.error('[PT下载器] 保存路径校验失败:', e)
+      savePathWarning.value = '校验失败，无法确认保存路径是否在监听目录下'
     }
   }
 
+  /** 新增：先清空上一次残留的警告，避免复用到新表单上 */
+  const handleAdd = (title: string) => {
+    savePathWarning.value = ''
+    base.handleAdd(title)
+  }
+
+  /**
+   * 编辑：先清空警告，再委托 base.handleUpdate 异步查询并填充表单。
+   * base.handleUpdate（见 useTaskList.ts）内部没有把查询用的 Promise 返回出来，
+   * 因此不能直接 await base.handleUpdate() 来判断表单何时填好；改为监听
+   * open 由 false → true 的那一刻（这正是 base.handleUpdate 找到记录、填完表单、
+   * 打开对话框的时刻）触发一次校验，时序上与"表单已就绪"精确对齐。
+   */
+  const handleUpdate = (row?: any, title?: string) => {
+    savePathWarning.value = ''
+    base.handleUpdate(row, title)
+  }
+
+  watch(base.open, (isOpen) => {
+    // 只有编辑场景（表单已带 id）才需要校验既有路径；新增场景 savePath 为空，
+    // handleSavePathBlur 内部会自行短路跳过，这里加 id 判断只是避免一次无意义的调用。
+    if (isOpen && base.form.value?.id) {
+      handleSavePathBlur()
+    }
+  })
+
   base.getList()
 
-  return { ...base, testLoading, handleTest, savePathWarning, handleSavePathBlur }
+  return { ...base, testLoading, handleTest, savePathWarning, handleSavePathBlur, handleAdd, handleUpdate }
 }
