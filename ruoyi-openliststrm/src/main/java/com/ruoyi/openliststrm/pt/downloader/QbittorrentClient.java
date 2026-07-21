@@ -1,6 +1,7 @@
 package com.ruoyi.openliststrm.pt.downloader;
 
 import com.alibaba.fastjson2.JSONArray;
+import com.alibaba.fastjson2.JSONException;
 import com.alibaba.fastjson2.JSONObject;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.openliststrm.mybatisplus.domain.PtDownloaderPlus;
@@ -84,7 +85,7 @@ public class QbittorrentClient implements IDownloaderClient {
         if (StringUtils.isBlank(json)) {
             return result;
         }
-        JSONArray array = JSONArray.parse(json);
+        JSONArray array = parseJsonArray(json);
         for (int i = 0; i < array.size(); i++) {
             JSONObject item = array.getJSONObject(i);
             DownloaderTorrent torrent = new DownloaderTorrent();
@@ -103,7 +104,7 @@ public class QbittorrentClient implements IDownloaderClient {
 
     private String get(PtDownloaderPlus config, String path, Map<String, String> query) throws IOException {
         return executeWithSession(config, sid -> {
-            HttpUrl.Builder builder = HttpUrl.parse(config.baseUrl() + path).newBuilder();
+            HttpUrl.Builder builder = parseUrl(config.baseUrl() + path);
             query.forEach(builder::addQueryParameter);
             return new Request.Builder()
                     .url(builder.build())
@@ -111,6 +112,40 @@ public class QbittorrentClient implements IDownloaderClient {
                     .get()
                     .build();
         });
+    }
+
+    /**
+     * 解析 URL；host/端口等配置非法时 {@link HttpUrl#parse} 返回 null，
+     * 紧接着调用 newBuilder() 会 NPE（未受检异常）。这里统一转成 IOException，
+     * 与"网络异常 → IOException → 调用方本轮跳过、下轮重来"的契约保持一致。
+     */
+    private HttpUrl.Builder parseUrl(String url) throws IOException {
+        HttpUrl parsed = HttpUrl.parse(url);
+        if (parsed == null) {
+            throw new IOException("无法解析下载器地址：" + url);
+        }
+        return parsed.newBuilder();
+    }
+
+    /**
+     * 解析 JSON 数组；反向代理故障、qB 返回纯文本等场景下响应体不是合法 JSON，
+     * FastJSON2 会抛出未受检的 JSONException。这里转成 IOException，避免调度线程
+     * 收到一个 catch (IOException) 捕不到的异常类型。
+     */
+    private JSONArray parseJsonArray(String json) throws IOException {
+        try {
+            return JSONArray.parse(json);
+        } catch (JSONException e) {
+            throw new IOException("qBittorrent 返回的响应不是合法 JSON：" + truncate(json), e);
+        }
+    }
+
+    /** 异常消息里只截取响应体前 200 字符，避免把整个 HTML 错误页塞进异常消息 */
+    private static String truncate(String text) {
+        if (text == null) {
+            return "";
+        }
+        return text.length() <= 200 ? text : text.substring(0, 200) + "...(截断)";
     }
 
     private String post(PtDownloaderPlus config, String path, RequestBody body) throws IOException {
@@ -195,6 +230,6 @@ public class QbittorrentClient implements IDownloaderClient {
 
     @FunctionalInterface
     private interface RequestFactory {
-        Request build(String sid);
+        Request build(String sid) throws IOException;
     }
 }

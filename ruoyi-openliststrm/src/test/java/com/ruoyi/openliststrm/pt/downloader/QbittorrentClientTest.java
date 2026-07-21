@@ -185,4 +185,24 @@ class QbittorrentClientTest {
 
         assertFalse(client.testConnection(config));
     }
+
+    @Test
+    void listByTag_响应体不是合法JSON_抛IOException而非JSONException() {
+        // 模拟反向代理故障：返回一个 HTML 错误页而非 qB 的 JSON 数组
+        server.enqueue(loginOk());
+        server.enqueue(new MockResponse().setBody("<html><body>502 Bad Gateway</body></html>"));
+
+        IOException ex = assertThrows(IOException.class, () -> client.listByTag(config(11), "osr-pt"));
+        assertTrue(ex.getMessage().contains("不是合法 JSON"));
+    }
+
+    @Test
+    void listByTag_响应体是超长非JSON文本_异常消息不整段塞入() {
+        String huge = "x".repeat(5000);
+        server.enqueue(loginOk());
+        server.enqueue(new MockResponse().setBody(huge));
+
+        IOException ex = assertThrows(IOException.class, () -> client.listByTag(config(12), "osr-pt"));
+        assertTrue(ex.getMessage().length() < 500);
+    }
 }

@@ -1,6 +1,7 @@
 package com.ruoyi.openliststrm.pt.media;
 
 import com.alibaba.fastjson2.JSONArray;
+import com.alibaba.fastjson2.JSONException;
 import com.alibaba.fastjson2.JSONObject;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.openliststrm.mybatisplus.domain.PtMediaServerPlus;
@@ -44,7 +45,7 @@ public class EmbyClient implements IMediaServerClient {
     public boolean testConnection(PtMediaServerPlus config) {
         try {
             String body = get(config, "/System/Info", Map.of());
-            JSONObject info = JSONObject.parse(body);
+            JSONObject info = parseJsonObject(body);
             log.info("媒体服务器[{}]连通，版本：{}", config.getName(), info.getString("Version"));
             return true;
         } catch (Exception e) {
@@ -70,7 +71,7 @@ public class EmbyClient implements IMediaServerClient {
         }
 
         String body = get(config, "/Shows/" + seriesId + "/Episodes", query);
-        JSONArray items = JSONObject.parse(body).getJSONArray("Items");
+        JSONArray items = parseJsonObject(body).getJSONArray("Items");
         if (items == null) {
             return result;
         }
@@ -102,7 +103,7 @@ public class EmbyClient implements IMediaServerClient {
         }
 
         String body = get(config, "/Items", query);
-        JSONArray items = JSONObject.parse(body).getJSONArray("Items");
+        JSONArray items = parseJsonObject(body).getJSONArray("Items");
         if (items == null || items.isEmpty()) {
             return null;
         }
@@ -110,7 +111,7 @@ public class EmbyClient implements IMediaServerClient {
     }
 
     private String get(PtMediaServerPlus config, String path, Map<String, String> query) throws IOException {
-        HttpUrl.Builder builder = HttpUrl.parse(config.baseUrl() + path).newBuilder();
+        HttpUrl.Builder builder = parseUrl(config.baseUrl() + path);
         query.forEach(builder::addQueryParameter);
 
         Request request = new Request.Builder()
@@ -127,5 +128,39 @@ public class EmbyClient implements IMediaServerClient {
             ResponseBody body = response.body();
             return body == null ? "{}" : body.string();
         }
+    }
+
+    /**
+     * 解析 URL；host/端口等配置非法时 {@link HttpUrl#parse} 返回 null，
+     * 紧接着调用 newBuilder() 会 NPE（未受检异常）。这里统一转成 IOException，
+     * 与"网络异常 → IOException → 调用方本轮跳过、下轮重来"的契约保持一致。
+     */
+    private HttpUrl.Builder parseUrl(String url) throws IOException {
+        HttpUrl parsed = HttpUrl.parse(url);
+        if (parsed == null) {
+            throw new IOException("无法解析媒体服务器地址：" + url);
+        }
+        return parsed.newBuilder();
+    }
+
+    /**
+     * 解析 JSON 对象；反向代理故障等场景下响应体不是合法 JSON，
+     * FastJSON2 会抛出未受检的 JSONException。这里转成 IOException，避免调度线程
+     * 收到一个 catch (IOException) 捕不到的异常类型。
+     */
+    private JSONObject parseJsonObject(String body) throws IOException {
+        try {
+            return JSONObject.parse(body);
+        } catch (JSONException e) {
+            throw new IOException("媒体服务器返回的响应不是合法 JSON：" + truncate(body), e);
+        }
+    }
+
+    /** 异常消息里只截取响应体前 200 字符，避免把整个 HTML 错误页塞进异常消息 */
+    private static String truncate(String text) {
+        if (text == null) {
+            return "";
+        }
+        return text.length() <= 200 ? text : text.substring(0, 200) + "...(截断)";
     }
 }

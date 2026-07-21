@@ -155,4 +155,22 @@ class EmbyClientTest {
 
         assertFalse(client.testConnection(config(null)));
     }
+
+    @Test
+    void hasMovie_响应体不是合法JSON_抛IOException而非JSONException() {
+        // 模拟反向代理故障：返回一个 HTML 错误页而非 Emby 的 JSON 对象
+        server.enqueue(new MockResponse().setBody("<html><body>502 Bad Gateway</body></html>"));
+
+        IOException ex = assertThrows(IOException.class, () -> client.hasMovie(config(null), "550"));
+        assertTrue(ex.getMessage().contains("不是合法 JSON"));
+    }
+
+    @Test
+    void listEpisodes_响应体是超长非JSON文本_异常消息不整段塞入() {
+        String huge = "y".repeat(5000);
+        server.enqueue(new MockResponse().setBody(huge));
+
+        IOException ex = assertThrows(IOException.class, () -> client.listEpisodes(config(null), "12345", 1));
+        assertTrue(ex.getMessage().length() < 500);
+    }
 }

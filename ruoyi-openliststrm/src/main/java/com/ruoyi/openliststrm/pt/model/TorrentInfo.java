@@ -2,6 +2,8 @@ package com.ruoyi.openliststrm.pt.model;
 
 import lombok.Data;
 
+import java.util.Date;
+
 /**
  * 统一种子模型，贯穿 indexer → filter → subscription 全流程。
  * <p>
@@ -60,6 +62,12 @@ public class TorrentInfo {
 
     /** 解析出的分辨率，如 1080p、2160p */
     private String parsedResolution;
+
+    /** 解析出的媒介来源，如 WEB-DL、BluRay、Remux */
+    private String parsedSource;
+
+    /** 解析后的发布时间；原始字符串见 {@link #pubDate}，本字段不变动 pubDate */
+    private Date parsedPubTime;
 
     /**
      * 是否为免费种。用容差比较而非直接 == 0，避免浮点解析误差。

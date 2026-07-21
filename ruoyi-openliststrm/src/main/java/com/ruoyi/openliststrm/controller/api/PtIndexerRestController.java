@@ -47,8 +47,12 @@ public class PtIndexerRestController extends BaseCrudRestController<IPtIndexerPl
         if (StringUtils.isBlank(entity.getUrl()) || StringUtils.isBlank(entity.getApiKey())) {
             return Result.error("接口地址与 apikey 不能为空");
         }
-        return torznabClient.testConnection(entity)
-                ? Result.success()
-                : Result.error("连接失败，请检查地址、apikey 与网络");
+        try {
+            return torznabClient.testConnection(entity)
+                    ? Result.success()
+                    : Result.error("连接失败，请检查地址、apikey 与网络");
+        } catch (IllegalArgumentException e) {
+            return Result.error(e.getMessage());
+        }
     }
 }
