@@ -33,13 +33,16 @@ public class MediaServerClientFactory {
      * @throws IllegalArgumentException 配置的类型没有对应实现
      */
     public IMediaServerClient get(PtMediaServerPlus config) {
+        IMediaServerClient client = clients.get(config.getType());
+        if (client != null) {
+            return client;
+        }
+        // Map 中没有该类型的独立实现时，JELLYFIN 兜底复用 EmbyClient——
+        // 两者相关接口完全兼容。一旦未来注册了独立的 JellyfinClient（type() 返回
+        // "JELLYFIN"），上面的 Map 查找会优先命中它，本兜底自动失效，无需改动此处代码。
         if ("JELLYFIN".equals(config.getType())) {
             return embyClient;
         }
-        IMediaServerClient client = clients.get(config.getType());
-        if (client == null) {
-            throw new IllegalArgumentException("不支持的媒体服务器类型：" + config.getType());
-        }
-        return client;
+        throw new IllegalArgumentException("不支持的媒体服务器类型：" + config.getType());
     }
 }
