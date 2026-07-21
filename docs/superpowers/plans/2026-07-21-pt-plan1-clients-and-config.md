@@ -4025,3 +4025,24 @@ git commit -m "fix(pt): 修正配置页面验收中发现的问题"
 - **任务 4**：`PtIndexerPlus.lastPollTime` 原写 `String`，与项目既有约定不符（`OpenlistCopyTaskPlus.lastSyncTime`、`RenameOrphanPlus.foundTime`、`TmdbCache.expireTime` 均用 `java.util.Date`）。已改为 `Date`，计划正文同步修正。
 - **任务 7**：`PtDownloaderPlus.baseUrl()` 增加 host 清洗（去首尾空白、剥离大小写不敏感的 `http(s)://` 前缀、去末尾斜杠），清洗只在拼 URL 时发生、不回写字段。`validateSavePath` 增加 `InvalidPathException` 捕获：`savePath` 非法返回提示文案而非抛异常，单个任务 `monitorDir` 非法则跳过该任务继续遍历。均补了单元测试。
 - **全局**：所有 `mvn -pl ruoyi-openliststrm -am test -Dtest=X` 命令必须追加 `-Dsurefire.failIfNoSpecifiedTests=false`，否则多模块 reactor 下上游模块会因无匹配测试类而报假失败。多个测试类用逗号分隔（`-Dtest=A,B`），`+` 号语法在 Maven 3.6.3 下静默失效。
+- **最终整分支审查后的统一修复**：
+  - `usePtDownloader.savePathWarning` 补齐生命周期（开对话框清空、编辑时主动校验、请求失败显示未知态文案而非空串），`/validate-save-path` 只传 `savePath` 而非整个含明文密码的表单。
+  - `QbittorrentClient` / `EmbyClient` 把 `HttpUrl.parse` 返回 null 的 NPE 和 `JSON*.parse` 的 `JSONException` 统一转成 `IOException`，对齐「网络异常→本轮跳过下轮重来」的契约（响应体截断 200 字符）。
+  - `TorrentInfo` 预留 `parsedSource` / `parsedPubTime` 两字段。
+  - `PtIndexerRestController.test` 补 try/catch 对齐另外两个 Controller。
+  - 补 `.form-tip` 全局样式。
+
+## 留给计划 2 的已知约束（最终审查提出，务必先读）
+
+1. **凭据脱敏与编辑功能耦合**：`useTaskList.handleUpdate` 是靠**再查一次 list 接口、从列表里挑那一行**来填充编辑表单的，**不走 `getById`**。所以「list 接口不下发凭据」这个最省事的脱敏手段会直接打断编辑功能。将来要脱敏，必须先把 `handleUpdate` 改成调 `getById`。
+2. **`infoHash` 与 `pt_download_record.torrent_hash` 唯一约束存在冲突**：规格把 `torrent_hash` 设为唯一约束并当作去重第一道防线，但 Torznab 的 `infohash` 属性在很多 Jackett 索引器上缺失。届时该列会大面积为 NULL（MySQL 唯一索引允许多个 NULL，去重形同虚设），或需要改成推种后从 qB 回查 hash 再回填——那会推翻规格 §4.2「先写库再推送」的顺序。**开写计划 2 前先定这个问题**。
+3. **`EmbyClient.findItemId` 命中多条取 `Items[0]`**：对 `listEpisodes` 而言取**并集**才是正确语义，计划 3 做入库对账时应改（并记 warn 日志）。
+4. **`QbittorrentClient` SID 缓存并发覆盖**：计划 3 的 30 秒轮询落地时，用 `computeIfAbsent` 或按 downloaderId 加锁处理。
+5. **同时启用多个媒体服务器时只有 id 最小的生效**（`getActive()` 的隐含规则），但页面允许启用多个且无提示。
+
+## 需要真实环境验证的假设（最终审查标注，MockWebServer 验不了）
+
+- `EmbyClient.listEpisodes` 的 `season` 查询参数大小写（Jellyfin 用小写、Emby 文档写 `Season`）。**若该参数被服务端忽略，接口会返回该剧全部季的集号**，计划 3 的对账会把别的季的集误判为已入库，表现为订阅永远差几集或错误完成。接真实 Emby 后第一件事就是拿一部多季剧验证。
+- `AnyProviderIdEquals=tmdb.{id}` 的取值格式两端是否都接受。
+- `/System/Info` 作为连通性探针是否需要管理员权限的 API Key。
+- qBittorrent 会话过期是否一定返回 403（若某些版本返回 401 或 200+空体，重试逻辑不生效）。
