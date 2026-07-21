@@ -30,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.atMost;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -342,6 +343,51 @@ class SubscriptionServiceTest {
         when(subscriptionService.getById(999)).thenReturn(null);
 
         assertThrows(IllegalArgumentException.class, () -> service.refresh(999));
+    }
+
+    @Test
+    void refresh_暂停的订阅对账后仍是暂停() throws Exception {
+        PtSubscriptionPlus sub = activeTv(44, 2);
+        sub.setStatus("PAUSED");
+        when(subscriptionService.getById(44)).thenReturn(sub);
+        when(episodeService.listBySubscription(44)).thenReturn(List.of(
+                episode(1, "MISSING"), episode(2, "MISSING")));
+        when(tmdbSearchService.getSeasonEpisodeCount(anyString(), anyInt())).thenReturn(2);
+        stubEmbyConfigured();
+        // Emby 里全部已有
+        when(mediaServerClient.listEpisodes(any(), anyString(), anyInt())).thenReturn(Set.of(1, 2));
+
+        service.refresh(44);
+
+        // 暂停是用户显式意图，对账不应把它悄悄推进成 COMPLETED
+        ArgumentCaptor<PtSubscriptionPlus> captor = ArgumentCaptor.forClass(PtSubscriptionPlus.class);
+        verify(subscriptionService, atMost(1)).updateById(captor.capture());
+        if (!captor.getAllValues().isEmpty()) {
+            assertEquals("PAUSED", captor.getValue().getStatus());
+        }
+    }
+
+    @Test
+    void refresh_暂停的订阅总集数增长也不被改回订阅中() throws Exception {
+        PtSubscriptionPlus sub = activeTv(45, 2);
+        sub.setStatus("PAUSED");
+        when(subscriptionService.getById(45)).thenReturn(sub);
+        when(episodeService.listBySubscription(45)).thenReturn(List.of(
+                episode(1, "IN_LIBRARY"), episode(2, "IN_LIBRARY")));
+        // TMDb 那边这一季从 2 集涨到 4 集
+        when(tmdbSearchService.getSeasonEpisodeCount(anyString(), anyInt())).thenReturn(4);
+        when(mediaServerService.getActive()).thenReturn(null);
+
+        service.refresh(45);
+
+        ArgumentCaptor<List<PtSubscriptionEpisodePlus>> epCaptor = ArgumentCaptor.forClass(List.class);
+        verify(episodeService).saveBatch(epCaptor.capture());
+        assertEquals(List.of(3, 4), epCaptor.getValue().stream().map(PtSubscriptionEpisodePlus::getEpisode).toList());
+
+        ArgumentCaptor<PtSubscriptionPlus> subCaptor = ArgumentCaptor.forClass(PtSubscriptionPlus.class);
+        verify(subscriptionService).updateById(subCaptor.capture());
+        assertEquals("PAUSED", subCaptor.getValue().getStatus());
+        assertEquals(4, subCaptor.getValue().getTotalEpisodes());
     }
 
     // ---------- 进度 ----------
