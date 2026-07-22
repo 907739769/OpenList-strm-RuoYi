@@ -32,6 +32,10 @@ public class PtSubscriptionPlus extends BaseEntity {
     @TableField("tmdb_id")
     private String tmdbId;
 
+    /** IMDb ID（如 tt0125664），建订阅时从 TMDb 详情/external_ids 获取，用于索引器 ID 精确搜索 */
+    @TableField("imdb_id")
+    private String imdbId;
+
     /** 媒体类型 TV/MOVIE */
     @TableField("media_type")
     private String mediaType;
