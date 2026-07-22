@@ -106,7 +106,7 @@ public class DownloadTrackService {
         record.setState(STATE_COMPLETED);
         record.setCompletedTime(new Date());
         recordService.updateById(record);
-        notifySafely("下载完成：" + record.getTitle());
+        notifySafely("✅ 下载完成：" + record.getTitle());
         log.info("下载记录[{}] 已完成：{}", record.getId(), record.getTitle());
         // 注意：集状态不动，仍是 IN_FLIGHT，等 LibrarySyncTask 通过 Emby 确认后转 IN_LIBRARY
     }
@@ -134,7 +134,7 @@ public class DownloadTrackService {
                     .eq("id", episode.getId())
                     .eq("state", EP_IN_FLIGHT));
         }
-        notifySafely("下载失败：" + record.getTitle() + "，已释放待下轮重新匹配");
+        notifySafely("❌ 下载失败：" + record.getTitle() + "，已释放待下轮重新匹配");
         log.warn("下载记录[{}] 失败，{} 个集回退缺失：{}", record.getId(), episodes.size(), record.getTitle());
     }
 }
