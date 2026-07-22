@@ -93,6 +93,37 @@ public class TorznabClient {
         }
     }
 
+    /**
+     * 按外部 ID（IMDb/TMDB）精确搜索，用于订阅搜索补集的第一优先级。
+     *
+     * @param movie      true=电影(t=movie)，false=剧集(t=tvsearch)
+     * @param idParamName "imdbid" 或 "tmdbid"
+     * @param idValue    对应的 ID 值
+     * @param season     剧集季号，电影传 null
+     * @param episode    剧集集号，季包搜索或电影传 null
+     * @throws IOException              网络异常或 HTTP 非 2xx
+     * @throws IllegalArgumentException 响应体不是合法 Torznab XML
+     */
+    public List<TorrentInfo> searchByExternalId(PtIndexerPlus indexer, boolean movie,
+                                                 String idParamName, String idValue,
+                                                 Integer season, Integer episode) throws IOException {
+        HttpUrl.Builder builder = buildUrl(indexer, movie ? "movie" : "tvsearch").newBuilder()
+                .addQueryParameter(idParamName, idValue);
+        if (!movie) {
+            builder.addQueryParameter("season", String.valueOf(season));
+            if (episode != null) {
+                builder.addQueryParameter("ep", String.valueOf(episode));
+            }
+        }
+        String body = execute(builder.build());
+        List<TorrentInfo> list = TorznabParser.parse(body);
+        for (TorrentInfo info : list) {
+            info.setIndexerId(indexer.getId());
+        }
+        log.debug("索引器[{}]按{}={}搜索返回{}条种子", indexer.getName(), idParamName, idValue, list.size());
+        return list;
+    }
+
     private HttpUrl buildUrl(PtIndexerPlus indexer, String type) {
         HttpUrl base = HttpUrl.parse(indexer.getUrl());
         if (base == null) {
@@ -101,7 +132,7 @@ public class TorznabClient {
         HttpUrl.Builder builder = base.newBuilder()
                 .addQueryParameter("apikey", indexer.getApiKey())
                 .addQueryParameter("t", type);
-        if ("search".equals(type) && StringUtils.isNotBlank(indexer.getCategories())) {
+        if (!"caps".equals(type) && StringUtils.isNotBlank(indexer.getCategories())) {
             builder.addQueryParameter("cat", indexer.getCategories());
         }
         return builder.build();

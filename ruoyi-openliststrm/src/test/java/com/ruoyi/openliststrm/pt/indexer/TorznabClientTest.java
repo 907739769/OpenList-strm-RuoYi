@@ -190,4 +190,59 @@ class TorznabClientTest {
 
         assertEquals(IndexerCapability.NONE, client.getCaps(indexer(null)));
     }
+
+    @Test
+    void searchByExternalId_电影按imdbid拼URL_不带season和ep() throws Exception {
+        server.enqueue(new MockResponse().setBody(SAMPLE_XML));
+
+        client.searchByExternalId(indexer("5000"), true, "imdbid", "tt1160419", null, null);
+
+        RecordedRequest request = server.takeRequest();
+        assertEquals("movie", request.getRequestUrl().queryParameter("t"));
+        assertEquals("tt1160419", request.getRequestUrl().queryParameter("imdbid"));
+        assertEquals("5000", request.getRequestUrl().queryParameter("cat"));
+        assertEquals(null, request.getRequestUrl().queryParameter("season"));
+        assertEquals(null, request.getRequestUrl().queryParameter("ep"));
+    }
+
+    @Test
+    void searchByExternalId_剧集季包按season搜索_不带ep() throws Exception {
+        server.enqueue(new MockResponse().setBody(SAMPLE_XML));
+
+        client.searchByExternalId(indexer(null), false, "tmdbid", "1396", 1, null);
+
+        RecordedRequest request = server.takeRequest();
+        assertEquals("tvsearch", request.getRequestUrl().queryParameter("t"));
+        assertEquals("1396", request.getRequestUrl().queryParameter("tmdbid"));
+        assertEquals("1", request.getRequestUrl().queryParameter("season"));
+        assertEquals(null, request.getRequestUrl().queryParameter("ep"));
+    }
+
+    @Test
+    void searchByExternalId_剧集单集带season和ep() throws Exception {
+        server.enqueue(new MockResponse().setBody(SAMPLE_XML));
+
+        client.searchByExternalId(indexer(null), false, "imdbid", "tt0903747", 1, 3);
+
+        RecordedRequest request = server.takeRequest();
+        assertEquals("1", request.getRequestUrl().queryParameter("season"));
+        assertEquals("3", request.getRequestUrl().queryParameter("ep"));
+    }
+
+    @Test
+    void searchByExternalId_正常响应_返回解析结果并带上索引器ID() throws Exception {
+        server.enqueue(new MockResponse().setBody(SAMPLE_XML));
+
+        List<TorrentInfo> list = client.searchByExternalId(indexer(null), true, "imdbid", "tt1160419", null, null);
+
+        assertEquals(1, list.size());
+        assertEquals(7, list.get(0).getIndexerId());
+    }
+
+    @Test
+    void searchByExternalId_HTTP错误码_抛IOException() {
+        server.enqueue(new MockResponse().setResponseCode(500).setBody("boom"));
+
+        assertThrows(IOException.class, () -> client.searchByExternalId(indexer(null), true, "imdbid", "tt1", null, null));
+    }
 }
