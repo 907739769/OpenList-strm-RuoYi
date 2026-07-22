@@ -11,7 +11,8 @@ import {
   getSubscriptionProgressApi,
   refreshSubscriptionApi,
   pauseSubscriptionApi,
-  resumeSubscriptionApi
+  resumeSubscriptionApi,
+  searchSupplementApi
 } from '@/api/openlist/ptSubscription'
 import type { SearchParams } from '@/types'
 
@@ -116,7 +117,10 @@ export function usePtSubscription() {
   const progressLoading = ref(false)
   const progress = ref<any>(null)
 
+  const currentSubscription = ref<any>(null)
+
   const showProgress = async (row: any) => {
+    currentSubscription.value = row
     progressOpen.value = true
     progressLoading.value = true
     progress.value = null
@@ -126,6 +130,66 @@ export function usePtSubscription() {
       console.error(e)
     } finally {
       progressLoading.value = false
+    }
+  }
+
+  // ---------- 搜索补集 ----------
+
+  const searchDialogOpen = ref(false)
+  const searchDialogLoading = ref(false)
+  const searchDialogKeyword = ref('')
+  const searchDialogTarget = ref<{ subId: number; episode: number } | null>(null)
+
+  const pad2 = (n: number) => (n < 10 ? '0' + n : String(n))
+
+  /** 打开整季/整部搜索确认框（订阅详情顶部按钮、列表操作列按钮共用） */
+  const openSeasonSearch = (row: any) => {
+    const isMovie = row.mediaType === 'MOVIE'
+    searchDialogTarget.value = { subId: row.id, episode: isMovie ? 0 : -1 }
+    searchDialogKeyword.value = isMovie ? row.title : `${row.title} S${pad2(row.season)}`
+    searchDialogOpen.value = true
+  }
+
+  /** 打开单集搜索确认框，episode 为具体集号（剧集缺集列表专用） */
+  const openEpisodeSearch = (row: any, episode: number) => {
+    searchDialogTarget.value = { subId: row.id, episode }
+    searchDialogKeyword.value = `${row.title} S${pad2(row.season)}E${pad2(episode)}`
+    searchDialogOpen.value = true
+  }
+
+  const confirmSearch = async () => {
+    if (!searchDialogTarget.value) return
+    if (!searchDialogKeyword.value?.trim()) {
+      ElMessage.warning('请输入搜索关键词')
+      return
+    }
+    searchDialogLoading.value = true
+    try {
+      const result = await searchSupplementApi(searchDialogTarget.value.subId, {
+        episode: searchDialogTarget.value.episode,
+        keyword: searchDialogKeyword.value.trim()
+      })
+      ElMessage[result.pushed ? 'success' : 'info'](result.pushed ? '已找到并推送下载' : '未搜索到匹配资源')
+      searchDialogOpen.value = false
+      base.getList()
+      if (currentSubscription.value && currentSubscription.value.id === searchDialogTarget.value.subId) {
+        progress.value = await getSubscriptionProgressApi(searchDialogTarget.value.subId)
+      }
+    } catch (e) {
+      console.error(e)
+    } finally {
+      searchDialogLoading.value = false
+    }
+  }
+
+  const toggleAutoSearch = async (row: any) => {
+    try {
+      await updatePtSubscriptionApi({ id: row.id, autoSearch: row.autoSearch })
+      ElMessage.success(row.autoSearch === '1' ? '已开启自动补搜' : '已关闭自动补搜')
+    } catch (e) {
+      // 请求失败时把开关状态还原（v-model 已经乐观更新过了）
+      row.autoSearch = row.autoSearch === '1' ? '0' : '1'
+      console.error(e)
     }
   }
 
@@ -184,7 +248,10 @@ export function usePtSubscription() {
     subscribeOpen, searchLoading, subscribeLoading, searchResults, searchForm,
     picked, pickedSeason, openSubscribeDialog, doSearch, pick, confirmSubscribe,
     // 进度
-    progressOpen, progressLoading, progress, showProgress,
+    progressOpen, progressLoading, progress, currentSubscription, showProgress,
+    // 搜索补集
+    searchDialogOpen, searchDialogLoading, searchDialogKeyword,
+    openSeasonSearch, openEpisodeSearch, confirmSearch, toggleAutoSearch,
     // 行操作
     handleRefresh, handlePause, handleResume, handleRemove
   }
