@@ -98,8 +98,10 @@ public class SubscriptionMatcher {
      * 种子候选标题与订阅候选标题各自求出这样一个集合，两个集合有交集即视为标题匹配——
      * 中英双标题任一命中即可，天然规避子串包含误匹配（求交集要求归一化后完全相等）。
      * </p>
+     * 包内可见：{@link SearchSupplementService} 复用同一套归一化规则校验电影候选标题，
+     * 避免两条链路各写一份、标准不一致。
      */
-    private Set<String> normalizeAll(String... titles) {
+    Set<String> normalizeAll(String... titles) {
         Set<String> result = new LinkedHashSet<>();
         for (String title : titles) {
             String normalized = normalize(title);
