@@ -1,0 +1,329 @@
+<template>
+  <div class="mobile-page">
+    <!-- 搜索 -->
+    <MobileSearchPanel v-model:collapsed="searchCollapsed" :loading="loading" @search="handleQuery" @reset="resetQuery">
+      <el-form ref="queryRef" :model="queryParams" label-width="72px">
+        <el-form-item label="标题" prop="title">
+          <el-input v-model="queryParams.title" placeholder="请输入标题" clearable @keyup.enter="handleQuery" />
+        </el-form-item>
+        <el-form-item label="类型" prop="mediaType">
+          <el-select v-model="queryParams.mediaType" placeholder="全部类型" clearable style="width: 100%">
+            <el-option label="剧集" value="TV" />
+            <el-option label="电影" value="MOVIE" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="状态" prop="status">
+          <el-select v-model="queryParams.status" placeholder="全部状态" clearable style="width: 100%">
+            <el-option label="订阅中" value="ACTIVE" />
+            <el-option label="已完成" value="COMPLETED" />
+            <el-option label="已暂停" value="PAUSED" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+    </MobileSearchPanel>
+
+    <!-- 提示：新增订阅需要 TMDb 选片向导，暂只支持电脑端操作 -->
+
+    <!-- 列表 -->
+    <div class="task-list" v-loading="loading">
+      <div v-for="item in taskList" :key="item.id" class="sub-card">
+        <div class="sub-poster">
+          <img
+            v-if="item.posterPath && !posterErrorIds.has(item.id)"
+            :src="posterUrl(item.posterPath)"
+            :alt="item.title"
+            loading="lazy"
+            @error="posterErrorIds.add(item.id)"
+          />
+          <div v-else class="sub-poster-placeholder">
+            <el-icon><Picture /></el-icon>
+          </div>
+        </div>
+        <div class="sub-content">
+          <div class="sub-top">
+            <span class="sub-name">
+              {{ item.title }}
+              <span v-if="item.year" class="sub-year">({{ item.year }})</span>
+            </span>
+            <el-tag v-if="item.status === 'ACTIVE'" type="success" size="small">订阅中</el-tag>
+            <el-tag v-else-if="item.status === 'COMPLETED'" type="info" size="small">已完成</el-tag>
+            <el-tag v-else type="warning" size="small">已暂停</el-tag>
+          </div>
+          <div class="sub-meta">
+            <span>{{ item.mediaType === 'MOVIE' ? '电影' : '剧集' }}</span>
+            <span v-if="item.mediaType !== 'MOVIE'">S{{ item.season }}</span>
+            <span>共 {{ item.totalEpisodes }} 集</span>
+          </div>
+          <div class="detail-row">
+            <span class="label">上次命中</span>
+            <span class="value">{{ item.lastMatchTime || '-' }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="label">自动补搜</span>
+            <el-switch
+              v-model="item.autoSearch"
+              active-value="1"
+              inactive-value="0"
+              size="small"
+              @change="toggleAutoSearch(item)"
+            />
+          </div>
+          <div class="sub-actions">
+            <el-button link type="primary" size="small" @click="showProgress(item)">进度</el-button>
+            <el-button link type="primary" size="small" @click="openSeasonSearch(item)">搜索补齐</el-button>
+            <el-button link type="primary" size="small" @click="handleRefresh(item)">对账</el-button>
+            <el-button v-if="item.status !== 'PAUSED'" link type="warning" size="small" @click="handlePause(item)">暂停</el-button>
+            <el-button v-else link type="success" size="small" @click="handleResume(item)">恢复</el-button>
+            <el-button link type="danger" size="small" @click="handleRemove(item)">删除</el-button>
+          </div>
+        </div>
+      </div>
+
+      <el-empty v-if="!loading && taskList.length === 0" description="暂无订阅" />
+    </div>
+
+    <!-- 分页 -->
+    <MobilePager
+      v-model:page-size="queryParams.pageSize"
+      :page-num="queryParams.pageNum"
+      :total="total"
+      :total-pages="totalPages"
+      @prev="prevPage"
+      @next="nextPage"
+      @size-change="handleSizeChange"
+    />
+
+    <!-- 进度 -->
+    <el-dialog v-model="progressOpen" title="订阅进度" width="90%" append-to-body class="modern-dialog">
+      <div v-loading="progressLoading">
+        <template v-if="progress">
+          <p class="progress-title">{{ progress.title }}</p>
+          <el-progress
+            :percentage="progress.totalEpisodes ? Math.round((progress.inLibraryCount / progress.totalEpisodes) * 100) : 0"
+          />
+          <p>已入库 <strong>{{ progress.inLibraryCount }}</strong> / {{ progress.totalEpisodes }} 集</p>
+          <p v-if="progress.inFlightCount">在途 {{ progress.inFlightCount }} 集（已推送下载器，尚未入库）</p>
+          <div v-if="progress.missingEpisodes && progress.missingEpisodes.length" class="missing-list">
+            仍缺第
+            <span v-for="(ep, idx) in progress.missingEpisodes" :key="ep" class="missing-item">
+              <span v-if="idx > 0">、</span>{{ ep }}
+              <el-button
+                v-if="currentSubscription && currentSubscription.mediaType !== 'MOVIE'"
+                link
+                type="primary"
+                size="small"
+                @click="openEpisodeSearch(currentSubscription, ep)"
+              >搜</el-button>
+            </span>
+            集
+          </div>
+          <p v-else class="all-done">全部集已入库</p>
+        </template>
+      </div>
+      <template #footer>
+        <el-button v-if="currentSubscription" type="primary" @click="openSeasonSearch(currentSubscription)">
+          搜索补齐
+        </el-button>
+        <el-button @click="progressOpen = false">关闭</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 搜索补集确认 -->
+    <el-dialog v-model="searchDialogOpen" title="搜索补集" width="90%" append-to-body class="modern-dialog">
+      <el-form label-width="80px">
+        <el-form-item label="关键词">
+          <el-input v-model="searchDialogKeyword" placeholder="搜索关键词，可编辑后再搜" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="searchDialogOpen = false">取消</el-button>
+        <el-button type="primary" :loading="searchDialogLoading" @click="confirmSearch">搜索</el-button>
+      </template>
+    </el-dialog>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { reactive } from 'vue'
+import { Picture } from '@element-plus/icons-vue'
+import MobileSearchPanel from '@/components/mobile/MobileSearchPanel.vue'
+import MobilePager from '@/components/mobile/MobilePager.vue'
+import { usePtSubscription } from '@/composables/usePtSubscription'
+
+const {
+  taskList, loading, total, queryParams, queryRef,
+  handleQuery, resetQuery,
+  progressOpen, progressLoading, progress, currentSubscription, showProgress,
+  searchDialogOpen, searchDialogLoading, searchDialogKeyword,
+  openSeasonSearch, openEpisodeSearch, confirmSearch, toggleAutoSearch,
+  handleRefresh, handlePause, handleResume, handleRemove,
+  totalPages, prevPage, nextPage, handleSizeChange,
+  searchCollapsed
+} = usePtSubscription()
+
+/** TMDb 海报路径拼完整图片地址，w200 宽度足够列表缩略图使用 */
+const posterUrl = (path: string) => `https://image.tmdb.org/t/p/w200${path}`
+/** 海报加载失败的订阅 id 集合，命中则展示占位图标而非裂图 */
+const posterErrorIds = reactive(new Set<number>())
+</script>
+
+<style scoped lang="scss">
+.mobile-page {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: calc(100vh - 120px);
+  padding-bottom: 8px;
+}
+
+.task-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 200px;
+  flex: 1;
+}
+
+.sub-card {
+  display: flex;
+  gap: 10px;
+  background: var(--osr-surface);
+  border-radius: var(--osr-radius-lg);
+  padding: 12px;
+  box-shadow: var(--osr-shadow-base);
+}
+
+.sub-poster {
+  flex-shrink: 0;
+  width: 60px;
+  height: 90px;
+  border-radius: var(--osr-radius-sm);
+  overflow: hidden;
+  background: var(--osr-bg-page);
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .sub-poster-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--osr-text-disabled);
+    font-size: 20px;
+  }
+}
+
+.sub-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.sub-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+
+  .sub-name {
+    flex: 1;
+    min-width: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--osr-text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    line-height: 1.4;
+  }
+
+  .sub-year {
+    font-weight: 400;
+    color: var(--osr-text-secondary);
+    font-size: 12px;
+  }
+}
+
+.sub-meta {
+  display: flex;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--osr-text-secondary);
+}
+
+.detail-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.6;
+
+  .label {
+    flex-shrink: 0;
+    width: 58px;
+    color: var(--osr-text-secondary);
+  }
+
+  .value {
+    flex: 1;
+    min-width: 0;
+    color: var(--osr-text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.sub-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin-top: 2px;
+  padding-top: 6px;
+  border-top: 1px solid var(--osr-border-light);
+
+  .el-button {
+    font-size: 12px;
+    padding: 2px 4px;
+    height: auto;
+  }
+}
+
+.progress-title {
+  margin: 0 0 12px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.all-done {
+  color: var(--el-color-success);
+}
+
+.missing-list {
+  margin: 8px 0;
+  line-height: 1.8;
+  font-size: 13px;
+}
+
+.missing-item {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 4px;
+}
+
+:deep(.modern-dialog) {
+  .el-dialog__body {
+    padding: 16px;
+  }
+}
+</style>

@@ -1,4 +1,4 @@
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useTaskList } from './useTaskList'
 import {
@@ -240,6 +240,31 @@ export function usePtSubscription() {
     }
   }
 
+  // ---------- 移动端 - 分页辅助 ----------
+  const totalPages = computed(() => Math.ceil(base.total.value / base.queryParams.pageSize) || 1)
+
+  const prevPage = () => {
+    if (base.queryParams.pageNum > 1) {
+      base.queryParams.pageNum--
+      base.getList()
+    }
+  }
+
+  const nextPage = () => {
+    if (base.queryParams.pageNum < totalPages.value) {
+      base.queryParams.pageNum++
+      base.getList()
+    }
+  }
+
+  const handleSizeChange = () => {
+    base.queryParams.pageNum = 1
+    base.getList()
+  }
+
+  // ---------- 移动端 - 搜索面板折叠 ----------
+  const searchCollapsed = ref(true)
+
   base.getList()
 
   return {
@@ -253,6 +278,8 @@ export function usePtSubscription() {
     searchDialogOpen, searchDialogLoading, searchDialogKeyword,
     openSeasonSearch, openEpisodeSearch, confirmSearch, toggleAutoSearch,
     // 行操作
-    handleRefresh, handlePause, handleResume, handleRemove
+    handleRefresh, handlePause, handleResume, handleRemove,
+    // 移动端分页 & 搜索面板
+    totalPages, prevPage, nextPage, handleSizeChange, searchCollapsed
   }
 }

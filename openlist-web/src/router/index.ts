@@ -89,10 +89,22 @@ const componentMap: Record<string, Component | (() => Promise<any>)> = {
     () => import('@/views-mobile/renameOrphan/index.vue')
   ),
   'openlist/renameConfig/index': () => import('@/views/openlist/renameConfig/index.vue'),
-  'openlist/ptIndexer/index': () => import('@/views/openlist/ptIndexer/index.vue'),
-  'openlist/ptDownloader/index': () => import('@/views/openlist/ptDownloader/index.vue'),
-  'openlist/ptMediaServer/index': () => import('@/views/openlist/ptMediaServer/index.vue'),
-  'openlist/ptSubscription/index': () => import('@/views/openlist/ptSubscription/index.vue'),
+  'openlist/ptIndexer/index': createDeviceView(
+    () => import('@/views/openlist/ptIndexer/index.vue'),
+    () => import('@/views-mobile/ptIndexer/index.vue')
+  ),
+  'openlist/ptDownloader/index': createDeviceView(
+    () => import('@/views/openlist/ptDownloader/index.vue'),
+    () => import('@/views-mobile/ptDownloader/index.vue')
+  ),
+  'openlist/ptMediaServer/index': createDeviceView(
+    () => import('@/views/openlist/ptMediaServer/index.vue'),
+    () => import('@/views-mobile/ptMediaServer/index.vue')
+  ),
+  'openlist/ptSubscription/index': createDeviceView(
+    () => import('@/views/openlist/ptSubscription/index.vue'),
+    () => import('@/views-mobile/ptSubscription/index.vue')
+  ),
   'openlist/ptFilterConfig/index': () => import('@/views/openlist/ptFilterConfig/index.vue')
 }
 

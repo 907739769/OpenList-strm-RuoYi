@@ -43,50 +43,57 @@
         </el-button>
       </div>
 
-      <el-table v-loading="loading" :data="taskList" @selection-change="handleSelectionChange" class="modern-table">
-        <el-table-column type="selection" width="50" align="center" />
-        <el-table-column label="名称" prop="name" min-width="140" show-overflow-tooltip />
-        <el-table-column label="接口地址" prop="url" min-width="280" show-overflow-tooltip />
-        <el-table-column label="分类" prop="categories" width="140" align="center">
-          <template #default="scope">
-            {{ scope.row.categories || '不限' }}
-          </template>
-        </el-table-column>
-        <el-table-column label="轮询周期" prop="pollInterval" width="100" align="center">
-          <template #default="scope">
-            {{ scope.row.pollInterval }} 秒
-          </template>
-        </el-table-column>
-        <el-table-column label="状态" prop="enabled" width="90" align="center">
-          <template #default="scope">
-            <el-tag :type="scope.row.enabled === '1' ? 'success' : 'danger'">
-              {{ scope.row.enabled === '1' ? '启用' : '停用' }}
+      <div class="card-grid" v-loading="loading">
+        <div v-for="item in taskList" :key="item.id" class="item-card">
+          <div class="card-header">
+            <div class="card-checkbox">
+              <el-checkbox
+                :model-value="selectedIds.includes(item.id)"
+                @change="toggleSelect(item.id)"
+              />
+            </div>
+            <span class="card-title" :title="item.name">{{ item.name }}</span>
+            <el-tag :type="item.enabled === '1' ? 'success' : 'danger'" size="small">
+              {{ item.enabled === '1' ? '启用' : '停用' }}
             </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="上次轮询" prop="lastPollTime" width="170" align="center">
-          <template #default="scope">
-            {{ scope.row.lastPollTime || '-' }}
-          </template>
-        </el-table-column>
-        <el-table-column label="上次结果" prop="lastStatus" min-width="160" show-overflow-tooltip>
-          <template #default="scope">
-            <span v-if="!scope.row.lastStatus">-</span>
-            <el-tag v-else-if="scope.row.lastStatus === 'OK'" type="success">正常</el-tag>
-            <el-tag v-else type="danger">{{ scope.row.lastStatus }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" align="center" width="160" fixed="right">
-          <template #default="scope">
-            <el-button link type="primary" @click="handleUpdate(scope.row, '修改索引器')">
+          </div>
+          <div class="card-body">
+            <div class="card-row">
+              <span class="label">接口地址</span>
+              <span class="value" :title="item.url">{{ item.url }}</span>
+            </div>
+            <div class="card-row">
+              <span class="label">分类</span>
+              <span class="value">{{ item.categories || '不限' }}</span>
+            </div>
+            <div class="card-row">
+              <span class="label">轮询周期</span>
+              <span class="value">{{ item.pollInterval }} 秒</span>
+            </div>
+            <div class="card-row">
+              <span class="label">上次轮询</span>
+              <span class="value">{{ item.lastPollTime || '-' }}</span>
+            </div>
+            <div class="card-row">
+              <span class="label">上次结果</span>
+              <span class="value">
+                <span v-if="!item.lastStatus">-</span>
+                <el-tag v-else-if="item.lastStatus === 'OK'" type="success" size="small">正常</el-tag>
+                <el-tag v-else type="danger" size="small">{{ item.lastStatus }}</el-tag>
+              </span>
+            </div>
+          </div>
+          <div class="card-footer">
+            <el-button link type="primary" @click="handleUpdate(item, '修改索引器')">
               <el-icon><Edit /></el-icon> 修改
             </el-button>
-            <el-button link type="danger" @click="handleDelete(scope.row)">
+            <el-button link type="danger" @click="handleDelete(item)">
               <el-icon><Delete /></el-icon> 删除
             </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+          </div>
+        </div>
+        <el-empty v-if="!loading && taskList.length === 0" description="暂无索引器" />
+      </div>
 
       <div class="pagination-wrapper">
         <el-pagination
@@ -144,9 +151,177 @@ const showSearch = ref(window.innerWidth >= 768)
 
 const {
   taskList, loading, total, queryParams, getList, handleQuery, resetQuery, queryRef,
-  selectedIds, single, multiple, handleSelectionChange,
+  selectedIds, single, multiple, toggleSelect,
   open, dialogTitle, submitLoading, formRef, form, rules,
   handleAdd, handleUpdate, submitForm, handleDelete,
   testLoading, handleTest
 } = usePtIndexer()
 </script>
+
+<style scoped lang="scss">
+.page-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.search-card {
+  border: none;
+  border-radius: var(--osr-radius-lg);
+  box-shadow: var(--osr-shadow-base);
+
+  :deep(.el-card__body) {
+    padding: 14px 16px;
+  }
+}
+
+.table-card {
+  border: none;
+  border-radius: var(--osr-radius-lg);
+  box-shadow: var(--osr-shadow-base);
+
+  :deep(.el-card__body) {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+.action-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+
+  .action-left {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+}
+
+.pagination-wrapper {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: auto;
+  padding-top: 12px;
+}
+
+/* ============================================
+   卡片网格
+   ============================================ */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 14px;
+  min-height: 120px;
+}
+
+.item-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--osr-border-light);
+  border-radius: var(--osr-radius-md);
+  transition: box-shadow var(--osr-transition-fast), border-color var(--osr-transition-fast);
+
+  &:hover {
+    box-shadow: var(--osr-shadow-md);
+    border-color: var(--osr-border-base);
+  }
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  .card-checkbox {
+    flex-shrink: 0;
+    display: flex;
+  }
+
+  .card-title {
+    flex: 1;
+    min-width: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--osr-text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.card-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+
+  .label {
+    flex-shrink: 0;
+    width: 64px;
+    color: var(--osr-text-secondary);
+  }
+
+  .value {
+    flex: 1;
+    min-width: 0;
+    color: var(--osr-text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.card-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+  padding-top: 8px;
+  border-top: 1px solid var(--osr-border-light);
+}
+
+@media (max-width: 768px) {
+  .page-container {
+    gap: 10px;
+  }
+
+  .search-card :deep(.el-form) {
+    .el-form-item {
+      margin-right: 0;
+    }
+
+    .el-input,
+    .el-select {
+      width: 100% !important;
+    }
+  }
+
+  .action-bar {
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 10px;
+
+    .action-left {
+      gap: 4px;
+    }
+  }
+
+  .table-card :deep(.el-card__body) {
+    padding: 12px;
+  }
+
+  .card-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

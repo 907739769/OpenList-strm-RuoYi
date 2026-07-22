@@ -44,62 +44,64 @@
         </el-button>
       </div>
 
-      <el-table v-loading="loading" :data="taskList" class="modern-table">
-        <el-table-column label="标题" min-width="220" show-overflow-tooltip>
-          <template #default="scope">
-            {{ scope.row.title }}
-            <span v-if="scope.row.year" class="sub-year">({{ scope.row.year }})</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="类型" width="90" align="center">
-          <template #default="scope">
-            {{ scope.row.mediaType === 'MOVIE' ? '电影' : '剧集' }}
-          </template>
-        </el-table-column>
-        <el-table-column label="季" width="70" align="center">
-          <template #default="scope">
-            {{ scope.row.mediaType === 'MOVIE' ? '-' : 'S' + scope.row.season }}
-          </template>
-        </el-table-column>
-        <el-table-column label="总集数" prop="totalEpisodes" width="90" align="center" />
-        <el-table-column label="状态" width="100" align="center">
-          <template #default="scope">
-            <el-tag v-if="scope.row.status === 'ACTIVE'" type="success">订阅中</el-tag>
-            <el-tag v-else-if="scope.row.status === 'COMPLETED'" type="info">已完成</el-tag>
-            <el-tag v-else type="warning">已暂停</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="上次命中" prop="lastMatchTime" width="170" align="center">
-          <template #default="scope">
-            {{ scope.row.lastMatchTime || '-' }}
-          </template>
-        </el-table-column>
-        <el-table-column label="上次搜索" prop="lastSearchTime" width="170" align="center">
-          <template #default="scope">
-            {{ scope.row.lastSearchTime || '-' }}
-          </template>
-        </el-table-column>
-        <el-table-column label="自动补搜" width="100" align="center">
-          <template #default="scope">
-            <el-switch
-              v-model="scope.row.autoSearch"
-              active-value="1"
-              inactive-value="0"
-              @change="toggleAutoSearch(scope.row)"
+      <div class="card-grid" v-loading="loading">
+        <div v-for="item in taskList" :key="item.id" class="sub-card">
+          <div class="sub-poster">
+            <img
+              v-if="item.posterPath && !posterErrorIds.has(item.id)"
+              :src="posterUrl(item.posterPath)"
+              :alt="item.title"
+              loading="lazy"
+              @error="posterErrorIds.add(item.id)"
             />
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" align="center" width="360" fixed="right">
-          <template #default="scope">
-            <el-button link type="primary" @click="showProgress(scope.row)">进度</el-button>
-            <el-button link type="primary" @click="openSeasonSearch(scope.row)">搜索补齐</el-button>
-            <el-button link type="primary" @click="handleRefresh(scope.row)">对账</el-button>
-            <el-button v-if="scope.row.status !== 'PAUSED'" link type="warning" @click="handlePause(scope.row)">暂停</el-button>
-            <el-button v-else link type="success" @click="handleResume(scope.row)">恢复</el-button>
-            <el-button link type="danger" @click="handleRemove(scope.row)">删除</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+            <div v-else class="sub-poster-placeholder">
+              <el-icon><Picture /></el-icon>
+            </div>
+          </div>
+          <div class="sub-info">
+            <div class="sub-header">
+              <span class="sub-title" :title="item.title">
+                {{ item.title }}
+                <span v-if="item.year" class="sub-year">({{ item.year }})</span>
+              </span>
+              <el-tag v-if="item.status === 'ACTIVE'" type="success" size="small">订阅中</el-tag>
+              <el-tag v-else-if="item.status === 'COMPLETED'" type="info" size="small">已完成</el-tag>
+              <el-tag v-else type="warning" size="small">已暂停</el-tag>
+            </div>
+            <div class="sub-meta">
+              <span>{{ item.mediaType === 'MOVIE' ? '电影' : '剧集' }}</span>
+              <span v-if="item.mediaType !== 'MOVIE'">S{{ item.season }}</span>
+              <span>共 {{ item.totalEpisodes }} 集</span>
+            </div>
+            <div class="sub-row">
+              <span class="label">上次命中</span>
+              <span class="value">{{ item.lastMatchTime || '-' }}</span>
+            </div>
+            <div class="sub-row">
+              <span class="label">上次搜索</span>
+              <span class="value">{{ item.lastSearchTime || '-' }}</span>
+            </div>
+            <div class="sub-row">
+              <span class="label">自动补搜</span>
+              <el-switch
+                v-model="item.autoSearch"
+                active-value="1"
+                inactive-value="0"
+                @change="toggleAutoSearch(item)"
+              />
+            </div>
+            <div class="sub-actions">
+              <el-button link type="primary" @click="showProgress(item)">进度</el-button>
+              <el-button link type="primary" @click="openSeasonSearch(item)">搜索补齐</el-button>
+              <el-button link type="primary" @click="handleRefresh(item)">对账</el-button>
+              <el-button v-if="item.status !== 'PAUSED'" link type="warning" @click="handlePause(item)">暂停</el-button>
+              <el-button v-else link type="success" @click="handleResume(item)">恢复</el-button>
+              <el-button link type="danger" @click="handleRemove(item)">删除</el-button>
+            </div>
+          </div>
+        </div>
+        <el-empty v-if="!loading && taskList.length === 0" description="暂无订阅" />
+      </div>
 
       <div class="pagination-wrapper">
         <el-pagination
@@ -221,10 +223,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, reactive } from 'vue'
+import { Picture } from '@element-plus/icons-vue'
 import { usePtSubscription } from '@/composables/usePtSubscription'
 
 const showSearch = ref(window.innerWidth >= 768)
+/** 海报加载失败的订阅 id 集合，命中则展示占位图标而非裂图 */
+const posterErrorIds = reactive(new Set<number>())
 
 const {
   taskList, loading, total, queryParams, getList, handleQuery, resetQuery, queryRef,
@@ -235,9 +240,212 @@ const {
   openSeasonSearch, openEpisodeSearch, confirmSearch, toggleAutoSearch,
   handleRefresh, handlePause, handleResume, handleRemove
 } = usePtSubscription()
+
+/** TMDb 海报路径拼完整图片地址，w200 宽度足够列表缩略图使用 */
+const posterUrl = (path: string) => `https://image.tmdb.org/t/p/w200${path}`
 </script>
 
-<style scoped>
+<style scoped lang="scss">
+.page-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.search-card {
+  border: none;
+  border-radius: var(--osr-radius-lg);
+  box-shadow: var(--osr-shadow-base);
+
+  :deep(.el-card__body) {
+    padding: 14px 16px;
+  }
+}
+
+.table-card {
+  border: none;
+  border-radius: var(--osr-radius-lg);
+  box-shadow: var(--osr-shadow-base);
+
+  :deep(.el-card__body) {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+.action-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+
+  .action-left {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+}
+
+.pagination-wrapper {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: auto;
+  padding-top: 12px;
+}
+
+/* ============================================
+   订阅卡片网格（带海报）
+   ============================================ */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 14px;
+  min-height: 120px;
+}
+
+.sub-card {
+  display: flex;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--osr-border-light);
+  border-radius: var(--osr-radius-md);
+  transition: box-shadow var(--osr-transition-fast), border-color var(--osr-transition-fast);
+
+  &:hover {
+    box-shadow: var(--osr-shadow-md);
+    border-color: var(--osr-border-base);
+  }
+}
+
+.sub-poster {
+  flex-shrink: 0;
+  width: 72px;
+  height: 108px;
+  border-radius: var(--osr-radius-sm);
+  overflow: hidden;
+  background: var(--osr-bg-page);
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .sub-poster-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--osr-text-disabled);
+    font-size: 22px;
+  }
+}
+
+.sub-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sub-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+
+  .sub-title {
+    flex: 1;
+    min-width: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--osr-text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    line-height: 1.4;
+  }
+}
+
+.sub-meta {
+  display: flex;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--osr-text-secondary);
+}
+
+.sub-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+
+  .label {
+    flex-shrink: 0;
+    width: 58px;
+    color: var(--osr-text-secondary);
+  }
+
+  .value {
+    flex: 1;
+    min-width: 0;
+    color: var(--osr-text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.sub-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin-top: auto;
+  padding-top: 6px;
+  border-top: 1px solid var(--osr-border-light);
+}
+
+@media (max-width: 768px) {
+  .page-container {
+    gap: 10px;
+  }
+
+  .search-card :deep(.el-form) {
+    .el-form-item {
+      margin-right: 0;
+    }
+
+    .el-input,
+    .el-select {
+      width: 100% !important;
+    }
+  }
+
+  .action-bar {
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 10px;
+
+    .action-left {
+      gap: 4px;
+    }
+  }
+
+  .table-card :deep(.el-card__body) {
+    padding: 12px;
+  }
+
+  .card-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .sub-year {
   color: var(--el-text-color-secondary);
   font-size: 12px;
