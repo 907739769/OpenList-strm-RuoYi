@@ -86,6 +86,7 @@ public class SubscriptionService {
         sub.setMediaType(movie ? TYPE_MOVIE : "TV");
         sub.setTitle(detail.getTitle());
         sub.setOriginalTitle(detail.getOriginalTitle());
+        sub.setImdbId(detail.getImdbId());
         sub.setYear(detail.getYear());
         sub.setSeason(season);
         sub.setTotalEpisodes(totalEpisodes);

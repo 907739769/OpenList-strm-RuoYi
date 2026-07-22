@@ -188,6 +188,21 @@ class SubscriptionServiceTest {
     }
 
     @Test
+    void subscribe_落库时带上TMDb返回的imdbId() throws Exception {
+        TmdbSearchItem d = detail("搏击俱乐部", "1999");
+        d.setImdbId("tt0137523");
+        when(tmdbSearchService.getDetail(anyString(), anyString())).thenReturn(d);
+        stubSaveAssignsId(70);
+        when(mediaServerService.getActive()).thenReturn(null);
+
+        service.subscribe(movieRequest());
+
+        ArgumentCaptor<PtSubscriptionPlus> captor = ArgumentCaptor.forClass(PtSubscriptionPlus.class);
+        verify(subscriptionService).save(captor.capture());
+        assertEquals("tt0137523", captor.getValue().getImdbId());
+    }
+
+    @Test
     void subscribe_电影_不调用剧集的总集数接口() throws Exception {
         when(tmdbSearchService.getDetail(anyString(), anyString())).thenReturn(detail("片", "1999"));
         stubSaveAssignsId(21);
