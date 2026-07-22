@@ -182,8 +182,8 @@
           <p v-if="progress.inFlightCount">在途 {{ progress.inFlightCount }} 集（已推送下载器，尚未入库）</p>
           <div v-if="progress.missingEpisodes && progress.missingEpisodes.length" class="missing-list">
             仍缺第
-            <span v-for="ep in progress.missingEpisodes" :key="ep" class="missing-item">
-              {{ ep }}
+            <span v-for="(ep, idx) in progress.missingEpisodes" :key="ep" class="missing-item">
+              <span v-if="idx > 0">、</span>{{ ep }}
               <el-button
                 v-if="currentSubscription && currentSubscription.mediaType !== 'MOVIE'"
                 link
