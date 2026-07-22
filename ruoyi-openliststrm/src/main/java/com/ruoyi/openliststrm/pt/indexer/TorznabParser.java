@@ -8,10 +8,6 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-import java.io.ByteArrayInputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -62,21 +58,7 @@ public final class TorznabParser {
     }
 
     private static Document buildDocument(String xml) {
-        try {
-            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-            // 禁用 DTD，防止 XXE。索引器是外部输入，必须防护。
-            // 禁用 DTD 声明即可阻断实体展开，无需再设置 ACCESS_EXTERNAL_* 属性
-            // （部分 JAXB 实现不支持这两个属性，设置时会抛异常导致每次解析都失败）
-            factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-            factory.setXIncludeAware(false);
-            factory.setExpandEntityReferences(false);
-            // 关闭命名空间感知，使 getElementsByTagName("torznab:attr") 能按字面量匹配
-            factory.setNamespaceAware(false);
-            DocumentBuilder builder = factory.newDocumentBuilder();
-            return builder.parse(new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)));
-        } catch (Exception e) {
-            throw new IllegalArgumentException("Torznab响应解析失败：" + e.getMessage(), e);
-        }
+        return SafeXmlDocuments.parse(xml);
     }
 
     private static TorrentInfo parseItem(Element item) {
