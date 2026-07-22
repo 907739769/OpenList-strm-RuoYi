@@ -47,6 +47,25 @@ public class TorznabClient {
     }
 
     /**
+     * 按关键词搜索索引器（t=search 且带 q 参数），用于订阅缺集的主动补搜。
+     *
+     * @throws IOException              网络异常或 HTTP 非 2xx
+     * @throws IllegalArgumentException 响应体不是合法 Torznab XML
+     */
+    public List<TorrentInfo> search(PtIndexerPlus indexer, String keyword) throws IOException {
+        HttpUrl url = buildUrl(indexer, "search").newBuilder()
+                .addQueryParameter("q", keyword)
+                .build();
+        String body = execute(url);
+        List<TorrentInfo> list = TorznabParser.parse(body);
+        for (TorrentInfo info : list) {
+            info.setIndexerId(indexer.getId());
+        }
+        log.debug("索引器[{}]关键词搜索[{}]返回{}条种子", indexer.getName(), keyword, list.size());
+        return list;
+    }
+
+    /**
      * 连通性测试：调用 t=caps 能力接口。任何异常均视为不连通，不向上抛。
      */
     public boolean testConnection(PtIndexerPlus indexer) {

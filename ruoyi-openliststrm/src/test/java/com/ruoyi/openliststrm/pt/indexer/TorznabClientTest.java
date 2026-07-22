@@ -129,4 +129,35 @@ class TorznabClientTest {
 
         assertFalse(client.testConnection(indexer(null)));
     }
+
+    @Test
+    void search_请求参数正确带上关键词与分类() throws Exception {
+        server.enqueue(new MockResponse().setBody(SAMPLE_XML));
+
+        client.search(indexer("5000,5030"), "Some Show S02");
+
+        RecordedRequest request = server.takeRequest();
+        assertEquals("search", request.getRequestUrl().queryParameter("t"));
+        assertEquals("Some Show S02", request.getRequestUrl().queryParameter("q"));
+        assertEquals("5000,5030", request.getRequestUrl().queryParameter("cat"));
+        assertEquals("secret-key", request.getRequestUrl().queryParameter("apikey"));
+    }
+
+    @Test
+    void search_正常响应_返回解析结果并带上索引器ID() throws Exception {
+        server.enqueue(new MockResponse().setBody(SAMPLE_XML));
+
+        List<TorrentInfo> list = client.search(indexer(null), "Some Show");
+
+        assertEquals(1, list.size());
+        assertEquals("Some.Show.S01E05.1080p.WEB-DL", list.get(0).getTitle());
+        assertEquals(7, list.get(0).getIndexerId());
+    }
+
+    @Test
+    void search_HTTP错误码_抛IOException() {
+        server.enqueue(new MockResponse().setResponseCode(500).setBody("boom"));
+
+        assertThrows(IOException.class, () -> client.search(indexer(null), "kw"));
+    }
 }
