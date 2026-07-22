@@ -75,4 +75,12 @@ public class PtSubscriptionPlus extends BaseEntity {
     /** 上次命中种子的时间 */
     @TableField("last_match_time")
     private Date lastMatchTime;
+
+    /** 是否开启自动定时补搜 0-否 1-是 */
+    @TableField("auto_search")
+    private String autoSearch;
+
+    /** 上次发起搜索补集的时间，用于自动补搜到期判断与前端展示 */
+    @TableField("last_search_time")
+    private Date lastSearchTime;
 }

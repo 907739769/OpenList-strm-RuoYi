@@ -71,4 +71,8 @@ public class PtFilterConfigPlus extends BaseEntity {
     /** 体积接近度的目标值(字节)，0 表示该维度不参与比较 */
     @TableField("preferred_size")
     private Long preferredSize;
+
+    /** 自动补搜的全局周期(小时) */
+    @TableField("auto_search_interval_hours")
+    private Integer autoSearchIntervalHours;
 }
