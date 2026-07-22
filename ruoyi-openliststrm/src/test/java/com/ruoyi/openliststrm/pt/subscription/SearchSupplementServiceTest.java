@@ -4,6 +4,8 @@ import com.ruoyi.openliststrm.mybatisplus.domain.PtIndexerPlus;
 import com.ruoyi.openliststrm.mybatisplus.domain.PtSubscriptionPlus;
 import com.ruoyi.openliststrm.mybatisplus.service.IPtIndexerPlusService;
 import com.ruoyi.openliststrm.mybatisplus.service.IPtSubscriptionPlusService;
+import com.ruoyi.openliststrm.pt.indexer.IndexerCapability;
+import com.ruoyi.openliststrm.pt.indexer.IndexerCapabilityCache;
 import com.ruoyi.openliststrm.pt.indexer.TorznabClient;
 import com.ruoyi.openliststrm.pt.model.TorrentInfo;
 import com.ruoyi.openliststrm.pt.subscription.dto.SupplementResult;
@@ -25,10 +27,12 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.same;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -43,12 +47,14 @@ class SearchSupplementServiceTest {
     @Mock private IPtSubscriptionPlusService subscriptionService;
     // 用真实实例而非 mock：标题归一化逻辑本身就是本测试要验证的行为
     private final SubscriptionMatcher matcher = new SubscriptionMatcher();
+    private IndexerCapabilityCache capabilityCache;
 
     private SearchSupplementService service;
 
     @BeforeEach
     void setUp() {
-        service = new SearchSupplementService(indexerService, torznabClient, subscriptionEngine, subscriptionService, matcher);
+        capabilityCache = new IndexerCapabilityCache(torznabClient);
+        service = new SearchSupplementService(indexerService, torznabClient, subscriptionEngine, subscriptionService, matcher, capabilityCache);
     }
 
     private PtIndexerPlus indexer(int id) {
@@ -490,5 +496,153 @@ class SearchSupplementServiceTest {
         when(subscriptionService.getById(10)).thenReturn(sub);
 
         assertThrows(IllegalArgumentException.class, () -> service.supplement(10, 2, "kw"));
+    }
+
+    // ---------- ID 搜索第一级 ----------
+
+    @Test
+    void supplement_电影订阅_索引器支持imdbid且订阅有imdbId_优先用imdbid搜索() throws Exception {
+        PtSubscriptionPlus movie = movieSub(20, "沙丘", "2021");
+        movie.setOriginalTitle("Dune");
+        movie.setImdbId("tt1160419");
+        movie.setTmdbId("438631");
+        when(subscriptionService.getById(20)).thenReturn(movie);
+        PtIndexerPlus idx = indexer(1);
+        when(indexerService.listEnabled()).thenReturn(List.of(idx));
+        when(torznabClient.getCaps(idx)).thenReturn(new IndexerCapability(true, true, false, false));
+        TorrentInfo t = torrent("Dune.2021.2160p.WEB-DL");
+        t.setParsedTitle("Dune");
+        t.setParsedYear("2021");
+        when(torznabClient.searchByExternalId(idx, true, "imdbid", "tt1160419", null, null))
+                .thenReturn(List.of(t));
+        when(subscriptionEngine.pushBest(eq(movie), eq(0), anyList())).thenReturn(true);
+
+        SupplementResult result = service.supplement(20, 0, "沙丘");
+
+        assertTrue(result.isPushed());
+        verify(torznabClient, never()).search(any(), anyString());
+        ArgumentCaptor<List<TorrentInfo>> captor = ArgumentCaptor.forClass(List.class);
+        verify(subscriptionEngine).pushBest(eq(movie), eq(0), captor.capture());
+        assertTrue(captor.getValue().contains(t));
+    }
+
+    @Test
+    void supplement_电影订阅_索引器只支持tmdbid_退到tmdbid() throws Exception {
+        PtSubscriptionPlus movie = movieSub(20, "沙丘", "2021");
+        movie.setImdbId("tt1160419");
+        movie.setTmdbId("438631");
+        when(subscriptionService.getById(20)).thenReturn(movie);
+        PtIndexerPlus idx = indexer(1);
+        when(indexerService.listEnabled()).thenReturn(List.of(idx));
+        when(torznabClient.getCaps(idx)).thenReturn(new IndexerCapability(false, true, false, false));
+        TorrentInfo t = torrent("Dune.2021.2160p.WEB-DL");
+        t.setParsedTitle("Dune");
+        t.setParsedYear("2021");
+        when(torznabClient.searchByExternalId(idx, true, "tmdbid", "438631", null, null))
+                .thenReturn(List.of(t));
+        when(subscriptionEngine.pushBest(eq(movie), eq(0), anyList())).thenReturn(true);
+
+        service.supplement(20, 0, "沙丘");
+
+        verify(torznabClient).searchByExternalId(idx, true, "tmdbid", "438631", null, null);
+        verify(torznabClient, never()).searchByExternalId(eq(idx), eq(true), eq("imdbid"), any(), any(), any());
+    }
+
+    @Test
+    void supplement_电影订阅_订阅无imdbId_退到tmdbid() throws Exception {
+        PtSubscriptionPlus movie = movieSub(20, "沙丘", "2021");
+        movie.setTmdbId("438631");
+        when(subscriptionService.getById(20)).thenReturn(movie);
+        PtIndexerPlus idx = indexer(1);
+        when(indexerService.listEnabled()).thenReturn(List.of(idx));
+        when(torznabClient.getCaps(idx)).thenReturn(new IndexerCapability(true, true, false, false));
+        when(torznabClient.searchByExternalId(idx, true, "tmdbid", "438631", null, null))
+                .thenReturn(List.of());
+        when(torznabClient.search(any(), anyString())).thenReturn(List.of());
+
+        service.supplement(20, 0, "沙丘");
+
+        verify(torznabClient).searchByExternalId(idx, true, "tmdbid", "438631", null, null);
+    }
+
+    @Test
+    void supplement_索引器不支持ID搜索_跳过ID搜索直接走标题() throws Exception {
+        PtSubscriptionPlus movie = movieSub(20, "手机", "2003");
+        movie.setImdbId("tt0125664");
+        movie.setTmdbId("1");
+        when(subscriptionService.getById(20)).thenReturn(movie);
+        PtIndexerPlus idx = indexer(1);
+        when(indexerService.listEnabled()).thenReturn(List.of(idx));
+        when(torznabClient.getCaps(idx)).thenReturn(IndexerCapability.NONE);
+        TorrentInfo t = torrent("手机.2003.1080p");
+        t.setParsedTitle("手机");
+        t.setParsedYear("2003");
+        when(torznabClient.search(any(), anyString())).thenReturn(List.of(t));
+        when(subscriptionEngine.pushBest(eq(movie), eq(0), anyList())).thenReturn(true);
+
+        service.supplement(20, 0, "手机");
+
+        verify(torznabClient, never()).searchByExternalId(any(), anyBoolean(), anyString(), anyString(), any(), any());
+    }
+
+    @Test
+    void supplement_ID搜到候选但过滤后为空_继续走标题搜索而非直接判定未命中() throws Exception {
+        PtSubscriptionPlus movie = movieSub(20, "手机", "2003");
+        movie.setImdbId("tt0125664");
+        when(subscriptionService.getById(20)).thenReturn(movie);
+        PtIndexerPlus idx = indexer(1);
+        when(indexerService.listEnabled()).thenReturn(List.of(idx));
+        when(torznabClient.getCaps(idx)).thenReturn(new IndexerCapability(true, false, false, false));
+        // 索引器 ID 搜索实现有 bug，返回了不相关内容
+        TorrentInfo wrong = torrent("Cellphone.2003.1080p");
+        wrong.setParsedTitle("Cellphone");
+        wrong.setParsedYear("2003");
+        when(torznabClient.searchByExternalId(idx, true, "imdbid", "tt0125664", null, null))
+                .thenReturn(List.of(wrong));
+        TorrentInfo right = torrent("手机.2003.1080p");
+        right.setParsedTitle("手机");
+        right.setParsedYear("2003");
+        when(torznabClient.search(any(), anyString())).thenReturn(List.of(right));
+        when(subscriptionEngine.pushBest(eq(movie), eq(0), anyList())).thenReturn(true);
+
+        SupplementResult result = service.supplement(20, 0, "手机");
+
+        assertTrue(result.isPushed());
+        ArgumentCaptor<List<TorrentInfo>> captor = ArgumentCaptor.forClass(List.class);
+        verify(subscriptionEngine).pushBest(eq(movie), eq(0), captor.capture());
+        assertTrue(captor.getValue().contains(right));
+        assertFalse(captor.getValue().contains(wrong));
+    }
+
+    @Test
+    void supplement_剧集订阅_季包ID搜索不带ep参数() throws Exception {
+        PtSubscriptionPlus sub = tvSub(10, 1, 12);
+        sub.setImdbId("tt0903747");
+        when(subscriptionService.getById(10)).thenReturn(sub);
+        PtIndexerPlus idx = indexer(1);
+        when(indexerService.listEnabled()).thenReturn(List.of(idx));
+        when(torznabClient.getCaps(idx)).thenReturn(new IndexerCapability(false, false, true, false));
+        when(torznabClient.searchByExternalId(idx, false, "imdbid", "tt0903747", 1, null))
+                .thenReturn(List.of());
+
+        service.supplement(10, SubscriptionMatcher.SEASON_PACK, "Some Show S01");
+
+        verify(torznabClient).searchByExternalId(idx, false, "imdbid", "tt0903747", 1, null);
+    }
+
+    @Test
+    void supplement_剧集订阅_单集ID搜索带season和ep() throws Exception {
+        PtSubscriptionPlus sub = tvSub(10, 1, 12);
+        sub.setImdbId("tt0903747");
+        when(subscriptionService.getById(10)).thenReturn(sub);
+        PtIndexerPlus idx = indexer(1);
+        when(indexerService.listEnabled()).thenReturn(List.of(idx));
+        when(torznabClient.getCaps(idx)).thenReturn(new IndexerCapability(false, false, true, false));
+        when(torznabClient.searchByExternalId(idx, false, "imdbid", "tt0903747", 1, 3))
+                .thenReturn(List.of());
+
+        service.supplement(10, 3, "Some Show S01E03");
+
+        verify(torznabClient).searchByExternalId(idx, false, "imdbid", "tt0903747", 1, 3);
     }
 }
