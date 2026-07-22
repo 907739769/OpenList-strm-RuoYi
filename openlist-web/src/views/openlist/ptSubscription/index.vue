@@ -74,9 +74,25 @@
             {{ scope.row.lastMatchTime || '-' }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" align="center" width="300" fixed="right">
+        <el-table-column label="上次搜索" prop="lastSearchTime" width="170" align="center">
+          <template #default="scope">
+            {{ scope.row.lastSearchTime || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="自动补搜" width="100" align="center">
+          <template #default="scope">
+            <el-switch
+              v-model="scope.row.autoSearch"
+              active-value="1"
+              inactive-value="0"
+              @change="toggleAutoSearch(scope.row)"
+            />
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" align="center" width="360" fixed="right">
           <template #default="scope">
             <el-button link type="primary" @click="showProgress(scope.row)">进度</el-button>
+            <el-button link type="primary" @click="openSeasonSearch(scope.row)">搜索补齐</el-button>
             <el-button link type="primary" @click="handleRefresh(scope.row)">对账</el-button>
             <el-button v-if="scope.row.status !== 'PAUSED'" link type="warning" @click="handlePause(scope.row)">暂停</el-button>
             <el-button v-else link type="success" @click="handleResume(scope.row)">恢复</el-button>
@@ -164,14 +180,41 @@
           />
           <p>已入库 <strong>{{ progress.inLibraryCount }}</strong> / {{ progress.totalEpisodes }} 集</p>
           <p v-if="progress.inFlightCount">在途 {{ progress.inFlightCount }} 集（已推送下载器，尚未入库）</p>
-          <p v-if="progress.missingEpisodes && progress.missingEpisodes.length">
-            仍缺第 {{ progress.missingEpisodes.join('、') }} 集
-          </p>
+          <div v-if="progress.missingEpisodes && progress.missingEpisodes.length" class="missing-list">
+            仍缺第
+            <span v-for="ep in progress.missingEpisodes" :key="ep" class="missing-item">
+              {{ ep }}
+              <el-button
+                v-if="currentSubscription && currentSubscription.mediaType !== 'MOVIE'"
+                link
+                type="primary"
+                size="small"
+                @click="openEpisodeSearch(currentSubscription, ep)"
+              >搜</el-button>
+            </span>
+            集
+          </div>
           <p v-else class="all-done">全部集已入库</p>
         </template>
       </div>
       <template #footer>
+        <el-button v-if="currentSubscription" type="primary" @click="openSeasonSearch(currentSubscription)">
+          搜索补齐
+        </el-button>
         <el-button @click="progressOpen = false">关闭</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 搜索补集确认 -->
+    <el-dialog v-model="searchDialogOpen" title="搜索补集" width="480px" append-to-body class="modern-dialog">
+      <el-form label-width="80px">
+        <el-form-item label="关键词">
+          <el-input v-model="searchDialogKeyword" placeholder="搜索关键词，可编辑后再搜" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="searchDialogOpen = false">取消</el-button>
+        <el-button type="primary" :loading="searchDialogLoading" @click="confirmSearch">搜索</el-button>
       </template>
     </el-dialog>
   </div>
@@ -187,7 +230,9 @@ const {
   taskList, loading, total, queryParams, getList, handleQuery, resetQuery, queryRef,
   subscribeOpen, searchLoading, subscribeLoading, searchResults, searchForm,
   picked, pickedSeason, openSubscribeDialog, doSearch, pick, confirmSubscribe,
-  progressOpen, progressLoading, progress, showProgress,
+  progressOpen, progressLoading, progress, currentSubscription, showProgress,
+  searchDialogOpen, searchDialogLoading, searchDialogKeyword,
+  openSeasonSearch, openEpisodeSearch, confirmSearch, toggleAutoSearch,
   handleRefresh, handlePause, handleResume, handleRemove
 } = usePtSubscription()
 </script>
@@ -213,5 +258,16 @@ const {
 
 .all-done {
   color: var(--el-color-success);
+}
+
+.missing-list {
+  margin: 8px 0;
+  line-height: 1.8;
+}
+
+.missing-item {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 4px;
 }
 </style>
