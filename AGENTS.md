@@ -51,6 +51,7 @@
 - **FastJSON2**: 统一使用 FastJSON2 做 JSON 序列化
 - **密码加密**: 使用 Cipher 加密存储敏感配置 (DB_PASSWORD 等)；密钥与连接信息走 `.env` (见 `.env.example`)，不要硬编码或提交进仓库
 - **前端**: unplugin-auto-import + unplugin-vue-components 自动导入，`@` 指向 `src/`
+- **`*Plus` 实体 mock 打桩注意**: `mybatisplus/domain/` 下的 `*Plus` 实体只有 `@Getter @Setter`，没有自己的 `equals()`/`hashCode()`，继承的是 `BaseEntity`（`@Data`）只比较 `createTime`/`updateTime`/`params` 的浅层 equals——不同 id 的两个未落库实例会被判定为"相等"。同一测试方法里对同一 mock 方法用两个不同的 `*Plus` 实例做参数匹配时，必须用 `ArgumentMatchers.same()`/`eq()` 显式按引用区分，不要依赖默认 equals，否则会在 `when()` 调用处炸出令人迷惑的异常（参考 `ruoyi-openliststrm/src/test/java/com/ruoyi/openliststrm/pt/subscription/SearchSupplementServiceTest.java:95-98`）
 
 ## ANTI-PATTERNS
 - 不要在 `ruoyi-system` 中新增业务模块 (那是 RuoYi 标准系统管理)
