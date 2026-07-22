@@ -29,6 +29,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.same;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -40,12 +41,14 @@ class SearchSupplementServiceTest {
     @Mock private TorznabClient torznabClient;
     @Mock private SubscriptionEngine subscriptionEngine;
     @Mock private IPtSubscriptionPlusService subscriptionService;
+    // 用真实实例而非 mock：标题归一化逻辑本身就是本测试要验证的行为
+    private final SubscriptionMatcher matcher = new SubscriptionMatcher();
 
     private SearchSupplementService service;
 
     @BeforeEach
     void setUp() {
-        service = new SearchSupplementService(indexerService, torznabClient, subscriptionEngine, subscriptionService);
+        service = new SearchSupplementService(indexerService, torznabClient, subscriptionEngine, subscriptionService, matcher);
     }
 
     private PtIndexerPlus indexer(int id) {
@@ -71,6 +74,16 @@ class SearchSupplementServiceTest {
         TorrentInfo t = new TorrentInfo();
         t.setTitle(title);
         return t;
+    }
+
+    private PtSubscriptionPlus movieSub(int id, String title, String year) {
+        PtSubscriptionPlus sub = new PtSubscriptionPlus();
+        sub.setId(id);
+        sub.setMediaType("MOVIE");
+        sub.setTitle(title);
+        sub.setYear(year);
+        sub.setStatus("ACTIVE");
+        return sub;
     }
 
     // ---------- searchAcrossIndexers ----------
@@ -290,19 +303,17 @@ class SearchSupplementServiceTest {
     }
 
     @Test
-    void supplement_电影订阅不做季集校验_候选原样传给引擎() throws Exception {
-        PtSubscriptionPlus movie = new PtSubscriptionPlus();
-        movie.setId(20);
-        movie.setMediaType("MOVIE");
-        movie.setStatus("ACTIVE");
+    void supplement_电影订阅_标题年份都匹配的候选能正常传给引擎() throws Exception {
+        PtSubscriptionPlus movie = movieSub(20, "手机", "2003");
         when(subscriptionService.getById(20)).thenReturn(movie);
         when(indexerService.listEnabled()).thenReturn(List.of(indexer(1)));
-        TorrentInfo t = torrent("Some.Movie.2024.1080p");
-        // 电影没有季集概念，本地解析不会给它设置 parsedSeason/parsedEpisode
+        TorrentInfo t = torrent("手机.2003.1080p");
+        t.setParsedTitle("手机");
+        t.setParsedYear("2003");
         when(torznabClient.search(any(), anyString())).thenReturn(List.of(t));
         when(subscriptionEngine.pushBest(eq(movie), eq(0), anyList())).thenReturn(true);
 
-        SupplementResult result = service.supplement(20, 0, "Some Movie 2024");
+        SupplementResult result = service.supplement(20, 0, "手机");
 
         assertTrue(result.isPushed());
         assertEquals(1, result.getCandidateCount());
@@ -310,6 +321,164 @@ class SearchSupplementServiceTest {
         verify(subscriptionEngine).pushBest(eq(movie), eq(0), captor.capture());
         assertEquals(1, captor.getValue().size());
         assertTrue(captor.getValue().contains(t));
+    }
+
+    @Test
+    void supplement_电影订阅_标题不匹配的候选被过滤_不会传给引擎() throws Exception {
+        // 复现用户反馈的错配场景：搜索关键词"手机"命中的候选标题里含"手机"二字，
+        // 但归一化后与订阅标题不相等（不是同一部作品），必须被过滤掉。
+        PtSubscriptionPlus movie = movieSub(20, "手机", "2003");
+        when(subscriptionService.getById(20)).thenReturn(movie);
+        when(indexerService.listEnabled()).thenReturn(List.of(indexer(1)));
+        TorrentInfo unrelated = torrent("有手机就打.2020.1080p");
+        unrelated.setParsedTitle("有手机就打");
+        unrelated.setParsedYear("2020");
+        when(torznabClient.search(any(), anyString())).thenReturn(List.of(unrelated));
+
+        SupplementResult result = service.supplement(20, 0, "手机");
+
+        assertFalse(result.isPushed());
+        ArgumentCaptor<List<TorrentInfo>> captor = ArgumentCaptor.forClass(List.class);
+        verify(subscriptionEngine).pushBest(eq(movie), eq(0), captor.capture());
+        assertTrue(captor.getValue().isEmpty());
+    }
+
+    @Test
+    void supplement_电影订阅_年份不一致的候选被过滤() throws Exception {
+        // 同名翻拍常见，标题相同但年份不符宁可漏也不能串台
+        PtSubscriptionPlus movie = movieSub(20, "手机", "2003");
+        when(subscriptionService.getById(20)).thenReturn(movie);
+        when(indexerService.listEnabled()).thenReturn(List.of(indexer(1)));
+        TorrentInfo remake = torrent("手机.2020.1080p");
+        remake.setParsedTitle("手机");
+        remake.setParsedYear("2020");
+        when(torznabClient.search(any(), anyString())).thenReturn(List.of(remake));
+
+        SupplementResult result = service.supplement(20, 0, "手机");
+
+        assertFalse(result.isPushed());
+        ArgumentCaptor<List<TorrentInfo>> captor = ArgumentCaptor.forClass(List.class);
+        verify(subscriptionEngine).pushBest(eq(movie), eq(0), captor.capture());
+        assertTrue(captor.getValue().isEmpty());
+    }
+
+    @Test
+    void supplement_电影订阅_候选带季集信息的被过滤() throws Exception {
+        // 带季/集号的候选一定是剧集/综艺，不该匹配电影订阅
+        PtSubscriptionPlus movie = movieSub(20, "手机", "2003");
+        when(subscriptionService.getById(20)).thenReturn(movie);
+        when(indexerService.listEnabled()).thenReturn(List.of(indexer(1)));
+        TorrentInfo tvShow = torrent("手机.S01E01.2003.1080p");
+        tvShow.setParsedTitle("手机");
+        tvShow.setParsedYear("2003");
+        tvShow.setParsedSeason(1);
+        tvShow.setParsedEpisode(1);
+        when(torznabClient.search(any(), anyString())).thenReturn(List.of(tvShow));
+
+        SupplementResult result = service.supplement(20, 0, "手机");
+
+        assertFalse(result.isPushed());
+        ArgumentCaptor<List<TorrentInfo>> captor = ArgumentCaptor.forClass(List.class);
+        verify(subscriptionEngine).pushBest(eq(movie), eq(0), captor.capture());
+        assertTrue(captor.getValue().isEmpty());
+    }
+
+    // ---------- 中英文双语关键词兜底 ----------
+
+    @Test
+    void supplement_中文搜到候选_不触发英文补搜() throws Exception {
+        PtSubscriptionPlus movie = movieSub(20, "手机", "2003");
+        movie.setOriginalTitle("手机");
+        when(subscriptionService.getById(20)).thenReturn(movie);
+        when(indexerService.listEnabled()).thenReturn(List.of(indexer(1)));
+        TorrentInfo t = torrent("手机.2003.1080p");
+        t.setParsedTitle("手机");
+        t.setParsedYear("2003");
+        when(torznabClient.search(any(), anyString())).thenReturn(List.of(t));
+        when(subscriptionEngine.pushBest(eq(movie), eq(0), anyList())).thenReturn(true);
+
+        service.supplement(20, 0, "手机");
+
+        verify(torznabClient, times(1)).search(any(), anyString());
+    }
+
+    @Test
+    void supplement_中文搜不到_originalTitle非空且不同_触发英文补搜() throws Exception {
+        PtSubscriptionPlus movie = movieSub(20, "沙丘", "2021");
+        movie.setOriginalTitle("Dune");
+        when(subscriptionService.getById(20)).thenReturn(movie);
+        when(indexerService.listEnabled()).thenReturn(List.of(indexer(1)));
+        TorrentInfo enTorrent = torrent("Dune.2021.2160p.WEB-DL");
+        enTorrent.setParsedTitle("Dune");
+        enTorrent.setParsedYear("2021");
+        when(torznabClient.search(any(), eq("沙丘"))).thenReturn(List.of());
+        when(torznabClient.search(any(), eq("Dune"))).thenReturn(List.of(enTorrent));
+        when(subscriptionEngine.pushBest(eq(movie), eq(0), anyList())).thenReturn(true);
+
+        SupplementResult result = service.supplement(20, 0, "沙丘");
+
+        assertTrue(result.isPushed());
+        ArgumentCaptor<List<TorrentInfo>> captor = ArgumentCaptor.forClass(List.class);
+        verify(subscriptionEngine).pushBest(eq(movie), eq(0), captor.capture());
+        assertEquals(1, captor.getValue().size());
+        assertTrue(captor.getValue().contains(enTorrent));
+    }
+
+    @Test
+    void supplement_originalTitle为空_不触发英文补搜() throws Exception {
+        PtSubscriptionPlus movie = movieSub(20, "手机", "2003");
+        when(subscriptionService.getById(20)).thenReturn(movie);
+        when(indexerService.listEnabled()).thenReturn(List.of(indexer(1)));
+        when(torznabClient.search(any(), eq("手机"))).thenReturn(List.of());
+
+        service.supplement(20, 0, "手机");
+
+        verify(torznabClient, times(1)).search(any(), anyString());
+    }
+
+    @Test
+    void supplement_originalTitle归一化后与title相同_不触发英文补搜() throws Exception {
+        PtSubscriptionPlus movie = movieSub(20, "手机", "2003");
+        movie.setOriginalTitle("手机");
+        when(subscriptionService.getById(20)).thenReturn(movie);
+        when(indexerService.listEnabled()).thenReturn(List.of(indexer(1)));
+        when(torznabClient.search(any(), eq("手机"))).thenReturn(List.of());
+
+        service.supplement(20, 0, "手机");
+
+        verify(torznabClient, times(1)).search(any(), anyString());
+    }
+
+    @Test
+    void supplement_剧集英文补搜关键词按原有格式拼season和episode() throws Exception {
+        PtSubscriptionPlus sub = tvSub(10, 1, 12);
+        sub.setOriginalTitle("Breaking Bad");
+        when(subscriptionService.getById(10)).thenReturn(sub);
+        when(indexerService.listEnabled()).thenReturn(List.of(indexer(1)));
+        when(torznabClient.search(any(), eq("Some Show S01E03"))).thenReturn(List.of());
+        TorrentInfo enTorrent = torrent("Breaking.Bad.S01E03.1080p");
+        enTorrent.setParsedSeason(1);
+        enTorrent.setParsedEpisode(3);
+        when(torznabClient.search(any(), eq("Breaking Bad S01E03"))).thenReturn(List.of(enTorrent));
+        when(subscriptionEngine.pushBest(eq(sub), eq(3), anyList())).thenReturn(true);
+
+        service.supplement(10, 3, "Some Show S01E03");
+
+        verify(torznabClient).search(any(), eq("Breaking Bad S01E03"));
+    }
+
+    @Test
+    void supplement_剧集季包英文补搜关键词不带E后缀() throws Exception {
+        PtSubscriptionPlus sub = tvSub(10, 1, 12);
+        sub.setOriginalTitle("Breaking Bad");
+        when(subscriptionService.getById(10)).thenReturn(sub);
+        when(indexerService.listEnabled()).thenReturn(List.of(indexer(1)));
+        when(torznabClient.search(any(), eq("Some Show S01"))).thenReturn(List.of());
+        when(torznabClient.search(any(), eq("Breaking Bad S01"))).thenReturn(List.of());
+
+        service.supplement(10, SubscriptionMatcher.SEASON_PACK, "Some Show S01");
+
+        verify(torznabClient).search(any(), eq("Breaking Bad S01"));
     }
 
     // ---------- validateEpisode 的 totalEpisodes null 安全 ----------
