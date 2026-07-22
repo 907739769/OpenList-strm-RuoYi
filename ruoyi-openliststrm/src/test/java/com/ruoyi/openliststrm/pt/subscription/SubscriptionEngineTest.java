@@ -395,4 +395,21 @@ class SubscriptionEngineTest {
 
         assertFalse(engine.pushBest(sub, 1, List.of()));
     }
+
+    /**
+     * 回归测试：候选为空时必须在查库前短路，不能把空列表传给 recordService.list()。
+     * MyBatis-Plus 的 QueryWrapper.in("guid_hash", emptyList) 会生成 "IN ()"，
+     * 在真实 MySQL 上是语法错误（Mock 环境不会暴露，只有真实数据库才会报错，
+     * 这个用例是在浏览器端到端验证时发现的真实生产问题——见 SearchSupplementService
+     * 在无索引器/无搜索结果时会以空列表调用 pushBest）。
+     */
+    @Test
+    void pushBest_候选为空_不查询已有下载记录() {
+        PtSubscriptionPlus sub = tvSub(10, "Some Show", 1, 1);
+        when(episodeService.listBySubscription(10)).thenReturn(List.of(episode(101, 1, "MISSING")));
+
+        engine.pushBest(sub, 1, List.of());
+
+        verify(recordService, never()).list(any(Wrapper.class));
+    }
 }

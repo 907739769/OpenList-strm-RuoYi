@@ -268,6 +268,12 @@ public class SubscriptionEngine {
      * 提前剔除既避免重复下载，也避免插入时撞约束。
      */
     private List<TorrentInfo> excludeAlreadyRecorded(List<TorrentInfo> candidates) {
+        if (candidates.isEmpty()) {
+            // 空列表直接返回：MyBatis-Plus 的 in() 遇到空集合会生成 "IN ()"，MySQL 语法错误。
+            // RSS 路径下 candidates 恒非空（由 process() 的分组逻辑保证），但搜索补集路径
+            // （SearchSupplementService）可能以空结果调用到这里，必须在查库前短路。
+            return candidates;
+        }
         List<String> hashes = candidates.stream()
                 .map(t -> GuidHasher.hash(t.getGuid()))
                 .toList();
