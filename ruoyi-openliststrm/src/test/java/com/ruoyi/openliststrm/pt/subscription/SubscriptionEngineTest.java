@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -334,5 +335,64 @@ class SubscriptionEngineTest {
         when(subscriptionService.listActive()).thenReturn(List.of(tvSub(10, "Some Show", 1, 1)));
 
         assertEquals(0, engine.process(List.of()));
+    }
+
+    // ---------- pushBest（搜索补集复用） ----------
+
+    @Test
+    void pushBest_指定单集_只占位该集() throws Exception {
+        PtSubscriptionPlus sub = tvSub(10, "Some Show", 1, 3);
+        when(episodeService.listBySubscription(10)).thenReturn(List.of(
+                episode(101, 1, "MISSING"), episode(102, 2, "MISSING"), episode(103, 3, "MISSING")));
+
+        boolean pushed = engine.pushBest(sub, 2, List.of(torrent("Some.Show.S01E02.1080p", "g1", 10, "1080p")));
+
+        assertTrue(pushed);
+        ArgumentCaptor<PtDownloadRecordPlus> captor = ArgumentCaptor.forClass(PtDownloadRecordPlus.class);
+        verify(recordService).save(captor.capture());
+        assertEquals(2, captor.getValue().getEpisode());
+    }
+
+    @Test
+    void pushBest_季包目标_占位全部缺失集() throws Exception {
+        PtSubscriptionPlus sub = tvSub(10, "Some Show", 1, 4);
+        when(episodeService.listBySubscription(10)).thenReturn(List.of(
+                episode(101, 1, "IN_LIBRARY"), episode(102, 2, "MISSING"),
+                episode(103, 3, "MISSING"), episode(104, 4, "IN_FLIGHT")));
+
+        boolean pushed = engine.pushBest(sub, SubscriptionMatcher.SEASON_PACK,
+                List.of(torrent("Some.Show.S01.1080p.COMPLETE", "g-pack", 10, "1080p")));
+
+        assertTrue(pushed);
+        ArgumentCaptor<PtDownloadRecordPlus> captor = ArgumentCaptor.forClass(PtDownloadRecordPlus.class);
+        verify(recordService).save(captor.capture());
+        assertEquals(-1, captor.getValue().getEpisode());
+        // 只占位第 2、3 集（IN_LIBRARY 和 IN_FLIGHT 的不动）
+        verify(episodeService, times(2)).update(any(), any(Wrapper.class));
+    }
+
+    @Test
+    void pushBest_电影目标episode恒为0() throws Exception {
+        PtSubscriptionPlus movie = new PtSubscriptionPlus();
+        movie.setId(20);
+        movie.setMediaType("MOVIE");
+        movie.setTitle("Some Movie");
+        movie.setSeason(0);
+        movie.setTotalEpisodes(1);
+        movie.setStatus("ACTIVE");
+        when(episodeService.listBySubscription(20)).thenReturn(List.of(episode(201, 0, "MISSING")));
+
+        boolean pushed = engine.pushBest(movie, 0, List.of(torrent("Some.Movie.2020.1080p", "g1", 10, "1080p")));
+
+        assertTrue(pushed);
+        verify(downloaderClient).addTorrent(any(), anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void pushBest_候选为空_返回false() {
+        PtSubscriptionPlus sub = tvSub(10, "Some Show", 1, 1);
+        when(episodeService.listBySubscription(10)).thenReturn(List.of(episode(101, 1, "MISSING")));
+
+        assertFalse(engine.pushBest(sub, 1, List.of()));
     }
 }

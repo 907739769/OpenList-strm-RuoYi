@@ -125,9 +125,22 @@ public class SubscriptionEngine {
     }
 
     /**
+     * 供搜索补集复用：已知目标订阅与集号（-1=季包，电影恒为0），跳过 RSS 的批量匹配阶段，
+     * 直接对候选种子走过滤择优 → 原子占位 → 落库 → 推送，与 {@link #process} 共用同一段核心逻辑。
+     *
      * @return 是否成功推送了一个种子
      */
-    private boolean handleGroup(MatchResult match, List<TorrentInfo> candidates,
+    public boolean pushBest(PtSubscriptionPlus sub, int episode, List<TorrentInfo> candidates) {
+        PtFilterConfigPlus globalConfig = filterConfigService.getConfig();
+        MatchResult match = new MatchResult(sub, episode);
+        Map<Integer, List<PtSubscriptionEpisodePlus>> episodeCache = new LinkedHashMap<>();
+        return handleGroup(match, candidates, globalConfig, episodeCache);
+    }
+
+    /**
+     * @return 是否成功推送了一个种子
+     */
+    boolean handleGroup(MatchResult match, List<TorrentInfo> candidates,
                                 PtFilterConfigPlus globalConfig,
                                 Map<Integer, List<PtSubscriptionEpisodePlus>> episodeCache) {
         PtSubscriptionPlus sub = match.getSubscription();
@@ -203,7 +216,7 @@ public class SubscriptionEngine {
     }
 
     /** 用本地解析结果填充种子的 parsedXxx 字段，不发任何网络请求 */
-    private void fillParsed(TorrentInfo torrent) {
+    void fillParsed(TorrentInfo torrent) {
         MediaInfo info = mediaParser.parseLocal(torrent.getTitle());
         // 注意：parseLocal 不做 TMDb 富化，MediaInfo.title 恒为 null
         // （TitleProcessor.processTitle 只写 originalTitle/englishTitle，见该类第46-48行的注释代码）。
