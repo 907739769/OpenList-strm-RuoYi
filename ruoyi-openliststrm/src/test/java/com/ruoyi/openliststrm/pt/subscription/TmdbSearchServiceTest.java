@@ -19,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -187,5 +188,52 @@ class TmdbSearchServiceTest {
         assertEquals("绝命毒师", detail.getTitle());
         assertEquals("2008", detail.getYear());
         assertEquals("/abc.jpg", detail.getPosterPath());
+    }
+
+    @Test
+    void getDetail_电影从详情直接取imdb_id_不额外调external_ids() {
+        when(tmDbApiService.getDetails(anyString(), anyString(), anyInt()))
+                .thenReturn("""
+                        {"id":550,"title":"搏击俱乐部","original_title":"Fight Club",
+                         "release_date":"1999-10-15","imdb_id":"tt0137523"}
+                        """);
+
+        TmdbSearchItem detail = service.getDetail("MOVIE", "550");
+
+        assertEquals("tt0137523", detail.getImdbId());
+        verify(tmDbApiService, never()).getExternalIds(anyString(), anyString(), anyInt());
+    }
+
+    @Test
+    void getDetail_电影详情无imdb_id字段_imdbId为null() {
+        when(tmDbApiService.getDetails(anyString(), anyString(), anyInt()))
+                .thenReturn("{\"id\":550,\"title\":\"片\",\"release_date\":\"1999-10-15\"}");
+
+        assertNull(service.getDetail("MOVIE", "550").getImdbId());
+    }
+
+    @Test
+    void getDetail_剧集查external_ids取imdb_id() {
+        when(tmDbApiService.getDetails(anyString(), anyString(), anyInt()))
+                .thenReturn("""
+                        {"id":1396,"name":"绝命毒师","original_name":"Breaking Bad",
+                         "first_air_date":"2008-01-20"}
+                        """);
+        when(tmDbApiService.getExternalIds(anyString(), eq("tv"), anyInt()))
+                .thenReturn("{\"imdb_id\":\"tt0903747\"}");
+
+        TmdbSearchItem detail = service.getDetail("TV", "1396");
+
+        assertEquals("tt0903747", detail.getImdbId());
+    }
+
+    @Test
+    void getDetail_剧集external_ids无imdb_id_imdbId为null() {
+        when(tmDbApiService.getDetails(anyString(), anyString(), anyInt()))
+                .thenReturn("{\"id\":1396,\"name\":\"剧\",\"first_air_date\":\"2008-01-20\"}");
+        when(tmDbApiService.getExternalIds(anyString(), eq("tv"), anyInt()))
+                .thenReturn("{\"tvdb_id\":123}");
+
+        assertNull(service.getDetail("TV", "1396").getImdbId());
     }
 }

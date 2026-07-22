@@ -71,7 +71,23 @@ public class TmdbSearchService {
         if (detail == null) {
             throw new IllegalArgumentException("TMDb 未返回 " + tmdbId + " 的详情");
         }
-        return toItem(detail, mediaType);
+        TmdbSearchItem item = toItem(detail, mediaType);
+        item.setImdbId(resolveImdbId(mediaType, tmdbId, detail));
+        return item;
+    }
+
+    /**
+     * 电影详情接口（/movie/{id}）本身带 imdb_id，直接取，不产生额外请求；
+     * 剧集详情接口（/tv/{id}）没有该字段，需要多查一次 external_ids。
+     * 两种情况都取不到时返回 null——imdbId 为空是允许的降级路径（走标题搜索）。
+     */
+    private String resolveImdbId(String mediaType, String tmdbId, JSONObject detail) {
+        if (TYPE_MOVIE.equalsIgnoreCase(mediaType)) {
+            return detail.getString("imdb_id");
+        }
+        JSONObject externalIds = readObject(
+                tmDbApiService.getExternalIds(openlistConfig.getTmdbApiKey(), "tv", Integer.parseInt(tmdbId)));
+        return externalIds == null ? null : externalIds.getString("imdb_id");
     }
 
     /**
