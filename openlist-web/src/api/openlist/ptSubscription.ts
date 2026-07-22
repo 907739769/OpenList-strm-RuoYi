@@ -60,3 +60,11 @@ export function pauseSubscriptionApi(id: number) {
 export function resumeSubscriptionApi(id: number) {
   return request.post(`/openliststrm/pt-subscriptions/${id}/resume`)
 }
+
+/** 搜索补集：关键词搜索所有索引器并推送最优结果 */
+export function searchSupplementApi(id: number, data: { episode: number; keyword: string }) {
+  return request.post<any, { pushed: boolean; candidateCount: number }>(
+    `/openliststrm/pt-subscriptions/${id}/search`,
+    data
+  )
+}
