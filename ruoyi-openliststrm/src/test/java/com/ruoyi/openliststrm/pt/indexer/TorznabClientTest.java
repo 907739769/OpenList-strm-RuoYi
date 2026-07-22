@@ -160,4 +160,34 @@ class TorznabClientTest {
 
         assertThrows(IOException.class, () -> client.search(indexer(null), "kw"));
     }
+
+    @Test
+    void getCaps_正常响应_解析出能力() throws Exception {
+        server.enqueue(new MockResponse().setBody("""
+                <caps>
+                  <searching>
+                    <movie-search available="yes" supportedParams="q,imdbid,tmdbid"/>
+                  </searching>
+                </caps>
+                """));
+
+        IndexerCapability cap = client.getCaps(indexer(null));
+
+        assertTrue(cap.movieImdbSupported());
+        assertTrue(cap.movieTmdbSupported());
+    }
+
+    @Test
+    void getCaps_请求异常_返回NONE而不抛异常() throws IOException {
+        server.shutdown();
+
+        assertEquals(IndexerCapability.NONE, client.getCaps(indexer(null)));
+    }
+
+    @Test
+    void getCaps_HTTP错误码_返回NONE而不抛异常() {
+        server.enqueue(new MockResponse().setResponseCode(500));
+
+        assertEquals(IndexerCapability.NONE, client.getCaps(indexer(null)));
+    }
 }

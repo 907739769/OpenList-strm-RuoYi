@@ -78,6 +78,21 @@ public class TorznabClient {
         }
     }
 
+    /**
+     * 探测索引器 ID 搜索能力（t=caps），用于判断是否可以发起 imdbid/tmdbid 精确搜索。
+     * 任何异常（网络失败、响应非法）均返回 {@link IndexerCapability#NONE}，不向上抛——
+     * 与 {@link #testConnection} 同样的容错哲学，能力探测失败不该阻断后续的标题搜索兜底。
+     */
+    public IndexerCapability getCaps(PtIndexerPlus indexer) {
+        try {
+            String body = execute(buildUrl(indexer, "caps"));
+            return TorznabCapsParser.parse(body);
+        } catch (Exception e) {
+            log.warn("索引器[{}]能力探测失败：{}", indexer.getName(), e.getMessage());
+            return IndexerCapability.NONE;
+        }
+    }
+
     private HttpUrl buildUrl(PtIndexerPlus indexer, String type) {
         HttpUrl base = HttpUrl.parse(indexer.getUrl());
         if (base == null) {
