@@ -1,5 +1,6 @@
 package com.ruoyi.openliststrm.pt.task;
 
+import com.ruoyi.openliststrm.helper.TgHelper;
 import com.ruoyi.openliststrm.mybatisplus.domain.PtIndexerPlus;
 import com.ruoyi.openliststrm.mybatisplus.service.IPtIndexerPlusService;
 import com.ruoyi.openliststrm.pt.indexer.TorznabClient;
@@ -9,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
@@ -18,6 +20,9 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -145,5 +150,29 @@ class RssPollServiceTest {
         service().poll();
 
         verify(subscriptionEngine, never()).process(anyList());
+    }
+
+    @Test
+    void 连续失败第3次_发一次告警() throws Exception {
+        when(indexerService.listEnabled()).thenReturn(List.of(indexer(1, 600, null, 2)));
+        when(torznabClient.fetch(any())).thenThrow(new IOException("connection refused"));
+
+        try (MockedStatic<TgHelper> tg = mockStatic(TgHelper.class)) {
+            service().poll();
+
+            tg.verify(() -> TgHelper.sendMsg(argThat(m -> m.contains("已连续失败 3 次"))));
+        }
+    }
+
+    @Test
+    void 失败但未达第3次_不发告警() throws Exception {
+        when(indexerService.listEnabled()).thenReturn(List.of(indexer(1, 600, null, 0)));
+        when(torznabClient.fetch(any())).thenThrow(new IOException("connection refused"));
+
+        try (MockedStatic<TgHelper> tg = mockStatic(TgHelper.class)) {
+            service().poll();
+
+            tg.verify(() -> TgHelper.sendMsg(anyString()), never());
+        }
     }
 }
