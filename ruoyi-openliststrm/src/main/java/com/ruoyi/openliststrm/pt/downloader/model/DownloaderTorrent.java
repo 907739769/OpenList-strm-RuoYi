@@ -25,6 +25,9 @@ public class DownloaderTorrent {
     /** 保存路径 */
     private String savePath;
 
+    /** 种子的标签，逗号分隔（qB 的 tags 字段原样保留），用于回映到下载记录 */
+    private String tags;
+
     /**
      * 是否已下载完成。统一按进度判定，不依赖各下载器的状态枚举——
      * qBittorrent 的完成态有 uploading/stalledUP/pausedUP 等多种，

@@ -111,6 +111,7 @@ public class QbittorrentClient implements IDownloaderClient {
             torrent.setProgress(item.getDoubleValue("progress"));
             torrent.setRawState(item.getString("state"));
             torrent.setSavePath(item.getString("save_path"));
+            torrent.setTags(item.getString("tags"));
             result.add(torrent);
         }
         return result;

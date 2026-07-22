@@ -149,6 +149,19 @@ class QbittorrentClientTest {
     }
 
     @Test
+    void listByTag_解析出tags字段() throws Exception {
+        server.enqueue(loginOk());
+        server.enqueue(new MockResponse().setBody("""
+                [{"hash":"AABBCC","name":"Show.S01E01","progress":1.0,"state":"uploading",
+                  "save_path":"/data","tags":"osr-pt,osr-pt-0123456789abcdef"}]
+                """));
+
+        List<DownloaderTorrent> list = client.listByTag(config(20), "osr-pt");
+
+        assertEquals("osr-pt,osr-pt-0123456789abcdef", list.get(0).getTags());
+    }
+
+    @Test
     void listByTag_请求带上tag参数() throws Exception {
         server.enqueue(loginOk());
         server.enqueue(new MockResponse().setBody("[]"));
