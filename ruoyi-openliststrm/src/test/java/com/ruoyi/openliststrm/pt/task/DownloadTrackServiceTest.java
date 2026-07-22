@@ -1,6 +1,7 @@
 package com.ruoyi.openliststrm.pt.task;
 
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
+import com.ruoyi.openliststrm.helper.TgHelper;
 import com.ruoyi.openliststrm.mybatisplus.domain.PtDownloadRecordPlus;
 import com.ruoyi.openliststrm.mybatisplus.domain.PtDownloaderPlus;
 import com.ruoyi.openliststrm.mybatisplus.domain.PtSubscriptionEpisodePlus;
@@ -11,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
@@ -19,8 +21,12 @@ import java.util.Date;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -65,14 +71,16 @@ class DownloadTrackServiceTest {
 
     @Test
     void 完成的种子_记录置完成_集状态不动() {
+        when(recordService.update(any(PtDownloadRecordPlus.class), any(Wrapper.class))).thenReturn(true);
         PtDownloadRecordPlus r = record(100, 2, "osr-pt-aaa", "DOWNLOADING", 60_000);
         when(recordService.list(any(Wrapper.class))).thenReturn(List.of(r));
 
         service().track(downloader(), List.of(torrent("osr-pt,osr-pt-aaa", 1.0)));
 
         ArgumentCaptor<PtDownloadRecordPlus> captor = ArgumentCaptor.forClass(PtDownloadRecordPlus.class);
-        verify(recordService).updateById(captor.capture());
+        verify(recordService).update(captor.capture(), any(Wrapper.class));
         assertEquals("COMPLETED", captor.getValue().getState());
+        assertNotNull(captor.getValue().getCompletedTime());
         // 集状态不该被改（等 Emby 对账）
         verify(episodeService, never()).update(any(), any(Wrapper.class));
     }
@@ -91,6 +99,7 @@ class DownloadTrackServiceTest {
 
     @Test
     void 找不到种子且推送已超宽限期_记录置失败且集回退缺失() {
+        when(recordService.update(any(PtDownloadRecordPlus.class), any(Wrapper.class))).thenReturn(true);
         // 宽限期 10 分钟，这条推送了 20 分钟还找不到
         PtDownloadRecordPlus r = record(100, 2, "osr-pt-aaa", "DOWNLOADING", 20 * 60_000);
         when(recordService.list(any(Wrapper.class))).thenReturn(List.of(r));
@@ -99,7 +108,7 @@ class DownloadTrackServiceTest {
         service().track(downloader(), List.of(torrent("osr-pt,osr-pt-other", 0.5)));
 
         ArgumentCaptor<PtDownloadRecordPlus> captor = ArgumentCaptor.forClass(PtDownloadRecordPlus.class);
-        verify(recordService).updateById(captor.capture());
+        verify(recordService).update(captor.capture(), any(Wrapper.class));
         assertEquals("FAILED", captor.getValue().getState());
         // 关联集回退 MISSING
         verify(episodeService).update(any(), any(Wrapper.class));
@@ -113,12 +122,14 @@ class DownloadTrackServiceTest {
 
         service().track(downloader(), List.of(torrent("osr-pt,osr-pt-other", 0.5)));
 
+        verify(recordService, never()).update(any(), any(Wrapper.class));
         verify(recordService, never()).updateById(any());
         verify(episodeService, never()).update(any(), any(Wrapper.class));
     }
 
     @Test
     void 季包失败_关联的多个集全部回退() {
+        when(recordService.update(any(PtDownloadRecordPlus.class), any(Wrapper.class))).thenReturn(true);
         PtDownloadRecordPlus r = record(100, -1, "osr-pt-pack", "DOWNLOADING", 20 * 60_000);
         when(recordService.list(any(Wrapper.class))).thenReturn(List.of(r));
         when(episodeService.list(any(Wrapper.class))).thenReturn(List.of(episodeRow(501), episodeRow(502)));
@@ -126,7 +137,7 @@ class DownloadTrackServiceTest {
         service().track(downloader(), List.of(torrent("osr-pt", 0.5)));
 
         // 两个集都回退
-        verify(episodeService, org.mockito.Mockito.times(2)).update(any(), any(Wrapper.class));
+        verify(episodeService, times(2)).update(any(), any(Wrapper.class));
     }
 
     @Test
@@ -146,6 +157,59 @@ class DownloadTrackServiceTest {
         service().track(downloader(), List.of());
 
         verify(recordService, never()).updateById(any());
+    }
+
+    @Test
+    void 种子仍在下载器但超僵尸超时_判失败并回退集() {
+        when(recordService.update(any(PtDownloadRecordPlus.class), any(Wrapper.class))).thenReturn(true);
+        PtDownloadRecordPlus r = record(100, 2, "osr-pt-aaa", "DOWNLOADING", 25L * 3600_000);
+        when(recordService.list(any(Wrapper.class))).thenReturn(List.of(r));
+        when(episodeService.list(any(Wrapper.class))).thenReturn(List.of(episodeRow(500)));
+
+        service().track(downloader(), List.of(torrent("osr-pt,osr-pt-aaa", 0.5)));
+
+        ArgumentCaptor<PtDownloadRecordPlus> captor = ArgumentCaptor.forClass(PtDownloadRecordPlus.class);
+        verify(recordService).update(captor.capture(), any(Wrapper.class));
+        assertEquals("FAILED", captor.getValue().getState());
+        verify(episodeService).update(any(), any(Wrapper.class));
+    }
+
+    @Test
+    void 种子仍在下载器且未超僵尸超时_保持下载中() {
+        PtDownloadRecordPlus r = record(100, 2, "osr-pt-aaa", "PUSHED", 3600_000);
+        when(recordService.list(any(Wrapper.class))).thenReturn(List.of(r));
+
+        service().track(downloader(), List.of(torrent("osr-pt,osr-pt-aaa", 0.5)));
+
+        ArgumentCaptor<PtDownloadRecordPlus> captor = ArgumentCaptor.forClass(PtDownloadRecordPlus.class);
+        verify(recordService).updateById(captor.capture());
+        assertEquals("DOWNLOADING", captor.getValue().getState());
+        verify(episodeService, never()).update(any(), any(Wrapper.class));
+    }
+
+    @Test
+    void 完成但记录已被并发置终态_不重复通知() {
+        when(recordService.update(any(PtDownloadRecordPlus.class), any(Wrapper.class))).thenReturn(false);
+        PtDownloadRecordPlus r = record(100, 2, "osr-pt-aaa", "DOWNLOADING", 60_000);
+        when(recordService.list(any(Wrapper.class))).thenReturn(List.of(r));
+
+        try (MockedStatic<TgHelper> tg = mockStatic(TgHelper.class)) {
+            service().track(downloader(), List.of(torrent("osr-pt,osr-pt-aaa", 1.0)));
+            tg.verify(() -> TgHelper.sendMsg(anyString()), never());
+        }
+    }
+
+    @Test
+    void 失败但记录已被并发置终态_不重复通知() {
+        when(recordService.update(any(PtDownloadRecordPlus.class), any(Wrapper.class))).thenReturn(false);
+        PtDownloadRecordPlus r = record(100, 2, "osr-pt-aaa", "DOWNLOADING", 20 * 60_000);
+        when(recordService.list(any(Wrapper.class))).thenReturn(List.of(r));
+        when(episodeService.list(any(Wrapper.class))).thenReturn(List.of(episodeRow(500)));
+
+        try (MockedStatic<TgHelper> tg = mockStatic(TgHelper.class)) {
+            service().track(downloader(), List.of(torrent("osr-pt,osr-pt-other", 0.5)));
+            tg.verify(() -> TgHelper.sendMsg(anyString()), never());
+        }
     }
 
     private PtSubscriptionEpisodePlus episodeRow(int id) {

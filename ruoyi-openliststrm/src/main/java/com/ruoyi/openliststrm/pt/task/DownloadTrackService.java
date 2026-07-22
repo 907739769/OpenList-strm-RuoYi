@@ -36,6 +36,11 @@ public class DownloadTrackService {
     /** 推送后找不到对应种子的宽限期：超过它才判失败（qB 解析磁力元数据需要时间） */
     private static final long GRACE_MILLIS = 10 * 60 * 1000L;
 
+    /** 附录C 绝对时长兜底：推送超过该时长仍未完成的记录一律判失败并回退集，
+     *  覆盖「种子还在下载器但 0 做种卡死」这类 grace 分支照不到的僵尸种子。
+     *  代价：真实的超长慢速下载超过该时长也会被释放（其 guid 按附录B 拉黑，该集靠别的种子恢复）。 */
+    private static final long ZOMBIE_TIMEOUT_MILLIS = 24 * 60 * 60 * 1000L;
+
     private final IPtDownloadRecordPlusService recordService;
     private final IPtSubscriptionEpisodePlusService episodeService;
 
@@ -59,15 +64,32 @@ public class DownloadTrackService {
         long now = System.currentTimeMillis();
         for (PtDownloadRecordPlus record : active) {
             DownloaderTorrent matched = findByTag(torrents, record.getTrackingTag());
-            if (matched == null) {
-                handleMissing(record, now);
-            } else if (matched.isCompleted()) {
+            long age = record.getPushedTime() == null
+                    ? Long.MAX_VALUE : now - record.getPushedTime().getTime();
+            if (matched != null && matched.isCompleted()) {
                 complete(record);
-            } else if (!STATE_DOWNLOADING.equals(record.getState())) {
-                record.setState(STATE_DOWNLOADING);
-                recordService.updateById(record);
+            } else if (matched == null) {
+                if (age >= GRACE_MILLIS) {
+                    fail(record, "下载器中已找不到该种子（可能被删除或元数据解析失败）");
+                }
+                // 未超宽限期：qB 可能还在解析元数据，本轮跳过
+            } else {
+                // 种子还在下载器但未完成
+                if (age >= ZOMBIE_TIMEOUT_MILLIS) {
+                    fail(record, "下载超过 " + (ZOMBIE_TIMEOUT_MILLIS / 3600000) + " 小时仍未完成，判定为僵尸种子");
+                } else {
+                    markDownloading(record);
+                }
             }
         }
+    }
+
+    private void markDownloading(PtDownloadRecordPlus record) {
+        if (STATE_DOWNLOADING.equals(record.getState())) {
+            return;
+        }
+        record.setState(STATE_DOWNLOADING);
+        recordService.updateById(record);
     }
 
     private DownloaderTorrent findByTag(List<DownloaderTorrent> torrents, String trackingTag) {
@@ -100,28 +122,27 @@ public class DownloadTrackService {
     }
 
     private void complete(PtDownloadRecordPlus record) {
-        if (STATE_COMPLETED.equals(record.getState())) {
-            return;
+        PtDownloadRecordPlus set = new PtDownloadRecordPlus();
+        set.setState(STATE_COMPLETED);
+        set.setCompletedTime(new Date());
+        boolean changed = recordService.update(set, new UpdateWrapper<PtDownloadRecordPlus>()
+                .eq("id", record.getId())
+                .in("state", STATE_PUSHED, STATE_DOWNLOADING));
+        if (!changed) {
+            return; // 并发/重叠轮询已处理过，避免重复通知
         }
-        record.setState(STATE_COMPLETED);
-        record.setCompletedTime(new Date());
-        recordService.updateById(record);
         notifySafely("✅ 下载完成：" + record.getTitle());
         log.info("下载记录[{}] 已完成：{}", record.getId(), record.getTitle());
-        // 注意：集状态不动，仍是 IN_FLIGHT，等 LibrarySyncTask 通过 Emby 确认后转 IN_LIBRARY
+        // 集状态不动，仍是 IN_FLIGHT，等 LibrarySyncTask 经 Emby 确认后转 IN_LIBRARY
     }
 
-    private void handleMissing(PtDownloadRecordPlus record, long now) {
-        long age = record.getPushedTime() == null ? Long.MAX_VALUE : now - record.getPushedTime().getTime();
-        if (age < GRACE_MILLIS) {
-            // 刚推送不久，qB 可能还在解析元数据，本轮先不判失败
-            return;
-        }
-        record.setState(STATE_FAILED);
-        record.setFailReason("下载器中已找不到该种子（可能被删除或元数据解析失败）");
-        recordService.updateById(record);
-
-        // 该记录关联的所有集回退 MISSING 并清 download_id（普通集1条、季包多条，统一处理）
+    /**
+     * 判记录失败并回退其关联集。反转写序（先集、后记录）保证崩溃安全：
+     * 无论崩在哪一步，记录仍处于 PUSHED/DOWNLOADING，会被下一轮重新处理，
+     * 不会产生「记录已 FAILED 但集仍 IN_FLIGHT」的永久孤儿。
+     */
+    private void fail(PtDownloadRecordPlus record, String reason) {
+        // 1) 先回退关联集（幂等：只动 IN_FLIGHT 的；普通集1条、季包多条统一处理）
         List<PtSubscriptionEpisodePlus> episodes = episodeService.list(
                 new QueryWrapper<PtSubscriptionEpisodePlus>()
                         .eq("download_id", record.getId())
@@ -133,6 +154,16 @@ public class DownloadTrackService {
             episodeService.update(set, new UpdateWrapper<PtSubscriptionEpisodePlus>()
                     .eq("id", episode.getId())
                     .eq("state", EP_IN_FLIGHT));
+        }
+        // 2) 再置记录 FAILED（条件更新门控通知，避免重叠轮询重复发）
+        PtDownloadRecordPlus set = new PtDownloadRecordPlus();
+        set.setState(STATE_FAILED);
+        set.setFailReason(reason);
+        boolean changed = recordService.update(set, new UpdateWrapper<PtDownloadRecordPlus>()
+                .eq("id", record.getId())
+                .in("state", STATE_PUSHED, STATE_DOWNLOADING));
+        if (!changed) {
+            return; // 已被并发轮次置为终态，避免重复通知
         }
         notifySafely("❌ 下载失败：" + record.getTitle() + "，已释放待下轮重新匹配");
         log.warn("下载记录[{}] 失败，{} 个集回退缺失：{}", record.getId(), episodes.size(), record.getTitle());
