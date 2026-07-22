@@ -8,10 +8,13 @@ import com.ruoyi.openliststrm.mybatisplus.domain.PtSubscriptionEpisodePlus;
 import com.ruoyi.openliststrm.mybatisplus.domain.PtSubscriptionPlus;
 import com.ruoyi.openliststrm.mybatisplus.service.IPtSubscriptionEpisodePlusService;
 import com.ruoyi.openliststrm.mybatisplus.service.IPtSubscriptionPlusService;
+import com.ruoyi.openliststrm.pt.subscription.SearchSupplementService;
 import com.ruoyi.openliststrm.pt.subscription.SubscriptionService;
 import com.ruoyi.openliststrm.pt.subscription.TmdbSearchService;
+import com.ruoyi.openliststrm.pt.subscription.dto.SearchRequest;
 import com.ruoyi.openliststrm.pt.subscription.dto.SubscribeRequest;
 import com.ruoyi.openliststrm.pt.subscription.dto.SubscriptionProgress;
+import com.ruoyi.openliststrm.pt.subscription.dto.SupplementResult;
 import com.ruoyi.openliststrm.pt.subscription.dto.TmdbSearchItem;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,6 +40,9 @@ public class PtSubscriptionRestController extends BaseCrudRestController<IPtSubs
 
     @Autowired
     private IPtSubscriptionEpisodePlusService episodeService;
+
+    @Autowired
+    private SearchSupplementService searchSupplementService;
 
     @Override
     protected Wrapper<PtSubscriptionPlus> buildQueryWrapper(PtSubscriptionPlus entity) {
@@ -120,6 +126,18 @@ public class PtSubscriptionRestController extends BaseCrudRestController<IPtSubs
         try {
             subscriptionBiz.refresh(id);
             return Result.success();
+        } catch (IllegalArgumentException e) {
+            return Result.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 搜索补集：关键词并发搜索所有索引器，命中后走与 RSS 相同的过滤择优/推送链路。
+     */
+    @PostMapping("/{id}/search")
+    public Result<SupplementResult> search(@PathVariable("id") Integer id, @RequestBody SearchRequest request) {
+        try {
+            return Result.success(searchSupplementService.supplement(id, request.getEpisode(), request.getKeyword()));
         } catch (IllegalArgumentException e) {
             return Result.error(e.getMessage());
         }
