@@ -117,7 +117,10 @@ class SearchSupplementServiceTest {
         PtSubscriptionPlus sub = tvSub(10, 1, 3);
         when(subscriptionService.getById(10)).thenReturn(sub);
         when(indexerService.listEnabled()).thenReturn(List.of(indexer(1)));
-        when(torznabClient.search(any(), anyString())).thenReturn(List.of(torrent("Some.Show.S01E02.1080p")));
+        TorrentInfo t = torrent("Some.Show.S01E02.1080p");
+        t.setParsedSeason(1);
+        t.setParsedEpisode(2);
+        when(torznabClient.search(any(), anyString())).thenReturn(List.of(t));
         when(subscriptionEngine.pushBest(eq(sub), eq(2), anyList())).thenReturn(true);
 
         SupplementResult result = service.supplement(10, 2, "Some Show S01E02");
@@ -186,5 +189,137 @@ class SearchSupplementServiceTest {
         SupplementResult result = service.supplement(10, SubscriptionMatcher.SEASON_PACK, "Some Show S01");
 
         assertFalse(result.isPushed());
+    }
+
+    // ---------- 季/集号一致性校验（filterByTarget） ----------
+
+    @Test
+    void supplement_季包目标_季号不匹配的候选被过滤_不会传给引擎() throws Exception {
+        PtSubscriptionPlus sub = tvSub(10, 1, 3);
+        when(subscriptionService.getById(10)).thenReturn(sub);
+        when(indexerService.listEnabled()).thenReturn(List.of(indexer(1)));
+        TorrentInfo mismatch = torrent("Some.Show.S02.1080p");
+        mismatch.setParsedSeason(2);
+        mismatch.setParsedEpisode(null);
+        when(torznabClient.search(any(), anyString())).thenReturn(List.of(mismatch));
+
+        SupplementResult result = service.supplement(10, SubscriptionMatcher.SEASON_PACK, "Some Show S01");
+
+        assertEquals(1, result.getCandidateCount());
+        ArgumentCaptor<List<TorrentInfo>> captor = ArgumentCaptor.forClass(List.class);
+        verify(subscriptionEngine).pushBest(eq(sub), eq(SubscriptionMatcher.SEASON_PACK), captor.capture());
+        assertTrue(captor.getValue().isEmpty());
+    }
+
+    @Test
+    void supplement_季包目标_parsedEpisode不为null的单集候选被过滤() throws Exception {
+        PtSubscriptionPlus sub = tvSub(10, 1, 3);
+        when(subscriptionService.getById(10)).thenReturn(sub);
+        when(indexerService.listEnabled()).thenReturn(List.of(indexer(1)));
+        TorrentInfo singleEpisode = torrent("Some.Show.S01E05.1080p");
+        singleEpisode.setParsedSeason(1);
+        singleEpisode.setParsedEpisode(5);
+        when(torznabClient.search(any(), anyString())).thenReturn(List.of(singleEpisode));
+
+        SupplementResult result = service.supplement(10, SubscriptionMatcher.SEASON_PACK, "Some Show S01");
+
+        assertEquals(1, result.getCandidateCount());
+        ArgumentCaptor<List<TorrentInfo>> captor = ArgumentCaptor.forClass(List.class);
+        verify(subscriptionEngine).pushBest(eq(sub), eq(SubscriptionMatcher.SEASON_PACK), captor.capture());
+        assertTrue(captor.getValue().isEmpty());
+    }
+
+    @Test
+    void supplement_单集目标_集号不匹配的候选被过滤() throws Exception {
+        PtSubscriptionPlus sub = tvSub(10, 1, 3);
+        when(subscriptionService.getById(10)).thenReturn(sub);
+        when(indexerService.listEnabled()).thenReturn(List.of(indexer(1)));
+        TorrentInfo wrongEpisode = torrent("Some.Show.S01E05.1080p");
+        wrongEpisode.setParsedSeason(1);
+        wrongEpisode.setParsedEpisode(5);
+        when(torznabClient.search(any(), anyString())).thenReturn(List.of(wrongEpisode));
+
+        SupplementResult result = service.supplement(10, 3, "Some Show S01E03");
+
+        assertEquals(1, result.getCandidateCount());
+        ArgumentCaptor<List<TorrentInfo>> captor = ArgumentCaptor.forClass(List.class);
+        verify(subscriptionEngine).pushBest(eq(sub), eq(3), captor.capture());
+        assertTrue(captor.getValue().isEmpty());
+    }
+
+    @Test
+    void supplement_parsedSeason为null的候选被过滤() throws Exception {
+        PtSubscriptionPlus sub = tvSub(10, 1, 3);
+        when(subscriptionService.getById(10)).thenReturn(sub);
+        when(indexerService.listEnabled()).thenReturn(List.of(indexer(1)));
+        TorrentInfo unparsed = torrent("Some.Show.Unknown");
+        unparsed.setParsedSeason(null);
+        unparsed.setParsedEpisode(null);
+        when(torznabClient.search(any(), anyString())).thenReturn(List.of(unparsed));
+
+        service.supplement(10, SubscriptionMatcher.SEASON_PACK, "Some Show S01");
+
+        ArgumentCaptor<List<TorrentInfo>> captor = ArgumentCaptor.forClass(List.class);
+        verify(subscriptionEngine).pushBest(eq(sub), eq(SubscriptionMatcher.SEASON_PACK), captor.capture());
+        assertTrue(captor.getValue().isEmpty());
+    }
+
+    @Test
+    void supplement_季号集号都匹配的候选能正常传给引擎() throws Exception {
+        PtSubscriptionPlus sub = tvSub(10, 1, 3);
+        when(subscriptionService.getById(10)).thenReturn(sub);
+        when(indexerService.listEnabled()).thenReturn(List.of(indexer(1)));
+        TorrentInfo mismatch = torrent("Some.Show.S02E03.1080p");
+        mismatch.setParsedSeason(2);
+        mismatch.setParsedEpisode(3);
+        TorrentInfo match = torrent("Some.Show.S01E03.1080p");
+        match.setParsedSeason(1);
+        match.setParsedEpisode(3);
+        when(torznabClient.search(any(), anyString())).thenReturn(List.of(mismatch, match));
+        when(subscriptionEngine.pushBest(eq(sub), eq(3), anyList())).thenReturn(true);
+
+        SupplementResult result = service.supplement(10, 3, "Some Show S01E03");
+
+        assertTrue(result.isPushed());
+        assertEquals(2, result.getCandidateCount());
+        ArgumentCaptor<List<TorrentInfo>> captor = ArgumentCaptor.forClass(List.class);
+        verify(subscriptionEngine).pushBest(eq(sub), eq(3), captor.capture());
+        assertEquals(1, captor.getValue().size());
+        assertTrue(captor.getValue().contains(match));
+        assertFalse(captor.getValue().contains(mismatch));
+    }
+
+    @Test
+    void supplement_电影订阅不做季集校验_候选原样传给引擎() throws Exception {
+        PtSubscriptionPlus movie = new PtSubscriptionPlus();
+        movie.setId(20);
+        movie.setMediaType("MOVIE");
+        movie.setStatus("ACTIVE");
+        when(subscriptionService.getById(20)).thenReturn(movie);
+        when(indexerService.listEnabled()).thenReturn(List.of(indexer(1)));
+        TorrentInfo t = torrent("Some.Movie.2024.1080p");
+        // 电影没有季集概念，本地解析不会给它设置 parsedSeason/parsedEpisode
+        when(torznabClient.search(any(), anyString())).thenReturn(List.of(t));
+        when(subscriptionEngine.pushBest(eq(movie), eq(0), anyList())).thenReturn(true);
+
+        SupplementResult result = service.supplement(20, 0, "Some Movie 2024");
+
+        assertTrue(result.isPushed());
+        assertEquals(1, result.getCandidateCount());
+        ArgumentCaptor<List<TorrentInfo>> captor = ArgumentCaptor.forClass(List.class);
+        verify(subscriptionEngine).pushBest(eq(movie), eq(0), captor.capture());
+        assertEquals(1, captor.getValue().size());
+        assertTrue(captor.getValue().contains(t));
+    }
+
+    // ---------- validateEpisode 的 totalEpisodes null 安全 ----------
+
+    @Test
+    void supplement_剧集totalEpisodes为null_抛IllegalArgumentException而非NPE() {
+        PtSubscriptionPlus sub = tvSub(10, 1, 3);
+        sub.setTotalEpisodes(null);
+        when(subscriptionService.getById(10)).thenReturn(sub);
+
+        assertThrows(IllegalArgumentException.class, () -> service.supplement(10, 2, "kw"));
     }
 }

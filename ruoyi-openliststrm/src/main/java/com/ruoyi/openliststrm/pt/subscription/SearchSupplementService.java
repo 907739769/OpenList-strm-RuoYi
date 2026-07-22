@@ -55,7 +55,8 @@ public class SearchSupplementService {
         for (TorrentInfo torrent : candidates) {
             subscriptionEngine.fillParsed(torrent);
         }
-        boolean pushed = subscriptionEngine.pushBest(sub, episode, candidates);
+        List<TorrentInfo> matched = filterByTarget(sub, episode, candidates);
+        boolean pushed = subscriptionEngine.pushBest(sub, episode, matched);
 
         sub.setLastSearchTime(new Date());
         subscriptionService.updateById(sub);
@@ -110,8 +111,39 @@ public class SearchSupplementService {
         if (episode == SubscriptionMatcher.SEASON_PACK) {
             return;
         }
-        if (episode < 1 || episode > sub.getTotalEpisodes()) {
+        Integer totalEpisodes = sub.getTotalEpisodes();
+        if (episode < 1 || totalEpisodes == null || episode > totalEpisodes) {
             throw new IllegalArgumentException("集号超出范围：" + episode);
         }
+    }
+
+    /**
+     * 数据一致性校验：搜索补集的候选来自模糊全文搜索，未经过 {@link SubscriptionMatcher} 确认季/集号，
+     * 必须在交给 {@link SubscriptionEngine#pushBest} 之前自行校验候选的本地解析季/集号是否真的匹配目标，
+     * 否则错配种子会被 handleGroup 无差别占位到该订阅下所有 MISSING 的集，导致订阅永久卡在 IN_FLIGHT。
+     *
+     * <p>电影订阅没有季集概念，不做校验，原样返回。</p>
+     */
+    private List<TorrentInfo> filterByTarget(PtSubscriptionPlus sub, int episode, List<TorrentInfo> candidates) {
+        if (SubscriptionService.TYPE_MOVIE.equalsIgnoreCase(sub.getMediaType())) {
+            return candidates;
+        }
+        Integer subSeason = sub.getSeason();
+        List<TorrentInfo> matched = new ArrayList<>();
+        for (TorrentInfo candidate : candidates) {
+            Integer parsedSeason = candidate.getParsedSeason();
+            if (parsedSeason == null || !parsedSeason.equals(subSeason)) {
+                continue;
+            }
+            Integer parsedEpisode = candidate.getParsedEpisode();
+            if (episode == SubscriptionMatcher.SEASON_PACK) {
+                if (parsedEpisode == null) {
+                    matched.add(candidate);
+                }
+            } else if (parsedEpisode != null && parsedEpisode == episode) {
+                matched.add(candidate);
+            }
+        }
+        return matched;
     }
 }
