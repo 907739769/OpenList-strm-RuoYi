@@ -49,7 +49,8 @@ public class MysqlDdl extends SimpleDdl {
                 "sql/20260725-pt-subscription.sql",
                 "sql/20260726-pt-filter-and-record-fix.sql",
                 "sql/20260727-pt-subscription-menu.sql",
-                "sql/20260728-pt-subscription-original-title.sql"
+                "sql/20260728-pt-subscription-original-title.sql",
+                "sql/20260722-pt-search-supplement.sql"
         );
     }
 }
