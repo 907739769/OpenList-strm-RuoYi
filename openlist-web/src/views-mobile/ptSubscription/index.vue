@@ -74,6 +74,7 @@
             <el-button link type="primary" size="small" @click="handleRefresh(item)">对账</el-button>
             <el-button link type="primary" size="small" @click="goDownloadRecords(item)">下载记录</el-button>
             <el-button link type="primary" size="small" @click="showSearchLogs(item)">匹配日志</el-button>
+            <el-button link type="primary" size="small" @click="openFilterOverride(item)">过滤规则</el-button>
             <el-button v-if="item.status !== 'PAUSED'" link type="warning" size="small" @click="handlePause(item)">暂停</el-button>
             <el-button v-else link type="success" size="small" @click="handleResume(item)">恢复</el-button>
             <el-button link type="danger" size="small" @click="handleRemove(item)">删除</el-button>
@@ -164,6 +165,113 @@
         <el-button @click="searchLogOpen = false">关闭</el-button>
       </template>
     </el-dialog>
+
+    <!-- 过滤规则覆盖 -->
+    <el-dialog v-model="filterOverrideOpen" title="过滤规则覆盖" width="94%" append-to-body class="modern-dialog">
+      <p class="override-tip">只勾选需要覆盖的项，不勾选的沿用全局过滤规则。</p>
+      <el-form label-width="86px" size="small">
+        <el-form-item label="最低做种数">
+          <div class="override-row">
+            <el-checkbox v-model="filterOverrideForm.minSeeders.enabled" />
+            <el-input-number
+              v-model="filterOverrideForm.minSeeders.value"
+              :min="0"
+              :disabled="!filterOverrideForm.minSeeders.enabled"
+              style="width: 100%"
+            />
+          </div>
+        </el-form-item>
+        <el-form-item label="体积下限">
+          <div class="override-row">
+            <el-checkbox v-model="filterOverrideForm.minSize.enabled" />
+            <el-input-number
+              v-model="filterOverrideForm.minSize.value"
+              :min="0"
+              :step="1073741824"
+              :disabled="!filterOverrideForm.minSize.enabled"
+              style="width: 100%"
+            />
+          </div>
+        </el-form-item>
+        <el-form-item label="体积上限">
+          <div class="override-row">
+            <el-checkbox v-model="filterOverrideForm.maxSize.enabled" />
+            <el-input-number
+              v-model="filterOverrideForm.maxSize.value"
+              :min="0"
+              :step="1073741824"
+              :disabled="!filterOverrideForm.maxSize.enabled"
+              style="width: 100%"
+            />
+          </div>
+        </el-form-item>
+        <el-form-item label="仅要免费种">
+          <div class="override-row">
+            <el-checkbox v-model="filterOverrideForm.freeOnly.enabled" />
+            <el-radio-group v-model="filterOverrideForm.freeOnly.value" :disabled="!filterOverrideForm.freeOnly.enabled">
+              <el-radio value="0">否</el-radio>
+              <el-radio value="1">是</el-radio>
+            </el-radio-group>
+          </div>
+        </el-form-item>
+        <el-form-item label="分辨率白名单">
+          <div class="override-row">
+            <el-checkbox v-model="filterOverrideForm.resolutionWhitelist.enabled" />
+            <el-input
+              v-model="filterOverrideForm.resolutionWhitelist.value"
+              placeholder="如 2160p,1080p"
+              :disabled="!filterOverrideForm.resolutionWhitelist.enabled"
+            />
+          </div>
+        </el-form-item>
+        <el-form-item label="标题包含词">
+          <div class="override-row">
+            <el-checkbox v-model="filterOverrideForm.includeKeywords.enabled" />
+            <el-input
+              v-model="filterOverrideForm.includeKeywords.value"
+              placeholder="逗号分隔，命中其一即可"
+              :disabled="!filterOverrideForm.includeKeywords.enabled"
+            />
+          </div>
+        </el-form-item>
+        <el-form-item label="标题排除词">
+          <div class="override-row">
+            <el-checkbox v-model="filterOverrideForm.excludeKeywords.enabled" />
+            <el-input
+              v-model="filterOverrideForm.excludeKeywords.value"
+              placeholder="逗号分隔，命中任一即淘汰"
+              :disabled="!filterOverrideForm.excludeKeywords.enabled"
+            />
+          </div>
+        </el-form-item>
+        <el-form-item label="分辨率优先级">
+          <div class="override-row">
+            <el-checkbox v-model="filterOverrideForm.resolutionPriority.enabled" />
+            <el-input
+              v-model="filterOverrideForm.resolutionPriority.value"
+              placeholder="如 2160p,1080p,720p"
+              :disabled="!filterOverrideForm.resolutionPriority.enabled"
+            />
+          </div>
+        </el-form-item>
+        <el-form-item label="偏好体积">
+          <div class="override-row">
+            <el-checkbox v-model="filterOverrideForm.preferredSize.enabled" />
+            <el-input-number
+              v-model="filterOverrideForm.preferredSize.value"
+              :min="0"
+              :step="1073741824"
+              :disabled="!filterOverrideForm.preferredSize.enabled"
+              style="width: 100%"
+            />
+          </div>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="filterOverrideOpen = false">取消</el-button>
+        <el-button type="primary" :loading="filterOverrideSaving" @click="saveFilterOverride">保存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -182,6 +290,8 @@ const {
   handleQuery, resetQuery,
   progressOpen, progressLoading, progress, currentSubscription, showProgress,
   searchLogOpen, searchLogLoading, searchLogs, showSearchLogs,
+  filterOverrideOpen, filterOverrideSaving, filterOverrideForm,
+  openFilterOverride, saveFilterOverride,
   searchDialogOpen, searchDialogLoading, searchDialogKeyword,
   openSeasonSearch, openEpisodeSearch, confirmSearch, toggleAutoSearch,
   handleRefresh, handlePause, handleResume, handleRemove,
@@ -398,5 +508,22 @@ const goDownloadRecords = (row: any) => {
 .log-reason {
   font-size: 11px;
   color: var(--el-color-danger);
+}
+
+.override-tip {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: var(--osr-text-secondary);
+}
+
+.override-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+
+  .el-radio-group {
+    flex: 1;
+  }
 }
 </style>
