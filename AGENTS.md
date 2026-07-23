@@ -12,7 +12,7 @@
 ├── ruoyi-framework/      # 框架配置 (security, shiro, config, websocket)
 ├── ruoyi-system/         # RuoYi 标准模块 (user/role/menu/dict domain)
 ├── ruoyi-quartz/         # 定时任务 (RuoYi job scheduler)
-├── ruoyi-openliststrm/   # ★ 核心业务，新功能几乎都写在这里 (16个子包，见下)
+├── ruoyi-openliststrm/   # ★ 核心业务，新功能几乎都写在这里 (17个子包，见下)
 ├── openlist-web/         # Vue 3 前端 (Vite + Pinia + Element Plus + PWA)
 ├── Dockerfile.backend    # Java 25 JRE + --enable-preview
 ├── Dockerfile.frontend   # Node 20 build → Nginx Alpine
@@ -20,8 +20,8 @@
 └── nginx.conf            # SPA + API proxy + WebSocket proxy
 ```
 
-`ruoyi-openliststrm` 按功能域分包：
-`api/ config/ controller/ enums/ helper/ monitor/ mybatisplus/ openai/ rename/ req/ scrape/ service/ task/ tg/ tmdb/ upload/`
+`ruoyi-openliststrm` 按功能域分包（17 个）：
+`api/ config/ controller/ enums/ helper/ monitor/ mybatisplus/ openai/ orphan/ pt/ rename/ req/ scrape/ service/ task/ tg/ tmdb/ upload/`
 
 ## WHERE TO LOOK
 | 任务 | 位置 | 备注 |
@@ -31,6 +31,8 @@
 | Telegram Bot | `ruoyi-openliststrm/src/main/java/com/ruoyi/openliststrm/tg/` | bot commands & handlers |
 | 刮削 | `ruoyi-openliststrm/src/main/java/com/ruoyi/openliststrm/scrape/` + `tmdb/` | TMDb 刮削、文件删除 |
 | 定时任务 | `ruoyi-openliststrm/src/main/java/com/ruoyi/openliststrm/task/` + `ruoyi-quartz/` | 自定义 task + RuoYi job |
+| 重命名一致性检查 | `ruoyi-openliststrm/src/main/java/com/ruoyi/openliststrm/orphan/` | 孤儿扫描、清理、忽略 |
+| PT 订阅管理 | `ruoyi-openliststrm/src/main/java/com/ruoyi/openliststrm/pt/` | downloader/indexer/subscription/media server |
 | 安全/认证 | `ruoyi-framework/src/main/java/com/ruoyi/framework/security/` + `shiro/` | Shiro + JWT |
 | 第三方回调 | `ruoyi-openliststrm/src/main/java/com/ruoyi/openliststrm/controller/` | 开放 API 端点 |
 | 前端页面 | `openlist-web/src/views/` + `views-mobile/` | PC + 移动端 |
@@ -44,7 +46,7 @@
 
 ## CONVENTIONS
 - **包命名**: `com.ruoyi.{module}.{layer}` — controller/service/mapper/domain 分层
-- **OpenList-strm 模块**: 按功能域分包 (tg/, tmdb/, rename/, helper/, monitor/, mybatisplus/)
+- **OpenList-strm 模块**: 按功能域分包 (tg/, tmdb/, rename/, helper/, monitor/, orphan/, pt/, mybatisplus/)
 - **MyBatis-Plus**: `ruoyi-openliststrm` 使用 MP 风格 (BaseMapper + IService)，`ruoyi-system` 使用传统 XML Mapper
 - **Shiro + JWT**: 无状态认证，Shiro 管理权限，JWT 传递 token
 - **Java 25 Preview**: 编译/测试/运行均带 `--enable-preview` (虚拟线程/结构化并发)
