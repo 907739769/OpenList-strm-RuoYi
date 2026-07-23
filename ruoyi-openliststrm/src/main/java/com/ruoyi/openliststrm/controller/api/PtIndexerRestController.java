@@ -6,12 +6,15 @@ import com.ruoyi.common.core.domain.Result;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.openliststrm.mybatisplus.domain.PtIndexerPlus;
 import com.ruoyi.openliststrm.mybatisplus.service.IPtIndexerPlusService;
+import com.ruoyi.openliststrm.pt.indexer.CategoryOption;
 import com.ruoyi.openliststrm.pt.indexer.TorznabClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 /**
  * PT Torznab 索引器配置 REST API 控制器
@@ -53,6 +56,23 @@ public class PtIndexerRestController extends BaseCrudRestController<IPtIndexerPl
                     : Result.error("连接失败，请检查地址、apikey 与网络");
         } catch (IllegalArgumentException e) {
             return Result.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 获取索引器支持的分类树（t=caps），供前端分类下拉使用。接收表单当前值，无需先保存。
+     */
+    @PostMapping("/categories")
+    public Result<List<CategoryOption>> categories(@RequestBody PtIndexerPlus entity) {
+        if (StringUtils.isBlank(entity.getUrl()) || StringUtils.isBlank(entity.getApiKey())) {
+            return Result.error("接口地址与 apikey 不能为空");
+        }
+        try {
+            return Result.success(torznabClient.getCategories(entity));
+        } catch (IllegalArgumentException e) {
+            return Result.error(e.getMessage());
+        } catch (Exception e) {
+            return Result.error("获取分类失败：" + e.getMessage());
         }
     }
 }
