@@ -1,0 +1,148 @@
+package com.ruoyi.openliststrm.pt.task;
+
+import com.ruoyi.common.core.domain.PageResult;
+import com.ruoyi.openliststrm.mybatisplus.domain.PtDownloadRecordPlus;
+import com.ruoyi.openliststrm.mybatisplus.domain.PtDownloaderPlus;
+import com.ruoyi.openliststrm.mybatisplus.domain.PtIndexerPlus;
+import com.ruoyi.openliststrm.mybatisplus.domain.PtSubscriptionPlus;
+import com.ruoyi.openliststrm.mybatisplus.service.IPtDownloadRecordPlusService;
+import com.ruoyi.openliststrm.mybatisplus.service.IPtDownloaderPlusService;
+import com.ruoyi.openliststrm.mybatisplus.service.IPtIndexerPlusService;
+import com.ruoyi.openliststrm.mybatisplus.service.IPtSubscriptionPlusService;
+import com.ruoyi.openliststrm.pt.subscription.SearchSupplementService;
+import com.ruoyi.openliststrm.pt.subscription.SubscriptionMatcher;
+import com.ruoyi.openliststrm.pt.subscription.SubscriptionService;
+import com.ruoyi.openliststrm.pt.subscription.dto.SupplementResult;
+import com.ruoyi.openliststrm.pt.task.dto.DownloadRecordView;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+/**
+ * 下载记录管理台：列表展示的名称拼接 + 失败记录的手动重试。
+ * 与 {@link DownloadTrackService} 分开——那个是自动轮询编排，这个是面向管理界面的读操作与人工干预。
+ *
+ * @author Jack
+ */
+@Service
+public class DownloadRecordAdminService {
+
+    private static final String STATE_FAILED = "FAILED";
+
+    private final IPtDownloadRecordPlusService recordService;
+    private final IPtSubscriptionPlusService subscriptionService;
+    private final IPtIndexerPlusService indexerService;
+    private final IPtDownloaderPlusService downloaderService;
+    private final SearchSupplementService searchSupplementService;
+
+    public DownloadRecordAdminService(IPtDownloadRecordPlusService recordService,
+                                      IPtSubscriptionPlusService subscriptionService,
+                                      IPtIndexerPlusService indexerService,
+                                      IPtDownloaderPlusService downloaderService,
+                                      SearchSupplementService searchSupplementService) {
+        this.recordService = recordService;
+        this.subscriptionService = subscriptionService;
+        this.indexerService = indexerService;
+        this.downloaderService = downloaderService;
+        this.searchSupplementService = searchSupplementService;
+    }
+
+    /**
+     * 把分页查出的原始记录批量补上订阅/索引器/下载器的展示名。
+     * 关联对象已被删除（订阅删除、索引器/下载器被删）时对应名称字段为 null，不阻断整行展示。
+     */
+    public PageResult<DownloadRecordView> enrich(PageResult<PtDownloadRecordPlus> page) {
+        List<PtDownloadRecordPlus> records = page.getRecords();
+        if (records.isEmpty()) {
+            return PageResult.of(List.of(), page.getTotal(), page.getPage(), page.getSize());
+        }
+        Map<Integer, PtSubscriptionPlus> subs = subscriptionService.listByIds(
+                        records.stream().map(PtDownloadRecordPlus::getSubId).distinct().toList())
+                .stream().collect(Collectors.toMap(PtSubscriptionPlus::getId, s -> s));
+        Map<Integer, PtIndexerPlus> indexers = indexerService.listByIds(
+                        records.stream().map(PtDownloadRecordPlus::getIndexerId).filter(java.util.Objects::nonNull).distinct().toList())
+                .stream().collect(Collectors.toMap(PtIndexerPlus::getId, i -> i));
+        Map<Integer, PtDownloaderPlus> downloaders = downloaderService.listByIds(
+                        records.stream().map(PtDownloadRecordPlus::getDownloaderId).filter(java.util.Objects::nonNull).distinct().toList())
+                .stream().collect(Collectors.toMap(PtDownloaderPlus::getId, d -> d));
+
+        List<DownloadRecordView> views = records.stream()
+                .map(r -> toView(r, subs.get(r.getSubId()), indexers.get(r.getIndexerId()), downloaders.get(r.getDownloaderId())))
+                .toList();
+        return PageResult.of(views, page.getTotal(), page.getPage(), page.getSize());
+    }
+
+    private DownloadRecordView toView(PtDownloadRecordPlus r, PtSubscriptionPlus sub,
+                                      PtIndexerPlus indexer, PtDownloaderPlus downloader) {
+        DownloadRecordView view = new DownloadRecordView();
+        view.setId(r.getId());
+        view.setSubId(r.getSubId());
+        view.setSubTitle(sub == null ? null : sub.getTitle());
+        view.setEpisodeLabel(episodeLabel(sub, r.getEpisode()));
+        view.setIndexerId(r.getIndexerId());
+        view.setIndexerName(indexer == null ? null : indexer.getName());
+        view.setDownloaderId(r.getDownloaderId());
+        view.setDownloaderName(downloader == null ? null : downloader.getName());
+        view.setTitle(r.getTitle());
+        view.setSize(r.getSize());
+        view.setSeeders(r.getSeeders());
+        view.setState(r.getState());
+        view.setProgress(r.getProgress());
+        view.setFailReason(r.getFailReason());
+        view.setPushedTime(r.getPushedTime());
+        view.setCompletedTime(r.getCompletedTime());
+        return view;
+    }
+
+    private String episodeLabel(PtSubscriptionPlus sub, int episode) {
+        if (sub != null && SubscriptionService.TYPE_MOVIE.equalsIgnoreCase(sub.getMediaType())) {
+            return "电影";
+        }
+        Integer season = sub == null ? null : sub.getSeason();
+        if (episode == SubscriptionMatcher.SEASON_PACK) {
+            return "S" + pad(season) + " 季包";
+        }
+        return "S" + pad(season) + "E" + pad(episode);
+    }
+
+    /**
+     * 手动重试一条失败的下载记录：按订阅标题 + 季/集号拼出关键词，走与"搜索补齐"相同的三级回退链路。
+     *
+     * @throws IllegalArgumentException 记录不存在、记录不是 FAILED 状态、关联订阅不存在或未在订阅中
+     */
+    public SupplementResult retry(Integer recordId) {
+        PtDownloadRecordPlus record = recordService.getById(recordId);
+        if (record == null) {
+            throw new IllegalArgumentException("下载记录不存在：" + recordId);
+        }
+        if (!STATE_FAILED.equals(record.getState())) {
+            throw new IllegalArgumentException("只有失败的下载记录才能重试，当前状态：" + record.getState());
+        }
+        PtSubscriptionPlus sub = subscriptionService.getById(record.getSubId());
+        if (sub == null) {
+            throw new IllegalArgumentException("关联订阅不存在，无法重试");
+        }
+        if (!SubscriptionService.STATUS_ACTIVE.equals(sub.getStatus())) {
+            throw new IllegalArgumentException("订阅未在订阅中(当前状态 " + sub.getStatus() + ")，无法重试");
+        }
+        String keyword = buildKeyword(sub, record.getEpisode());
+        return searchSupplementService.supplement(sub.getId(), record.getEpisode(), keyword);
+    }
+
+    private String buildKeyword(PtSubscriptionPlus sub, int episode) {
+        if (SubscriptionService.TYPE_MOVIE.equalsIgnoreCase(sub.getMediaType())) {
+            return sub.getTitle();
+        }
+        if (episode == SubscriptionMatcher.SEASON_PACK) {
+            return sub.getTitle() + " S" + pad(sub.getSeason());
+        }
+        return sub.getTitle() + " S" + pad(sub.getSeason()) + "E" + pad(episode);
+    }
+
+    private String pad(Integer number) {
+        int n = number == null ? 0 : number;
+        return n < 10 ? "0" + n : String.valueOf(n);
+    }
+}

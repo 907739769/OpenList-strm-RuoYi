@@ -11,6 +11,7 @@ import com.ruoyi.openliststrm.pt.indexer.TorznabClient;
 import com.ruoyi.openliststrm.pt.model.TorrentInfo;
 import com.ruoyi.openliststrm.pt.subscription.dto.SupplementResult;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -21,6 +22,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Semaphore;
 
 /**
  * 搜索补集编排：三级回退（ID 精确搜索 → 中文标题 → 英文/原语言标题）找候选，
@@ -40,18 +42,26 @@ public class SearchSupplementService {
     private final SubscriptionMatcher matcher;
     private final IndexerCapabilityCache capabilityCache;
 
+    /**
+     * 对所有启用索引器并发搜索时的最大同时请求数。索引器数量可能远超此值，多出的排队等待，
+     * 避免一次搜索瞬间对所有站点同时发请求触发反爬限流（原实现是无限制并发，见需求背景）。
+     */
+    private final int maxConcurrency;
+
     public SearchSupplementService(IPtIndexerPlusService indexerService,
                                    TorznabClient torznabClient,
                                    SubscriptionEngine subscriptionEngine,
                                    IPtSubscriptionPlusService subscriptionService,
                                    SubscriptionMatcher matcher,
-                                   IndexerCapabilityCache capabilityCache) {
+                                   IndexerCapabilityCache capabilityCache,
+                                   @Value("${pt.search.max-concurrency:3}") int maxConcurrency) {
         this.indexerService = indexerService;
         this.torznabClient = torznabClient;
         this.subscriptionEngine = subscriptionEngine;
         this.subscriptionService = subscriptionService;
         this.matcher = matcher;
         this.capabilityCache = capabilityCache;
+        this.maxConcurrency = Math.max(1, maxConcurrency);
     }
 
     /**
@@ -103,6 +113,7 @@ public class SearchSupplementService {
 
     /**
      * 并发向所有启用索引器发起关键词搜索，合并结果。单索引器超时/异常只记 log，不影响其他索引器。
+     * 并发数受 {@link #maxConcurrency} 限制，索引器数量超出时排队等待，避免瞬间打爆所有站点。
      */
     public List<TorrentInfo> searchAcrossIndexers(String keyword) {
         List<PtIndexerPlus> indexers = indexerService.listEnabled();
@@ -110,15 +121,16 @@ public class SearchSupplementService {
             return List.of();
         }
         List<TorrentInfo> merged = new CopyOnWriteArrayList<>();
+        Semaphore limiter = new Semaphore(maxConcurrency);
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             List<CompletableFuture<Void>> futures = indexers.stream()
-                    .map(indexer -> CompletableFuture.runAsync(() -> {
+                    .map(indexer -> CompletableFuture.runAsync(() -> runLimited(limiter, () -> {
                         try {
                             merged.addAll(torznabClient.search(indexer, keyword));
                         } catch (Exception e) {
                             log.warn("索引器[{}]关键词搜索失败：{}", indexer.getName(), e.getMessage());
                         }
-                    }, executor))
+                    }), executor))
                     .toList();
             CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
         }
@@ -128,7 +140,7 @@ public class SearchSupplementService {
     /**
      * 第一优先级：对每个启用索引器，若 {@code t=caps} 探测到支持则用 IMDb ID（优先）或
      * TMDB ID（订阅无 IMDb ID 或索引器不支持 imdbid 时）发起精确搜索；两者都不满足的索引器
-     * 直接跳过，不发请求。
+     * 直接跳过，不发请求（也不占并发名额——resolveIdParam 在拿许可证之前判定）。
      */
     private List<TorrentInfo> searchByExternalId(PtSubscriptionPlus sub, int episode) {
         List<PtIndexerPlus> indexers = indexerService.listEnabled();
@@ -140,6 +152,7 @@ public class SearchSupplementService {
         Integer ep = (movie || episode == SubscriptionMatcher.SEASON_PACK) ? null : episode;
 
         List<TorrentInfo> merged = new CopyOnWriteArrayList<>();
+        Semaphore limiter = new Semaphore(maxConcurrency);
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             List<CompletableFuture<Void>> futures = indexers.stream()
                     .map(indexer -> CompletableFuture.runAsync(() -> {
@@ -147,17 +160,37 @@ public class SearchSupplementService {
                         if (param == null) {
                             return;
                         }
-                        try {
-                            merged.addAll(torznabClient.searchByExternalId(
-                                    indexer, movie, param.name(), param.value(), season, ep));
-                        } catch (Exception e) {
-                            log.warn("索引器[{}]按{}搜索失败：{}", indexer.getName(), param.name(), e.getMessage());
-                        }
+                        runLimited(limiter, () -> {
+                            try {
+                                merged.addAll(torznabClient.searchByExternalId(
+                                        indexer, movie, param.name(), param.value(), season, ep));
+                            } catch (Exception e) {
+                                log.warn("索引器[{}]按{}搜索失败：{}", indexer.getName(), param.name(), e.getMessage());
+                            }
+                        });
                     }, executor))
                     .toList();
             CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
         }
         return new ArrayList<>(merged);
+    }
+
+    /**
+     * 在信号量许可证下执行任务，把"抢许可证-跑任务-还许可证"的样板收敛到一处。
+     * 等待许可证时被中断则放弃本次任务并恢复中断标志，不让异常从 CompletableFuture 里裸抛出去。
+     */
+    private void runLimited(Semaphore limiter, Runnable task) {
+        try {
+            limiter.acquire();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return;
+        }
+        try {
+            task.run();
+        } finally {
+            limiter.release();
+        }
     }
 
     private record IdSearchParam(String name, String value) {

@@ -175,4 +175,49 @@ class RssPollServiceTest {
             tg.verify(() -> TgHelper.sendMsg(anyString()), never());
         }
     }
+
+    // ---------- 自动降级 ----------
+
+    @Test
+    void 连续失败达到第10次_自动停用并告警一次() throws Exception {
+        when(indexerService.listEnabled()).thenReturn(List.of(indexer(1, 600, null, 9)));
+        when(torznabClient.fetch(any())).thenThrow(new IOException("connection refused"));
+
+        try (MockedStatic<TgHelper> tg = mockStatic(TgHelper.class)) {
+            service().poll();
+
+            ArgumentCaptor<PtIndexerPlus> captor = ArgumentCaptor.forClass(PtIndexerPlus.class);
+            verify(indexerService).updateById(captor.capture());
+            assertEquals("0", captor.getValue().getEnabled());
+            assertEquals(10, captor.getValue().getFailCount());
+            tg.verify(() -> TgHelper.sendMsg(argThat(m -> m.contains("已自动停用"))));
+        }
+    }
+
+    @Test
+    void 连续失败未达第10次_仍启用不停用() throws Exception {
+        when(indexerService.listEnabled()).thenReturn(List.of(indexer(1, 600, null, 5)));
+        when(torznabClient.fetch(any())).thenThrow(new IOException("connection refused"));
+
+        service().poll();
+
+        ArgumentCaptor<PtIndexerPlus> captor = ArgumentCaptor.forClass(PtIndexerPlus.class);
+        verify(indexerService).updateById(captor.capture());
+        assertEquals("1", captor.getValue().getEnabled());
+    }
+
+    @Test
+    void 达到第3次告警阈值时不会同时触发停用() throws Exception {
+        when(indexerService.listEnabled()).thenReturn(List.of(indexer(1, 600, null, 2)));
+        when(torznabClient.fetch(any())).thenThrow(new IOException("connection refused"));
+
+        try (MockedStatic<TgHelper> tg = mockStatic(TgHelper.class)) {
+            service().poll();
+
+            ArgumentCaptor<PtIndexerPlus> captor = ArgumentCaptor.forClass(PtIndexerPlus.class);
+            verify(indexerService).updateById(captor.capture());
+            assertEquals("1", captor.getValue().getEnabled());
+            tg.verify(() -> TgHelper.sendMsg(argThat(m -> m.contains("已连续失败 3 次"))));
+        }
+    }
 }

@@ -1,0 +1,19 @@
+import request from '@/api/request'
+import type { PageResult, SearchParams } from '@/types'
+
+export interface PtDownloadRecordQuery extends SearchParams {
+  subId?: number
+  state?: string
+  title?: string
+}
+
+export function getPtDownloadRecordListApi(params: PtDownloadRecordQuery) {
+  return request.get<any, PageResult<any>>('/openliststrm/pt-download-records', { params })
+}
+
+/** 立即重试一条失败的下载记录：按订阅标题+季/集号重新发起搜索补集 */
+export function retryPtDownloadRecordApi(id: number) {
+  return request.post<any, { pushed: boolean; candidateCount: number }>(
+    `/openliststrm/pt-download-records/${id}/retry`
+  )
+}

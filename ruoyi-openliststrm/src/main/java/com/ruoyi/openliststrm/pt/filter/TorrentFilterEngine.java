@@ -21,6 +21,28 @@ import java.util.Locale;
 public class TorrentFilterEngine {
 
     /**
+     * 候选种子的过滤裁决：{@code rejectReason} 为 null 表示通过。
+     */
+    public record Verdict(TorrentInfo torrent, String rejectReason) {
+        public boolean accepted() {
+            return rejectReason == null;
+        }
+    }
+
+    /**
+     * 逐条给出候选的过滤裁决与具体原因，供调用方落库供前端排查
+     * （见 {@link com.ruoyi.openliststrm.pt.subscription.SubscriptionEngine}）。
+     * {@link #filter} 基于本方法实现，两者的淘汰判定逻辑保证一致。
+     */
+    public List<Verdict> evaluate(List<TorrentInfo> candidates, FilterCriteria criteria) {
+        List<Verdict> verdicts = new ArrayList<>();
+        for (TorrentInfo torrent : candidates) {
+            verdicts.add(new Verdict(torrent, rejectReason(torrent, criteria)));
+        }
+        return verdicts;
+    }
+
+    /**
      * 硬性过滤：淘汰不满足条件的候选，保留原顺序。
      * <p>
      * 被淘汰的种子不落库，只记 debug 日志并带上具体原因（哪条规则、阈值、实际值）——
@@ -31,12 +53,11 @@ public class TorrentFilterEngine {
      */
     public List<TorrentInfo> filter(List<TorrentInfo> candidates, FilterCriteria criteria) {
         List<TorrentInfo> survivors = new ArrayList<>();
-        for (TorrentInfo torrent : candidates) {
-            String reason = rejectReason(torrent, criteria);
-            if (reason == null) {
-                survivors.add(torrent);
+        for (Verdict verdict : evaluate(candidates, criteria)) {
+            if (verdict.accepted()) {
+                survivors.add(verdict.torrent());
             } else {
-                log.debug("种子被过滤：{} —— {}", torrent.getTitle(), reason);
+                log.debug("种子被过滤：{} —— {}", verdict.torrent().getTitle(), verdict.rejectReason());
             }
         }
         return survivors;

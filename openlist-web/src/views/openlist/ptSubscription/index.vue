@@ -94,6 +94,9 @@
               <el-button link type="primary" @click="showProgress(item)">进度</el-button>
               <el-button link type="primary" @click="openSeasonSearch(item)">搜索补齐</el-button>
               <el-button link type="primary" @click="handleRefresh(item)">对账</el-button>
+              <el-button link type="primary" @click="goDownloadRecords(item)">下载记录</el-button>
+              <el-button link type="primary" @click="showSearchLogs(item)">匹配日志</el-button>
+              <el-button link type="primary" @click="openFilterOverride(item)">过滤规则</el-button>
               <el-button v-if="item.status !== 'PAUSED'" link type="warning" @click="handlePause(item)">暂停</el-button>
               <el-button v-else link type="success" @click="handleResume(item)">恢复</el-button>
               <el-button link type="danger" @click="handleRemove(item)">删除</el-button>
@@ -219,14 +222,138 @@
         <el-button type="primary" :loading="searchDialogLoading" @click="confirmSearch">搜索</el-button>
       </template>
     </el-dialog>
+
+    <!-- 匹配日志 -->
+    <el-dialog v-model="searchLogOpen" title="匹配日志" width="720px" append-to-body class="modern-dialog">
+      <el-table v-loading="searchLogLoading" :data="searchLogs" height="420" size="small">
+        <el-table-column label="时间" prop="createTime" width="160" />
+        <el-table-column label="来源" width="90">
+          <template #default="scope">
+            <el-tag size="small" :type="scope.row.source === 'RSS' ? 'info' : 'primary'">
+              {{ scope.row.source === 'RSS' ? 'RSS轮询' : '搜索补集' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="种子标题" prop="torrentTitle" min-width="200" show-overflow-tooltip>
+          <template #default="scope">{{ scope.row.torrentTitle || '-' }}</template>
+        </el-table-column>
+        <el-table-column label="结果" width="80">
+          <template #default="scope">
+            <el-tag v-if="scope.row.accepted === '1'" type="success" size="small">通过</el-tag>
+            <el-tag v-else type="danger" size="small">淘汰</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="原因" prop="reason" min-width="180" show-overflow-tooltip>
+          <template #default="scope">{{ scope.row.reason || '-' }}</template>
+        </el-table-column>
+      </el-table>
+      <el-empty v-if="!searchLogLoading && searchLogs.length === 0" description="暂无日志（还没轮询/搜索过，或该订阅日志已被清理）" />
+      <template #footer>
+        <el-button @click="searchLogOpen = false">关闭</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 过滤规则覆盖 -->
+    <el-dialog v-model="filterOverrideOpen" title="过滤规则覆盖" width="640px" append-to-body class="modern-dialog">
+      <p class="override-tip">只勾选需要覆盖的项，不勾选的沿用全局过滤规则（PT过滤规则页配置的）。</p>
+      <el-form label-width="120px">
+        <el-form-item label="最低做种数">
+          <el-checkbox v-model="filterOverrideForm.minSeeders.enabled" class="override-checkbox" />
+          <el-input-number
+            v-model="filterOverrideForm.minSeeders.value"
+            :min="0"
+            :disabled="!filterOverrideForm.minSeeders.enabled"
+            :style="{ width: '200px' }"
+          />
+        </el-form-item>
+        <el-form-item label="体积下限">
+          <el-checkbox v-model="filterOverrideForm.minSize.enabled" class="override-checkbox" />
+          <el-input-number
+            v-model="filterOverrideForm.minSize.value"
+            :min="0"
+            :step="1073741824"
+            :disabled="!filterOverrideForm.minSize.enabled"
+            :style="{ width: '240px' }"
+          />
+          <span class="form-tip">字节</span>
+        </el-form-item>
+        <el-form-item label="体积上限">
+          <el-checkbox v-model="filterOverrideForm.maxSize.enabled" class="override-checkbox" />
+          <el-input-number
+            v-model="filterOverrideForm.maxSize.value"
+            :min="0"
+            :step="1073741824"
+            :disabled="!filterOverrideForm.maxSize.enabled"
+            :style="{ width: '240px' }"
+          />
+          <span class="form-tip">字节</span>
+        </el-form-item>
+        <el-form-item label="仅要免费种">
+          <el-checkbox v-model="filterOverrideForm.freeOnly.enabled" class="override-checkbox" />
+          <el-radio-group v-model="filterOverrideForm.freeOnly.value" :disabled="!filterOverrideForm.freeOnly.enabled">
+            <el-radio value="0">否</el-radio>
+            <el-radio value="1">是</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="分辨率白名单">
+          <el-checkbox v-model="filterOverrideForm.resolutionWhitelist.enabled" class="override-checkbox" />
+          <el-input
+            v-model="filterOverrideForm.resolutionWhitelist.value"
+            placeholder="如 2160p,1080p"
+            :disabled="!filterOverrideForm.resolutionWhitelist.enabled"
+          />
+        </el-form-item>
+        <el-form-item label="标题包含词">
+          <el-checkbox v-model="filterOverrideForm.includeKeywords.enabled" class="override-checkbox" />
+          <el-input
+            v-model="filterOverrideForm.includeKeywords.value"
+            placeholder="逗号分隔，命中其一即可"
+            :disabled="!filterOverrideForm.includeKeywords.enabled"
+          />
+        </el-form-item>
+        <el-form-item label="标题排除词">
+          <el-checkbox v-model="filterOverrideForm.excludeKeywords.enabled" class="override-checkbox" />
+          <el-input
+            v-model="filterOverrideForm.excludeKeywords.value"
+            placeholder="逗号分隔，命中任一即淘汰"
+            :disabled="!filterOverrideForm.excludeKeywords.enabled"
+          />
+        </el-form-item>
+        <el-form-item label="分辨率优先级">
+          <el-checkbox v-model="filterOverrideForm.resolutionPriority.enabled" class="override-checkbox" />
+          <el-input
+            v-model="filterOverrideForm.resolutionPriority.value"
+            placeholder="如 2160p,1080p,720p"
+            :disabled="!filterOverrideForm.resolutionPriority.enabled"
+          />
+        </el-form-item>
+        <el-form-item label="偏好体积">
+          <el-checkbox v-model="filterOverrideForm.preferredSize.enabled" class="override-checkbox" />
+          <el-input-number
+            v-model="filterOverrideForm.preferredSize.value"
+            :min="0"
+            :step="1073741824"
+            :disabled="!filterOverrideForm.preferredSize.enabled"
+            :style="{ width: '240px' }"
+          />
+          <span class="form-tip">字节</span>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="filterOverrideOpen = false">取消</el-button>
+        <el-button type="primary" :loading="filterOverrideSaving" @click="saveFilterOverride">保存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
+import { useRouter } from 'vue-router'
 import { Picture } from '@element-plus/icons-vue'
 import { usePtSubscription } from '@/composables/usePtSubscription'
 
+const router = useRouter()
 const showSearch = ref(window.innerWidth >= 768)
 /** 海报加载失败的订阅 id 集合，命中则展示占位图标而非裂图 */
 const posterErrorIds = reactive(new Set<number>())
@@ -236,6 +363,9 @@ const {
   subscribeOpen, searchLoading, subscribeLoading, searchResults, searchForm,
   picked, pickedSeason, openSubscribeDialog, doSearch, pick, confirmSubscribe,
   progressOpen, progressLoading, progress, currentSubscription, showProgress,
+  searchLogOpen, searchLogLoading, searchLogs, showSearchLogs,
+  filterOverrideOpen, filterOverrideSaving, filterOverrideForm,
+  openFilterOverride, saveFilterOverride,
   searchDialogOpen, searchDialogLoading, searchDialogKeyword,
   openSeasonSearch, openEpisodeSearch, confirmSearch, toggleAutoSearch,
   handleRefresh, handlePause, handleResume, handleRemove
@@ -243,6 +373,10 @@ const {
 
 /** TMDb 海报路径拼完整图片地址，w200 宽度足够列表缩略图使用 */
 const posterUrl = (path: string) => `https://image.tmdb.org/t/p/w200${path}`
+
+const goDownloadRecords = (row: any) => {
+  router.push({ path: '/openlist/ptDownloadRecord', query: { subId: row.id } })
+}
 </script>
 
 <style scoped lang="scss">
@@ -477,5 +611,15 @@ const posterUrl = (path: string) => `https://image.tmdb.org/t/p/w200${path}`
   display: inline-flex;
   align-items: center;
   margin-right: 4px;
+}
+
+.override-tip {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: var(--osr-text-secondary);
+}
+
+.override-checkbox {
+  margin-right: 10px;
 }
 </style>

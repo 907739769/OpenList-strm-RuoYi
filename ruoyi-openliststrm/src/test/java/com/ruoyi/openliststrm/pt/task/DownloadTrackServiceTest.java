@@ -80,13 +80,14 @@ class DownloadTrackServiceTest {
         ArgumentCaptor<PtDownloadRecordPlus> captor = ArgumentCaptor.forClass(PtDownloadRecordPlus.class);
         verify(recordService).update(captor.capture(), any(Wrapper.class));
         assertEquals("COMPLETED", captor.getValue().getState());
+        assertEquals(1.0, captor.getValue().getProgress());
         assertNotNull(captor.getValue().getCompletedTime());
         // 集状态不该被改（等 Emby 对账）
         verify(episodeService, never()).update(any(), any(Wrapper.class));
     }
 
     @Test
-    void 未完成的种子_记录置下载中() {
+    void 未完成的种子_记录置下载中并同步进度() {
         PtDownloadRecordPlus r = record(100, 2, "osr-pt-aaa", "PUSHED", 60_000);
         when(recordService.list(any(Wrapper.class))).thenReturn(List.of(r));
 
@@ -95,6 +96,22 @@ class DownloadTrackServiceTest {
         ArgumentCaptor<PtDownloadRecordPlus> captor = ArgumentCaptor.forClass(PtDownloadRecordPlus.class);
         verify(recordService).updateById(captor.capture());
         assertEquals("DOWNLOADING", captor.getValue().getState());
+        assertEquals(0.35, captor.getValue().getProgress());
+    }
+
+    @Test
+    void 已在下载中_进度变化仍持续写入() {
+        // 早前 markDownloading 命中"状态已相同则跳过"的分支会导致进度停在首次写入的值，
+        // 这里的记录已经是 DOWNLOADING，验证进度更新到最新值而不是被短路。
+        PtDownloadRecordPlus r = record(100, 2, "osr-pt-aaa", "DOWNLOADING", 120_000);
+        r.setProgress(0.1);
+        when(recordService.list(any(Wrapper.class))).thenReturn(List.of(r));
+
+        service().track(downloader(), List.of(torrent("osr-pt,osr-pt-aaa", 0.8)));
+
+        ArgumentCaptor<PtDownloadRecordPlus> captor = ArgumentCaptor.forClass(PtDownloadRecordPlus.class);
+        verify(recordService).updateById(captor.capture());
+        assertEquals(0.8, captor.getValue().getProgress());
     }
 
     @Test

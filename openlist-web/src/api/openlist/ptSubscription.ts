@@ -68,3 +68,8 @@ export function searchSupplementApi(id: number, data: { episode: number; keyword
     data
   )
 }
+
+/** 查订阅最近的匹配/过滤日志，排查"这一轮为什么没抓到" */
+export function getSubscriptionSearchLogsApi(id: number) {
+  return request.get<any, any[]>(`/openliststrm/pt-subscriptions/${id}/search-logs`)
+}

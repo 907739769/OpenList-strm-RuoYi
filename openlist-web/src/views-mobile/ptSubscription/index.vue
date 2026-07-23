@@ -72,6 +72,8 @@
             <el-button link type="primary" size="small" @click="showProgress(item)">进度</el-button>
             <el-button link type="primary" size="small" @click="openSeasonSearch(item)">搜索补齐</el-button>
             <el-button link type="primary" size="small" @click="handleRefresh(item)">对账</el-button>
+            <el-button link type="primary" size="small" @click="goDownloadRecords(item)">下载记录</el-button>
+            <el-button link type="primary" size="small" @click="showSearchLogs(item)">匹配日志</el-button>
             <el-button v-if="item.status !== 'PAUSED'" link type="warning" size="small" @click="handlePause(item)">暂停</el-button>
             <el-button v-else link type="success" size="small" @click="handleResume(item)">恢复</el-button>
             <el-button link type="danger" size="small" @click="handleRemove(item)">删除</el-button>
@@ -140,20 +142,46 @@
         <el-button type="primary" :loading="searchDialogLoading" @click="confirmSearch">搜索</el-button>
       </template>
     </el-dialog>
+
+    <!-- 匹配日志 -->
+    <el-dialog v-model="searchLogOpen" title="匹配日志" width="92%" append-to-body class="modern-dialog">
+      <div v-loading="searchLogLoading" class="log-list">
+        <div v-for="(log, idx) in searchLogs" :key="idx" class="log-item">
+          <div class="log-top">
+            <span class="log-time">{{ log.createTime }}</span>
+            <el-tag size="small" :type="log.source === 'RSS' ? 'info' : 'primary'">
+              {{ log.source === 'RSS' ? 'RSS轮询' : '搜索补集' }}
+            </el-tag>
+            <el-tag v-if="log.accepted === '1'" type="success" size="small">通过</el-tag>
+            <el-tag v-else type="danger" size="small">淘汰</el-tag>
+          </div>
+          <div class="log-title">{{ log.torrentTitle || '-' }}</div>
+          <div class="log-reason" v-if="log.reason">{{ log.reason }}</div>
+        </div>
+        <el-empty v-if="!searchLogLoading && searchLogs.length === 0" description="暂无日志" />
+      </div>
+      <template #footer>
+        <el-button @click="searchLogOpen = false">关闭</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { reactive } from 'vue'
+import { useRouter } from 'vue-router'
 import { Picture } from '@element-plus/icons-vue'
 import MobileSearchPanel from '@/components/mobile/MobileSearchPanel.vue'
 import MobilePager from '@/components/mobile/MobilePager.vue'
 import { usePtSubscription } from '@/composables/usePtSubscription'
 
+const router = useRouter()
+
 const {
   taskList, loading, total, queryParams, queryRef,
   handleQuery, resetQuery,
   progressOpen, progressLoading, progress, currentSubscription, showProgress,
+  searchLogOpen, searchLogLoading, searchLogs, showSearchLogs,
   searchDialogOpen, searchDialogLoading, searchDialogKeyword,
   openSeasonSearch, openEpisodeSearch, confirmSearch, toggleAutoSearch,
   handleRefresh, handlePause, handleResume, handleRemove,
@@ -165,6 +193,10 @@ const {
 const posterUrl = (path: string) => `https://image.tmdb.org/t/p/w200${path}`
 /** 海报加载失败的订阅 id 集合，命中则展示占位图标而非裂图 */
 const posterErrorIds = reactive(new Set<number>())
+
+const goDownloadRecords = (row: any) => {
+  router.push({ path: '/openlist/ptDownloadRecord', query: { subId: row.id } })
+}
 </script>
 
 <style scoped lang="scss">
@@ -325,5 +357,46 @@ const posterErrorIds = reactive(new Set<number>())
   .el-dialog__body {
     padding: 16px;
   }
+}
+
+.log-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.log-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  border-radius: var(--osr-radius-sm);
+  background: var(--osr-bg-page);
+}
+
+.log-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  .log-time {
+    flex: 1;
+    min-width: 0;
+    font-size: 11px;
+    color: var(--osr-text-secondary);
+  }
+}
+
+.log-title {
+  font-size: 12px;
+  color: var(--osr-text-primary);
+  word-break: break-all;
+}
+
+.log-reason {
+  font-size: 11px;
+  color: var(--el-color-danger);
 }
 </style>

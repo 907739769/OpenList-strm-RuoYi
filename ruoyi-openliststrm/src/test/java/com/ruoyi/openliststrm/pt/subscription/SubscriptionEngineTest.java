@@ -34,6 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -50,6 +51,7 @@ class SubscriptionEngineTest {
     @Mock private IPtFilterConfigPlusService filterConfigService;
     @Mock private DownloaderClientFactory downloaderClientFactory;
     @Mock private IDownloaderClient downloaderClient;
+    @Mock private SearchLogService searchLogService;
 
     private SubscriptionEngine engine;
 
@@ -58,7 +60,7 @@ class SubscriptionEngineTest {
         engine = new SubscriptionEngine(
                 subscriptionService, episodeService, recordService, downloaderService,
                 filterConfigService, downloaderClientFactory,
-                new TorrentFilterEngine(), new SubscriptionMatcher());
+                new TorrentFilterEngine(), new SubscriptionMatcher(), searchLogService);
 
         PtFilterConfigPlus config = new PtFilterConfigPlus();
         config.setMinSeeders(0);
@@ -411,5 +413,88 @@ class SubscriptionEngineTest {
         engine.pushBest(sub, 1, List.of());
 
         verify(recordService, never()).list(any(Wrapper.class));
+    }
+
+    // ---------- 匹配日志 ----------
+
+    @Test
+    void RSS路径_候选被淘汰_按RSS来源记录裁决() throws Exception {
+        PtFilterConfigPlus strict = new PtFilterConfigPlus();
+        strict.setMinSeeders(100);
+        strict.setMinSize(0L);
+        strict.setMaxSize(0L);
+        strict.setFreeOnly("0");
+        strict.setResolutionPriority("1080p");
+        strict.setSortPriority("SEEDERS");
+        strict.setPreferredSize(0L);
+        when(filterConfigService.getConfig()).thenReturn(strict);
+        when(subscriptionService.listActive()).thenReturn(List.of(tvSub(10, "Some Show", 1, 1)));
+        when(episodeService.listBySubscription(10)).thenReturn(List.of(episode(101, 1, "MISSING")));
+
+        engine.process(List.of(torrent("Some.Show.S01E01.1080p", "g1", 3, "1080p")));
+
+        ArgumentCaptor<List> verdicts = ArgumentCaptor.forClass(List.class);
+        verify(searchLogService).recordVerdicts(eq(10), eq(1), eq(SearchLogService.SOURCE_RSS), verdicts.capture());
+        assertEquals(1, verdicts.getValue().size());
+        TorrentFilterEngine.Verdict verdict = (TorrentFilterEngine.Verdict) verdicts.getValue().get(0);
+        assertFalse(verdict.accepted());
+        assertTrue(verdict.rejectReason().contains("做种数"));
+    }
+
+    @Test
+    void pushBest路径_候选被淘汰_按SUPPLEMENT来源记录裁决() {
+        PtFilterConfigPlus strict = new PtFilterConfigPlus();
+        strict.setMinSeeders(100);
+        strict.setMinSize(0L);
+        strict.setMaxSize(0L);
+        strict.setFreeOnly("0");
+        strict.setResolutionPriority("1080p");
+        strict.setSortPriority("SEEDERS");
+        strict.setPreferredSize(0L);
+        when(filterConfigService.getConfig()).thenReturn(strict);
+        PtSubscriptionPlus sub = tvSub(10, "Some Show", 1, 1);
+        when(episodeService.listBySubscription(10)).thenReturn(List.of(episode(101, 1, "MISSING")));
+
+        engine.pushBest(sub, 1, List.of(torrent("Some.Show.S01E01.1080p", "g1", 3, "1080p")));
+
+        verify(searchLogService).recordVerdicts(eq(10), eq(1), eq(SearchLogService.SOURCE_SUPPLEMENT), any(List.class));
+    }
+
+    @Test
+    void 无可占位缺失集_记录摘要日志() throws Exception {
+        when(subscriptionService.listActive()).thenReturn(List.of(tvSub(10, "Some Show", 1, 2)));
+        when(episodeService.listBySubscription(10)).thenReturn(List.of(
+                episode(101, 1, "MISSING"), episode(102, 2, "IN_FLIGHT")));
+
+        engine.process(List.of(torrent("Some.Show.S01E02.1080p", "g1", 10, "1080p")));
+
+        verify(searchLogService).recordSummary(eq(10), eq(2), eq(SearchLogService.SOURCE_RSS), anyString());
+    }
+
+    @Test
+    void 无可用下载器_记录摘要日志() throws Exception {
+        when(downloaderService.list(any(Wrapper.class))).thenReturn(List.of());
+        when(subscriptionService.listActive()).thenReturn(List.of(tvSub(10, "Some Show", 1, 1)));
+        when(episodeService.listBySubscription(10)).thenReturn(List.of(episode(101, 1, "MISSING")));
+
+        engine.process(List.of(torrent("Some.Show.S01E01.1080p", "g1", 10, "1080p")));
+
+        verify(searchLogService).recordSummary(eq(10), eq(1), eq(SearchLogService.SOURCE_RSS), anyString());
+    }
+
+    @Test
+    void 推送失败_记录摘要日志() throws Exception {
+        when(subscriptionService.listActive()).thenReturn(List.of(tvSub(10, "Some Show", 1, 1)));
+        when(episodeService.listBySubscription(10)).thenReturn(List.of(episode(101, 1, "MISSING")));
+        when(recordService.save(any())).thenAnswer(inv -> {
+            ((PtDownloadRecordPlus) inv.getArgument(0)).setId(999);
+            return true;
+        });
+        org.mockito.Mockito.doThrow(new IOException("qb down"))
+                .when(downloaderClient).addTorrent(any(), anyString(), anyString(), anyString());
+
+        engine.process(List.of(torrent("Some.Show.S01E01.1080p", "g1", 10, "1080p")));
+
+        verify(searchLogService).recordSummary(eq(10), eq(1), eq(SearchLogService.SOURCE_RSS), anyString());
     }
 }

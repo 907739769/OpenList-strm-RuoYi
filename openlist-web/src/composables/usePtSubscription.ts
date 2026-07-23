@@ -12,7 +12,8 @@ import {
   refreshSubscriptionApi,
   pauseSubscriptionApi,
   resumeSubscriptionApi,
-  searchSupplementApi
+  searchSupplementApi,
+  getSubscriptionSearchLogsApi
 } from '@/api/openlist/ptSubscription'
 import type { SearchParams } from '@/types'
 
@@ -130,6 +131,94 @@ export function usePtSubscription() {
       console.error(e)
     } finally {
       progressLoading.value = false
+    }
+  }
+
+  // ---------- 匹配日志 ----------
+
+  const searchLogOpen = ref(false)
+  const searchLogLoading = ref(false)
+  const searchLogs = ref<any[]>([])
+
+  const showSearchLogs = async (row: any) => {
+    searchLogOpen.value = true
+    searchLogLoading.value = true
+    searchLogs.value = []
+    try {
+      searchLogs.value = (await getSubscriptionSearchLogsApi(row.id)) || []
+    } catch (e) {
+      console.error(e)
+    } finally {
+      searchLogLoading.value = false
+    }
+  }
+
+  // ---------- 过滤规则覆盖 ----------
+
+  const filterOverrideOpen = ref(false)
+  const filterOverrideSaving = ref(false)
+  const filterOverrideSubId = ref<number | null>(null)
+
+  /** 每项覆盖字段的开关+值。开关关闭的字段不写入 JSON，沿用全局配置 */
+  const filterOverrideForm = reactive({
+    minSeeders: { enabled: false, value: 1 as number },
+    minSize: { enabled: false, value: 0 as number },
+    maxSize: { enabled: false, value: 0 as number },
+    freeOnly: { enabled: false, value: '0' as string },
+    includeKeywords: { enabled: false, value: '' as string },
+    excludeKeywords: { enabled: false, value: '' as string },
+    resolutionWhitelist: { enabled: false, value: '' as string },
+    resolutionPriority: { enabled: false, value: '' as string },
+    preferredSize: { enabled: false, value: 0 as number }
+  })
+
+  const FILTER_OVERRIDE_KEYS = Object.keys(filterOverrideForm) as Array<keyof typeof filterOverrideForm>
+
+  const openFilterOverride = (row: any) => {
+    filterOverrideSubId.value = row.id
+    FILTER_OVERRIDE_KEYS.forEach((key) => {
+      filterOverrideForm[key].enabled = false
+    })
+    let parsed: Record<string, any> = {}
+    if (row.filterOverride) {
+      try {
+        parsed = JSON.parse(row.filterOverride) || {}
+      } catch (e) {
+        console.error('解析订阅过滤覆盖失败，按未设置覆盖处理', e)
+      }
+    }
+    FILTER_OVERRIDE_KEYS.forEach((key) => {
+      if (Object.prototype.hasOwnProperty.call(parsed, key)) {
+        filterOverrideForm[key].enabled = true
+        filterOverrideForm[key].value = parsed[key]
+      }
+    })
+    filterOverrideOpen.value = true
+  }
+
+  const saveFilterOverride = async () => {
+    if (!filterOverrideSubId.value) return
+    filterOverrideSaving.value = true
+    try {
+      const override: Record<string, any> = {}
+      FILTER_OVERRIDE_KEYS.forEach((key) => {
+        if (filterOverrideForm[key].enabled) {
+          override[key] = filterOverrideForm[key].value
+        }
+      })
+      // 空字符串而非 null：updateById 默认按"非空字段才更新"，传 null 无法清空已有覆盖，
+      // 空字符串能正常写入且后端 FilterCriteriaFactory 把空白 JSON 当作"全部沿用全局配置"
+      await updatePtSubscriptionApi({
+        id: filterOverrideSubId.value,
+        filterOverride: Object.keys(override).length ? JSON.stringify(override) : ''
+      })
+      ElMessage.success('已保存过滤规则覆盖')
+      filterOverrideOpen.value = false
+      base.getList()
+    } catch (e) {
+      console.error(e)
+    } finally {
+      filterOverrideSaving.value = false
     }
   }
 
@@ -274,6 +363,11 @@ export function usePtSubscription() {
     picked, pickedSeason, openSubscribeDialog, doSearch, pick, confirmSubscribe,
     // 进度
     progressOpen, progressLoading, progress, currentSubscription, showProgress,
+    // 匹配日志
+    searchLogOpen, searchLogLoading, searchLogs, showSearchLogs,
+    // 过滤规则覆盖
+    filterOverrideOpen, filterOverrideSaving, filterOverrideForm,
+    openFilterOverride, saveFilterOverride,
     // 搜索补集
     searchDialogOpen, searchDialogLoading, searchDialogKeyword,
     openSeasonSearch, openEpisodeSearch, confirmSearch, toggleAutoSearch,

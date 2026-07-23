@@ -4,8 +4,10 @@ import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.ruoyi.common.core.domain.Result;
 import com.ruoyi.common.utils.StringUtils;
+import com.ruoyi.openliststrm.mybatisplus.domain.PtSearchLogPlus;
 import com.ruoyi.openliststrm.mybatisplus.domain.PtSubscriptionEpisodePlus;
 import com.ruoyi.openliststrm.mybatisplus.domain.PtSubscriptionPlus;
+import com.ruoyi.openliststrm.mybatisplus.service.IPtSearchLogPlusService;
 import com.ruoyi.openliststrm.mybatisplus.service.IPtSubscriptionEpisodePlusService;
 import com.ruoyi.openliststrm.mybatisplus.service.IPtSubscriptionPlusService;
 import com.ruoyi.openliststrm.pt.subscription.SearchSupplementService;
@@ -43,6 +45,9 @@ public class PtSubscriptionRestController extends BaseCrudRestController<IPtSubs
 
     @Autowired
     private SearchSupplementService searchSupplementService;
+
+    @Autowired
+    private IPtSearchLogPlusService searchLogService;
 
     @Override
     protected Wrapper<PtSubscriptionPlus> buildQueryWrapper(PtSubscriptionPlus entity) {
@@ -116,6 +121,18 @@ public class PtSubscriptionRestController extends BaseCrudRestController<IPtSubs
     @GetMapping("/{id}/episodes")
     public Result<List<PtSubscriptionEpisodePlus>> episodes(@PathVariable("id") Integer id) {
         return Result.success(episodeService.listBySubscription(id));
+    }
+
+    /**
+     * 查订阅最近的匹配/过滤日志，供排查"这一轮为什么没抓到"。按 id 倒序，最多取 100 条。
+     */
+    @GetMapping("/{id}/search-logs")
+    public Result<List<PtSearchLogPlus>> searchLogs(@PathVariable("id") Integer id) {
+        List<PtSearchLogPlus> logs = searchLogService.list(new LambdaQueryWrapper<PtSearchLogPlus>()
+                .eq(PtSearchLogPlus::getSubId, id)
+                .orderByDesc(PtSearchLogPlus::getId)
+                .last("limit 100"));
+        return Result.success(logs);
     }
 
     /**

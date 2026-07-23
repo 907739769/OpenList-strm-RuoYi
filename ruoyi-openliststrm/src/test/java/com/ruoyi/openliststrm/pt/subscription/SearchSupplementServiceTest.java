@@ -21,6 +21,9 @@ import org.mockito.quality.Strictness;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -54,7 +57,7 @@ class SearchSupplementServiceTest {
     @BeforeEach
     void setUp() {
         capabilityCache = new IndexerCapabilityCache(torznabClient);
-        service = new SearchSupplementService(indexerService, torznabClient, subscriptionEngine, subscriptionService, matcher, capabilityCache);
+        service = new SearchSupplementService(indexerService, torznabClient, subscriptionEngine, subscriptionService, matcher, capabilityCache, 10);
     }
 
     private PtIndexerPlus indexer(int id) {
@@ -127,6 +130,67 @@ class SearchSupplementServiceTest {
         when(indexerService.listEnabled()).thenReturn(List.of());
 
         assertTrue(service.searchAcrossIndexers("kw").isEmpty());
+    }
+
+    // ---------- 并发限速 ----------
+
+    @Test
+    void searchAcrossIndexers_并发数不超过配置上限() throws Exception {
+        int limit = 2;
+        SearchSupplementService limited = new SearchSupplementService(
+                indexerService, torznabClient, subscriptionEngine, subscriptionService, matcher, capabilityCache, limit);
+        when(indexerService.listEnabled()).thenReturn(
+                List.of(indexer(1), indexer(2), indexer(3), indexer(4), indexer(5)));
+
+        AtomicInteger current = new AtomicInteger(0);
+        AtomicInteger maxObserved = new AtomicInteger(0);
+        CountDownLatch releaseLatch = new CountDownLatch(1);
+        when(torznabClient.search(any(), anyString())).thenAnswer(inv -> {
+            int now = current.incrementAndGet();
+            maxObserved.updateAndGet(prev -> Math.max(prev, now));
+            releaseLatch.await(2, TimeUnit.SECONDS);
+            current.decrementAndGet();
+            return List.of();
+        });
+        Thread releaser = new Thread(() -> {
+            try {
+                Thread.sleep(300);
+            } catch (InterruptedException ignored) {
+                Thread.currentThread().interrupt();
+            }
+            releaseLatch.countDown();
+        });
+        releaser.start();
+
+        limited.searchAcrossIndexers("kw");
+        releaser.join();
+
+        assertTrue(maxObserved.get() <= limit,
+                "并发数不应超过限制 " + limit + "，实际观测到 " + maxObserved.get());
+    }
+
+    @Test
+    void searchAcrossIndexers_并发受限但最终仍处理完所有索引器() throws Exception {
+        int limit = 2;
+        SearchSupplementService limited = new SearchSupplementService(
+                indexerService, torznabClient, subscriptionEngine, subscriptionService, matcher, capabilityCache, limit);
+        when(indexerService.listEnabled()).thenReturn(
+                List.of(indexer(1), indexer(2), indexer(3), indexer(4), indexer(5)));
+        when(torznabClient.search(any(), anyString())).thenReturn(List.of(torrent("t")));
+
+        List<TorrentInfo> results = limited.searchAcrossIndexers("kw");
+
+        assertEquals(5, results.size());
+    }
+
+    @Test
+    void 配置并发数小于1_至少允许1个() throws Exception {
+        SearchSupplementService limited = new SearchSupplementService(
+                indexerService, torznabClient, subscriptionEngine, subscriptionService, matcher, capabilityCache, 0);
+        when(indexerService.listEnabled()).thenReturn(List.of(indexer(1)));
+        when(torznabClient.search(any(), anyString())).thenReturn(List.of(torrent("t")));
+
+        assertEquals(1, limited.searchAcrossIndexers("kw").size());
     }
 
     // ---------- supplement ----------

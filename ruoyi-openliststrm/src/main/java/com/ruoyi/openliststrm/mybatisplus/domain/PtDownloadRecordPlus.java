@@ -76,6 +76,10 @@ public class PtDownloadRecordPlus extends BaseEntity {
     @TableField("state")
     private String state;
 
+    /** 下载进度 0~1，仅 DOWNLOADING/COMPLETED 状态有意义 */
+    @TableField("progress")
+    private Double progress;
+
     /** 失败原因 */
     @TableField("fail_reason")
     private String failReason;

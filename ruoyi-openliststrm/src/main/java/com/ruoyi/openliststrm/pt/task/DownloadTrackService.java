@@ -78,17 +78,19 @@ public class DownloadTrackService {
                 if (age >= ZOMBIE_TIMEOUT_MILLIS) {
                     fail(record, "下载超过 " + (ZOMBIE_TIMEOUT_MILLIS / 3600000) + " 小时仍未完成，判定为僵尸种子");
                 } else {
-                    markDownloading(record);
+                    markDownloading(record, matched.getProgress());
                 }
             }
         }
     }
 
-    private void markDownloading(PtDownloadRecordPlus record) {
-        if (STATE_DOWNLOADING.equals(record.getState())) {
-            return;
-        }
+    /**
+     * 置为下载中并同步进度。进度每轮都可能变化，即使状态已是 DOWNLOADING 也要持久化，
+     * 否则前端下载记录页看到的进度永远停在第一次写入时的值。
+     */
+    private void markDownloading(PtDownloadRecordPlus record, double progress) {
         record.setState(STATE_DOWNLOADING);
+        record.setProgress(progress);
         recordService.updateById(record);
     }
 
@@ -124,6 +126,7 @@ public class DownloadTrackService {
     private void complete(PtDownloadRecordPlus record) {
         PtDownloadRecordPlus set = new PtDownloadRecordPlus();
         set.setState(STATE_COMPLETED);
+        set.setProgress(1.0);
         set.setCompletedTime(new Date());
         boolean changed = recordService.update(set, new UpdateWrapper<PtDownloadRecordPlus>()
                 .eq("id", record.getId())

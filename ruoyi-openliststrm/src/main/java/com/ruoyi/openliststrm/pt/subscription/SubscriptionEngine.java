@@ -60,6 +60,7 @@ public class SubscriptionEngine {
     private final DownloaderClientFactory downloaderClientFactory;
     private final TorrentFilterEngine filterEngine;
     private final SubscriptionMatcher matcher;
+    private final SearchLogService searchLogService;
 
     /**
      * 本地标题解析器。parseLocal 只做本地正则抽取，不查 TMDb、不调 AI，所以传 null 客户端即可；
@@ -75,7 +76,8 @@ public class SubscriptionEngine {
                               IPtFilterConfigPlusService filterConfigService,
                               DownloaderClientFactory downloaderClientFactory,
                               TorrentFilterEngine filterEngine,
-                              SubscriptionMatcher matcher) {
+                              SubscriptionMatcher matcher,
+                              SearchLogService searchLogService) {
         this.subscriptionService = subscriptionService;
         this.episodeService = episodeService;
         this.recordService = recordService;
@@ -84,6 +86,7 @@ public class SubscriptionEngine {
         this.downloaderClientFactory = downloaderClientFactory;
         this.filterEngine = filterEngine;
         this.matcher = matcher;
+        this.searchLogService = searchLogService;
     }
 
     /**
@@ -117,7 +120,7 @@ public class SubscriptionEngine {
         Map<Integer, List<PtSubscriptionEpisodePlus>> episodeCache = new LinkedHashMap<>();
         for (Map.Entry<String, List<TorrentInfo>> entry : groups.entrySet()) {
             MatchResult match = groupMatch.get(entry.getKey());
-            if (handleGroup(match, entry.getValue(), globalConfig, episodeCache)) {
+            if (handleGroup(match, entry.getValue(), globalConfig, episodeCache, SearchLogService.SOURCE_RSS)) {
                 pushed++;
             }
         }
@@ -134,7 +137,7 @@ public class SubscriptionEngine {
         PtFilterConfigPlus globalConfig = filterConfigService.getConfig();
         MatchResult match = new MatchResult(sub, episode);
         Map<Integer, List<PtSubscriptionEpisodePlus>> episodeCache = new LinkedHashMap<>();
-        return handleGroup(match, candidates, globalConfig, episodeCache);
+        return handleGroup(match, candidates, globalConfig, episodeCache, SearchLogService.SOURCE_SUPPLEMENT);
     }
 
     /**
@@ -142,7 +145,8 @@ public class SubscriptionEngine {
      */
     boolean handleGroup(MatchResult match, List<TorrentInfo> candidates,
                                 PtFilterConfigPlus globalConfig,
-                                Map<Integer, List<PtSubscriptionEpisodePlus>> episodeCache) {
+                                Map<Integer, List<PtSubscriptionEpisodePlus>> episodeCache,
+                                String source) {
         PtSubscriptionPlus sub = match.getSubscription();
         List<PtSubscriptionEpisodePlus> allEpisodes = episodeCache.computeIfAbsent(
                 sub.getId(), episodeService::listBySubscription);
@@ -150,17 +154,25 @@ public class SubscriptionEngine {
         List<PtSubscriptionEpisodePlus> targets = resolveTargets(match, allEpisodes);
         if (targets.isEmpty()) {
             log.debug("订阅[{}] 集{} 无可占位的缺失集，跳过", sub.getId(), match.getEpisode());
+            searchLogService.recordSummary(sub.getId(), match.getEpisode(), source, "无可占位的缺失集（可能已入库或在途）");
             return false;
         }
 
         List<TorrentInfo> fresh = excludeAlreadyRecorded(candidates);
         if (fresh.isEmpty()) {
             log.debug("订阅[{}] 集{} 的候选都已有下载记录，跳过", sub.getId(), match.getEpisode());
+            searchLogService.recordSummary(sub.getId(), match.getEpisode(), source, "候选种子都已推送过，本轮跳过");
             return false;
         }
 
         FilterCriteria criteria = FilterCriteriaFactory.build(globalConfig, sub.getFilterOverride());
-        TorrentInfo best = filterEngine.pickBest(filterEngine.filter(fresh, criteria), criteria);
+        List<TorrentFilterEngine.Verdict> verdicts = filterEngine.evaluate(fresh, criteria);
+        searchLogService.recordVerdicts(sub.getId(), match.getEpisode(), source, verdicts);
+        List<TorrentInfo> survivors = verdicts.stream()
+                .filter(TorrentFilterEngine.Verdict::accepted)
+                .map(TorrentFilterEngine.Verdict::torrent)
+                .toList();
+        TorrentInfo best = filterEngine.pickBest(survivors, criteria);
         if (best == null) {
             return false;
         }
@@ -168,6 +180,7 @@ public class SubscriptionEngine {
         PtDownloaderPlus downloader = resolveDownloader(sub);
         if (downloader == null) {
             log.warn("没有可用的下载器，订阅[{}] 本轮跳过", sub.getId());
+            searchLogService.recordSummary(sub.getId(), match.getEpisode(), source, "没有可用的下载器");
             return false;
         }
 
@@ -196,6 +209,8 @@ public class SubscriptionEngine {
                     .addTorrent(downloader, best.getDownloadUrl(), downloader.getSavePath(), tags);
         } catch (Exception e) {
             log.error("推送种子到下载器失败，已回滚：{}", best.getTitle(), e);
+            searchLogService.recordSummary(sub.getId(), match.getEpisode(), source,
+                    "推送到下载器失败：" + e.getMessage());
             recordService.removeById(record.getId());
             releaseAll(claimed);
             return false;

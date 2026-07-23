@@ -105,7 +105,11 @@ const componentMap: Record<string, Component | (() => Promise<any>)> = {
     () => import('@/views/openlist/ptSubscription/index.vue'),
     () => import('@/views-mobile/ptSubscription/index.vue')
   ),
-  'openlist/ptFilterConfig/index': () => import('@/views/openlist/ptFilterConfig/index.vue')
+  'openlist/ptFilterConfig/index': () => import('@/views/openlist/ptFilterConfig/index.vue'),
+  'openlist/ptDownloadRecord/index': createDeviceView(
+    () => import('@/views/openlist/ptDownloadRecord/index.vue'),
+    () => import('@/views-mobile/ptDownloadRecord/index.vue')
+  )
 }
 
 /**

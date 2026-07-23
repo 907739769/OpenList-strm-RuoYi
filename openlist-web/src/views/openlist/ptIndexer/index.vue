@@ -82,6 +82,14 @@
                 <el-tag v-else type="danger" size="small">{{ item.lastStatus }}</el-tag>
               </span>
             </div>
+            <div class="card-row" v-if="item.failCount > 0">
+              <span class="label">连续失败</span>
+              <span class="value">
+                <el-tag :type="item.failCount >= 10 ? 'danger' : 'warning'" size="small">
+                  {{ item.failCount }} 次
+                </el-tag>
+              </span>
+            </div>
           </div>
           <div class="card-footer">
             <el-button link type="primary" @click="handleUpdate(item, '修改索引器')">
