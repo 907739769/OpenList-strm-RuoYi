@@ -21,3 +21,8 @@ export function deletePtIndexerApi(id: number) {
 export function testPtIndexerApi(data: any) {
   return request.post('/openliststrm/pt-indexers/test', data)
 }
+
+/** 获取索引器支持的分类树，传入表单当前值，无需先保存 */
+export function getPtIndexerCategoriesApi(data: any) {
+  return request.post('/openliststrm/pt-indexers/categories', data)
+}
