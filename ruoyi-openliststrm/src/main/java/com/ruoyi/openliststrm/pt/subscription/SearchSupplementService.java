@@ -135,7 +135,11 @@ public class SearchSupplementService {
 
         boolean movie = SubscriptionService.TYPE_MOVIE.equalsIgnoreCase(sub.getMediaType());
         if (movie) {
-            supplement(subId, 0, sub.getTitle());
+            try {
+                supplement(subId, 0, sub.getTitle());
+            } catch (Exception e) {
+                log.warn("订阅[{}] 建订阅补搜失败：{}", subId, e.getMessage());
+            }
             return;
         }
 

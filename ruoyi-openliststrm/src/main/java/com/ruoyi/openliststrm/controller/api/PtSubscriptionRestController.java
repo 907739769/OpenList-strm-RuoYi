@@ -20,6 +20,7 @@ import com.ruoyi.openliststrm.pt.subscription.dto.SubscriptionProgress;
 import com.ruoyi.openliststrm.pt.subscription.dto.SupplementResult;
 import com.ruoyi.openliststrm.pt.subscription.dto.TmdbSearchItem;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -31,6 +32,7 @@ import java.util.List;
  * @author Jack
  * @date 2026-07-27
  */
+@Slf4j
 @RestController
 @RequestMapping("/api/openliststrm/pt-subscriptions")
 public class PtSubscriptionRestController extends BaseCrudRestController<IPtSubscriptionPlusService, PtSubscriptionPlus> {
@@ -96,18 +98,23 @@ public class PtSubscriptionRestController extends BaseCrudRestController<IPtSubs
      */
     @PostMapping("/subscribe")
     public Result<Void> subscribe(@RequestBody SubscribeRequest request) {
+        PtSubscriptionPlus sub;
         try {
-            PtSubscriptionPlus sub = subscriptionBiz.subscribe(request);
-            if (SubscriptionService.STATUS_ACTIVE.equals(sub.getStatus())) {
-                searchOnCreateTrigger.triggerAsync(sub.getId());
-            }
-            return Result.success();
+            sub = subscriptionBiz.subscribe(request);
         } catch (IllegalArgumentException e) {
             return Result.error(e.getMessage());
         } catch (Exception e) {
             // 唯一约束冲突（同一作品同一季重复订阅）会在这里被兜住
             return Result.error("建立订阅失败，该作品的这一季可能已订阅过：" + e.getMessage());
         }
+        if (SubscriptionService.STATUS_ACTIVE.equals(sub.getStatus())) {
+            try {
+                searchOnCreateTrigger.triggerAsync(sub.getId());
+            } catch (Exception e) {
+                log.warn("订阅[{}]建订阅补搜触发失败：{}", sub.getId(), e.getMessage());
+            }
+        }
+        return Result.success();
     }
 
     /**
