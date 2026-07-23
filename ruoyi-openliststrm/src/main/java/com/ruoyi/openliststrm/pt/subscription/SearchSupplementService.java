@@ -2,8 +2,10 @@ package com.ruoyi.openliststrm.pt.subscription;
 
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.openliststrm.mybatisplus.domain.PtIndexerPlus;
+import com.ruoyi.openliststrm.mybatisplus.domain.PtSubscriptionEpisodePlus;
 import com.ruoyi.openliststrm.mybatisplus.domain.PtSubscriptionPlus;
 import com.ruoyi.openliststrm.mybatisplus.service.IPtIndexerPlusService;
+import com.ruoyi.openliststrm.mybatisplus.service.IPtSubscriptionEpisodePlusService;
 import com.ruoyi.openliststrm.mybatisplus.service.IPtSubscriptionPlusService;
 import com.ruoyi.openliststrm.pt.indexer.IndexerCapability;
 import com.ruoyi.openliststrm.pt.indexer.IndexerCapabilityCache;
@@ -39,6 +41,7 @@ public class SearchSupplementService {
     private final TorznabClient torznabClient;
     private final SubscriptionEngine subscriptionEngine;
     private final IPtSubscriptionPlusService subscriptionService;
+    private final IPtSubscriptionEpisodePlusService episodeService;
     private final SubscriptionMatcher matcher;
     private final IndexerCapabilityCache capabilityCache;
 
@@ -52,6 +55,7 @@ public class SearchSupplementService {
                                    TorznabClient torznabClient,
                                    SubscriptionEngine subscriptionEngine,
                                    IPtSubscriptionPlusService subscriptionService,
+                                   IPtSubscriptionEpisodePlusService episodeService,
                                    SubscriptionMatcher matcher,
                                    IndexerCapabilityCache capabilityCache,
                                    @Value("${pt.search.max-concurrency:3}") int maxConcurrency) {
@@ -59,6 +63,7 @@ public class SearchSupplementService {
         this.torznabClient = torznabClient;
         this.subscriptionEngine = subscriptionEngine;
         this.subscriptionService = subscriptionService;
+        this.episodeService = episodeService;
         this.matcher = matcher;
         this.capabilityCache = capabilityCache;
         this.maxConcurrency = Math.max(1, maxConcurrency);
@@ -109,6 +114,49 @@ public class SearchSupplementService {
         log.info("订阅[{}] {} 关键词[{}]搜索补集：候选{}个，{}",
                 sub.getId(), sub.getTitle(), keyword, totalCandidates, pushed ? "已推送" : "未推送");
         return new SupplementResult(pushed, totalCandidates);
+    }
+
+    /**
+     * 建订阅后一次性补搜历史资源：电影只搜一次；剧集先试整季包，季包搜不到再对仍缺失的
+     * 集逐一兜底。供 {@link SubscriptionSearchOnCreateTrigger} 异步调用——顶层不抛异常，
+     * 季包搜索与每一集的搜索都各自 try/catch，任一目标失败不影响其余目标继续搜索。
+     */
+    public void supplementOnCreate(Integer subId) {
+        PtSubscriptionPlus sub = subscriptionService.getById(subId);
+        if (sub == null || !SubscriptionService.STATUS_ACTIVE.equals(sub.getStatus())) {
+            return;
+        }
+        List<PtSubscriptionEpisodePlus> episodes = episodeService.listBySubscription(subId);
+        boolean hasMissing = episodes.stream()
+                .anyMatch(ep -> SubscriptionService.STATE_MISSING.equals(ep.getState()));
+        if (!hasMissing) {
+            return;
+        }
+
+        boolean movie = SubscriptionService.TYPE_MOVIE.equalsIgnoreCase(sub.getMediaType());
+        if (movie) {
+            supplement(subId, 0, sub.getTitle());
+            return;
+        }
+
+        try {
+            supplement(subId, SubscriptionMatcher.SEASON_PACK, sub.getTitle() + " S" + pad(sub.getSeason()));
+        } catch (Exception e) {
+            log.warn("订阅[{}] 建订阅补搜整季包失败：{}", subId, e.getMessage());
+        }
+
+        List<PtSubscriptionEpisodePlus> remaining = episodeService.listBySubscription(subId);
+        for (PtSubscriptionEpisodePlus ep : remaining) {
+            if (!SubscriptionService.STATE_MISSING.equals(ep.getState())) {
+                continue;
+            }
+            try {
+                String keyword = sub.getTitle() + " S" + pad(sub.getSeason()) + "E" + pad(ep.getEpisode());
+                supplement(subId, ep.getEpisode(), keyword);
+            } catch (Exception e) {
+                log.warn("订阅[{}] 建订阅补搜第{}集失败：{}", subId, ep.getEpisode(), e.getMessage());
+            }
+        }
     }
 
     /**
