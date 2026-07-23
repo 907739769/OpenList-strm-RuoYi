@@ -1,8 +1,10 @@
 package com.ruoyi.openliststrm.pt.subscription;
 
 import com.ruoyi.openliststrm.mybatisplus.domain.PtIndexerPlus;
+import com.ruoyi.openliststrm.mybatisplus.domain.PtSubscriptionEpisodePlus;
 import com.ruoyi.openliststrm.mybatisplus.domain.PtSubscriptionPlus;
 import com.ruoyi.openliststrm.mybatisplus.service.IPtIndexerPlusService;
+import com.ruoyi.openliststrm.mybatisplus.service.IPtSubscriptionEpisodePlusService;
 import com.ruoyi.openliststrm.mybatisplus.service.IPtSubscriptionPlusService;
 import com.ruoyi.openliststrm.pt.indexer.IndexerCapability;
 import com.ruoyi.openliststrm.pt.indexer.IndexerCapabilityCache;
@@ -31,6 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -48,6 +51,7 @@ class SearchSupplementServiceTest {
     @Mock private TorznabClient torznabClient;
     @Mock private SubscriptionEngine subscriptionEngine;
     @Mock private IPtSubscriptionPlusService subscriptionService;
+    @Mock private IPtSubscriptionEpisodePlusService episodeService;
     // 用真实实例而非 mock：标题归一化逻辑本身就是本测试要验证的行为
     private final SubscriptionMatcher matcher = new SubscriptionMatcher();
     private IndexerCapabilityCache capabilityCache;
@@ -57,7 +61,7 @@ class SearchSupplementServiceTest {
     @BeforeEach
     void setUp() {
         capabilityCache = new IndexerCapabilityCache(torznabClient);
-        service = new SearchSupplementService(indexerService, torznabClient, subscriptionEngine, subscriptionService, matcher, capabilityCache, 10);
+        service = new SearchSupplementService(indexerService, torznabClient, subscriptionEngine, subscriptionService, episodeService, matcher, capabilityCache, 10);
     }
 
     private PtIndexerPlus indexer(int id) {
@@ -93,6 +97,13 @@ class SearchSupplementServiceTest {
         sub.setYear(year);
         sub.setStatus("ACTIVE");
         return sub;
+    }
+
+    private PtSubscriptionEpisodePlus episode(int number, String state) {
+        PtSubscriptionEpisodePlus ep = new PtSubscriptionEpisodePlus();
+        ep.setEpisode(number);
+        ep.setState(state);
+        return ep;
     }
 
     // ---------- searchAcrossIndexers ----------
@@ -138,7 +149,7 @@ class SearchSupplementServiceTest {
     void searchAcrossIndexers_并发数不超过配置上限() throws Exception {
         int limit = 2;
         SearchSupplementService limited = new SearchSupplementService(
-                indexerService, torznabClient, subscriptionEngine, subscriptionService, matcher, capabilityCache, limit);
+                indexerService, torznabClient, subscriptionEngine, subscriptionService, episodeService, matcher, capabilityCache, limit);
         when(indexerService.listEnabled()).thenReturn(
                 List.of(indexer(1), indexer(2), indexer(3), indexer(4), indexer(5)));
 
@@ -173,7 +184,7 @@ class SearchSupplementServiceTest {
     void searchAcrossIndexers_并发受限但最终仍处理完所有索引器() throws Exception {
         int limit = 2;
         SearchSupplementService limited = new SearchSupplementService(
-                indexerService, torznabClient, subscriptionEngine, subscriptionService, matcher, capabilityCache, limit);
+                indexerService, torznabClient, subscriptionEngine, subscriptionService, episodeService, matcher, capabilityCache, limit);
         when(indexerService.listEnabled()).thenReturn(
                 List.of(indexer(1), indexer(2), indexer(3), indexer(4), indexer(5)));
         when(torznabClient.search(any(), anyString())).thenReturn(List.of(torrent("t")));
@@ -186,7 +197,7 @@ class SearchSupplementServiceTest {
     @Test
     void 配置并发数小于1_至少允许1个() throws Exception {
         SearchSupplementService limited = new SearchSupplementService(
-                indexerService, torznabClient, subscriptionEngine, subscriptionService, matcher, capabilityCache, 0);
+                indexerService, torznabClient, subscriptionEngine, subscriptionService, episodeService, matcher, capabilityCache, 0);
         when(indexerService.listEnabled()).thenReturn(List.of(indexer(1)));
         when(torznabClient.search(any(), anyString())).thenReturn(List.of(torrent("t")));
 
@@ -708,5 +719,134 @@ class SearchSupplementServiceTest {
         service.supplement(10, 3, "Some Show S01E03");
 
         verify(torznabClient).searchByExternalId(idx, false, "imdbid", "tt0903747", 1, 3);
+    }
+
+    // ---------- supplementOnCreate ----------
+
+    @Test
+    void supplementOnCreate_订阅不存在_不发起搜索() {
+        when(subscriptionService.getById(99)).thenReturn(null);
+
+        service.supplementOnCreate(99);
+
+        verify(subscriptionEngine, never()).pushBest(any(), anyInt(), anyList());
+    }
+
+    @Test
+    void supplementOnCreate_订阅非ACTIVE_不发起搜索() {
+        PtSubscriptionPlus sub = tvSub(10, 1, 3);
+        sub.setStatus("COMPLETED");
+        when(subscriptionService.getById(10)).thenReturn(sub);
+
+        service.supplementOnCreate(10);
+
+        verify(subscriptionEngine, never()).pushBest(any(), anyInt(), anyList());
+        verify(episodeService, never()).listBySubscription(10);
+    }
+
+    @Test
+    void supplementOnCreate_无缺失集_不发起搜索() {
+        PtSubscriptionPlus sub = tvSub(10, 1, 2);
+        when(subscriptionService.getById(10)).thenReturn(sub);
+        when(episodeService.listBySubscription(10)).thenReturn(
+                List.of(episode(1, "IN_LIBRARY"), episode(2, "IN_LIBRARY")));
+
+        service.supplementOnCreate(10);
+
+        verify(subscriptionEngine, never()).pushBest(any(), anyInt(), anyList());
+    }
+
+    @Test
+    void supplementOnCreate_电影订阅_只搜一次() throws Exception {
+        PtSubscriptionPlus movie = movieSub(20, "手机", "2003");
+        when(subscriptionService.getById(20)).thenReturn(movie);
+        when(episodeService.listBySubscription(20)).thenReturn(List.of(episode(0, "MISSING")));
+        when(indexerService.listEnabled()).thenReturn(List.of());
+
+        service.supplementOnCreate(20);
+
+        verify(subscriptionEngine, times(1)).pushBest(eq(movie), eq(0), anyList());
+    }
+
+    @Test
+    void supplementOnCreate_剧集季包命中_不逐集兜底() throws Exception {
+        PtSubscriptionPlus sub = tvSub(10, 1, 2);
+        when(subscriptionService.getById(10)).thenReturn(sub);
+        // 第一次调用（进方法时判断是否有缺失集）返回全缺，第二次调用（季包搜完后重新查）
+        // 模拟季包命中把所有缺集占位为 IN_FLIGHT 的结果
+        when(episodeService.listBySubscription(10)).thenReturn(
+                List.of(episode(1, "MISSING"), episode(2, "MISSING")),
+                List.of(episode(1, "IN_FLIGHT"), episode(2, "IN_FLIGHT")));
+        when(indexerService.listEnabled()).thenReturn(List.of());
+
+        service.supplementOnCreate(10);
+
+        verify(subscriptionEngine, times(1)).pushBest(eq(sub), eq(SubscriptionMatcher.SEASON_PACK), anyList());
+        verify(subscriptionEngine, never()).pushBest(eq(sub), eq(1), anyList());
+        verify(subscriptionEngine, never()).pushBest(eq(sub), eq(2), anyList());
+    }
+
+    @Test
+    void supplementOnCreate_季包未命中_逐集兜底剩余缺失集() throws Exception {
+        PtSubscriptionPlus sub = tvSub(10, 1, 3);
+        when(subscriptionService.getById(10)).thenReturn(sub);
+        List<PtSubscriptionEpisodePlus> episodes = List.of(
+                episode(1, "MISSING"), episode(2, "MISSING"), episode(3, "IN_LIBRARY"));
+        when(episodeService.listBySubscription(10)).thenReturn(episodes, episodes);
+        when(indexerService.listEnabled()).thenReturn(List.of());
+
+        service.supplementOnCreate(10);
+
+        verify(subscriptionEngine, times(1)).pushBest(eq(sub), eq(SubscriptionMatcher.SEASON_PACK), anyList());
+        verify(subscriptionEngine, times(1)).pushBest(eq(sub), eq(1), anyList());
+        verify(subscriptionEngine, times(1)).pushBest(eq(sub), eq(2), anyList());
+        verify(subscriptionEngine, never()).pushBest(eq(sub), eq(3), anyList());
+    }
+
+    @Test
+    void supplementOnCreate_逐集兜底关键词按season和episode两位数格式拼() throws Exception {
+        PtSubscriptionPlus sub = tvSub(10, 2, 5);
+        when(subscriptionService.getById(10)).thenReturn(sub);
+        List<PtSubscriptionEpisodePlus> episodes = List.of(episode(5, "MISSING"));
+        when(episodeService.listBySubscription(10)).thenReturn(episodes, episodes);
+        when(indexerService.listEnabled()).thenReturn(List.of(indexer(1)));
+        when(torznabClient.search(any(), anyString())).thenReturn(List.of());
+
+        service.supplementOnCreate(10);
+
+        verify(torznabClient).search(any(), eq("Some Show S02"));
+        verify(torznabClient).search(any(), eq("Some Show S02E05"));
+    }
+
+    @Test
+    void supplementOnCreate_季包补搜异常_仍继续逐集兜底() throws Exception {
+        PtSubscriptionPlus sub = tvSub(10, 1, 2);
+        when(subscriptionService.getById(10)).thenReturn(sub);
+        List<PtSubscriptionEpisodePlus> episodes = List.of(
+                episode(1, "MISSING"), episode(2, "MISSING"));
+        when(episodeService.listBySubscription(10)).thenReturn(episodes, episodes);
+        when(indexerService.listEnabled()).thenReturn(List.of());
+        when(subscriptionEngine.pushBest(eq(sub), eq(SubscriptionMatcher.SEASON_PACK), anyList()))
+                .thenThrow(new RuntimeException("boom"));
+
+        service.supplementOnCreate(10);
+
+        verify(subscriptionEngine, times(1)).pushBest(eq(sub), eq(1), anyList());
+        verify(subscriptionEngine, times(1)).pushBest(eq(sub), eq(2), anyList());
+    }
+
+    @Test
+    void supplementOnCreate_某集补搜异常_不影响其余集继续搜索() throws Exception {
+        PtSubscriptionPlus sub = tvSub(10, 1, 3);
+        when(subscriptionService.getById(10)).thenReturn(sub);
+        List<PtSubscriptionEpisodePlus> episodes = List.of(
+                episode(1, "MISSING"), episode(2, "MISSING"), episode(3, "IN_LIBRARY"));
+        when(episodeService.listBySubscription(10)).thenReturn(episodes, episodes);
+        when(indexerService.listEnabled()).thenReturn(List.of());
+        when(subscriptionEngine.pushBest(eq(sub), eq(1), anyList())).thenThrow(new RuntimeException("boom"));
+
+        service.supplementOnCreate(10);
+
+        verify(subscriptionEngine, times(1)).pushBest(eq(sub), eq(2), anyList());
     }
 }
