@@ -7,6 +7,7 @@ import com.ruoyi.openliststrm.pt.indexer.TorznabClient;
 import com.ruoyi.openliststrm.pt.model.TorrentInfo;
 import com.ruoyi.openliststrm.pt.subscription.SubscriptionEngine;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -35,22 +36,31 @@ public class RssPollService {
     private static final String ENABLED = "1";
     private static final String DISABLED = "0";
 
+    /**
+     * 自动停用后的冷却期（小时）：冷却期内不重复探测，避免对已知失效的索引器每轮心跳都打一次站点。
+     */
+    private final int selfHealCooldownHours;
+
     private final IPtIndexerPlusService indexerService;
     private final TorznabClient torznabClient;
     private final SubscriptionEngine subscriptionEngine;
 
     public RssPollService(IPtIndexerPlusService indexerService,
                           TorznabClient torznabClient,
-                          SubscriptionEngine subscriptionEngine) {
+                          SubscriptionEngine subscriptionEngine,
+                          @Value("${pt.indexer.self-heal-cooldown-hours:2}") int selfHealCooldownHours) {
         this.indexerService = indexerService;
         this.torznabClient = torznabClient;
         this.subscriptionEngine = subscriptionEngine;
+        this.selfHealCooldownHours = selfHealCooldownHours;
     }
 
     /**
-     * 轮询一轮：拉取所有到期索引器的种子，汇总交给引擎。
+     * 轮询一轮：先对冷却期已过的停用索引器做一次自愈探测，再拉取所有到期索引器的种子。
      */
     public void poll() {
+        selfHeal();
+
         List<PtIndexerPlus> indexers = indexerService.listEnabled();
         List<TorrentInfo> allTorrents = new ArrayList<>();
         long now = System.currentTimeMillis();
@@ -73,9 +83,10 @@ public class RssPollService {
                 log.warn("索引器[{}]拉取失败（第{}次）：{}", indexer.getName(), fails, e.getMessage());
                 if (fails >= DISABLE_FAIL_THRESHOLD && ENABLED.equals(indexer.getEnabled())) {
                     indexer.setEnabled(DISABLED);
+                    indexer.setDisabledAt(new Date());
                     log.warn("索引器[{}]连续失败 {} 次，已自动停用", indexer.getName(), fails);
                     notifySafely("🛑 索引器[" + indexer.getName() + "]已连续失败 " + fails + " 次，已自动停用，"
-                            + "请检查配置后到索引器管理页手动重新启用");
+                            + "冷却 " + selfHealCooldownHours + " 小时后将自动尝试恢复");
                 } else if (fails == ALERT_FAIL_THRESHOLD) {
                     notifySafely("⚠️ 索引器[" + indexer.getName() + "]已连续失败 " + fails + " 次：" + e.getMessage());
                 }
@@ -90,6 +101,42 @@ public class RssPollService {
             }
             log.info("本轮共拉取 {} 条种子，推送 {} 个", allTorrents.size(), pushed);
         }
+    }
+
+    /**
+     * 对冷却期已过的停用索引器做一次轻量连通性探测，成功则自动重新启用。
+     * 只处理 {@code disabledAt} 非空的索引器——该字段只在"连续失败自动停用"分支被写入，
+     * 人工手动停用的索引器 disabledAt 为空，不会被这里误判为可自愈而抢先重新启用。
+     * 探测失败只重置冷却计时，不发通知，避免长期失效的索引器每次冷却到期都刷一条告警。
+     */
+    private void selfHeal() {
+        List<PtIndexerPlus> disabled = indexerService.listDisabled();
+        long now = System.currentTimeMillis();
+        for (PtIndexerPlus indexer : disabled) {
+            if (!eligibleForSelfHeal(indexer, now)) {
+                continue;
+            }
+            if (torznabClient.testConnection(indexer)) {
+                indexer.setEnabled(ENABLED);
+                indexer.setFailCount(0);
+                indexer.setDisabledAt(null);
+                indexer.setLastStatus("OK");
+                indexerService.updateById(indexer);
+                log.info("索引器[{}]自愈探测成功，已自动重新启用", indexer.getName());
+                notifySafely("✅ 索引器[" + indexer.getName() + "]自愈探测成功，已自动重新启用");
+            } else {
+                indexer.setDisabledAt(new Date());
+                indexerService.updateById(indexer);
+                log.debug("索引器[{}]自愈探测仍失败，冷却重新计时", indexer.getName());
+            }
+        }
+    }
+
+    private boolean eligibleForSelfHeal(PtIndexerPlus indexer, long now) {
+        if (indexer.getDisabledAt() == null) {
+            return false;
+        }
+        return now - indexer.getDisabledAt().getTime() >= selfHealCooldownHours * 3600_000L;
     }
 
     private boolean isDue(PtIndexerPlus indexer, long now) {

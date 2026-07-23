@@ -26,4 +26,12 @@ public class PtIndexerPlusServiceImpl extends ServiceImpl<PtIndexerPlusMapper, P
                 .orderByAsc(PtIndexerPlus::getId)
                 .list();
     }
+
+    @Override
+    public List<PtIndexerPlus> listDisabled() {
+        return lambdaQuery()
+                .eq(PtIndexerPlus::getEnabled, "0")
+                .orderByAsc(PtIndexerPlus::getId)
+                .list();
+    }
 }

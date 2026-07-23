@@ -17,6 +17,7 @@ import org.springframework.stereotype.Component;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * 每 10 分钟遍历订阅中的订阅，与 Emby 对账（补齐总集数、推进已入库、重算状态）。
@@ -34,6 +35,9 @@ public class LibrarySyncTask {
 
     private final TaskScheduler scheduler = SpringUtils.getBean("virtualScheduledExecutor");
 
+    /** 单轮耗时超过心跳间隔时，避免重叠触发重复对账所有订阅 */
+    private final AtomicBoolean running = new AtomicBoolean(false);
+
     @EventListener(ApplicationReadyEvent.class)
     public void start() {
         ThreadTraceIdUtil.initTraceId();
@@ -48,6 +52,10 @@ public class LibrarySyncTask {
     }
 
     private void poll() {
+        if (!running.compareAndSet(false, true)) {
+            log.debug("LibrarySyncTask 上一轮尚未结束，跳过本次触发");
+            return;
+        }
         try {
             List<PtSubscriptionPlus> active = subscriptionService.listActive();
             for (PtSubscriptionPlus sub : active) {
@@ -59,6 +67,8 @@ public class LibrarySyncTask {
             }
         } catch (Exception e) {
             log.error("LibrarySyncTask poll error", e);
+        } finally {
+            running.set(false);
         }
     }
 }

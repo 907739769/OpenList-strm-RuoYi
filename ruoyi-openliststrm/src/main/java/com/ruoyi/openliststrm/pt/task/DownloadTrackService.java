@@ -10,7 +10,9 @@ import com.ruoyi.openliststrm.mybatisplus.domain.PtSubscriptionEpisodePlus;
 import com.ruoyi.openliststrm.mybatisplus.service.IPtDownloadRecordPlusService;
 import com.ruoyi.openliststrm.mybatisplus.service.IPtSubscriptionEpisodePlusService;
 import com.ruoyi.openliststrm.pt.downloader.model.DownloaderTorrent;
+import com.ruoyi.openliststrm.pt.subscription.SubscriptionEpisodeState;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.Date;
@@ -26,12 +28,13 @@ import java.util.List;
 @Service
 public class DownloadTrackService {
 
-    private static final String STATE_PUSHED = "PUSHED";
-    private static final String STATE_DOWNLOADING = "DOWNLOADING";
-    private static final String STATE_COMPLETED = "COMPLETED";
-    private static final String STATE_FAILED = "FAILED";
-    private static final String EP_MISSING = "MISSING";
-    private static final String EP_IN_FLIGHT = "IN_FLIGHT";
+    private static final String STATE_PUSHED = DownloadRecordState.PUSHED.value();
+    private static final String STATE_DOWNLOADING = DownloadRecordState.DOWNLOADING.value();
+    private static final String STATE_COMPLETED = DownloadRecordState.COMPLETED.value();
+    private static final String STATE_FAILED = DownloadRecordState.FAILED.value();
+    private static final String EP_MISSING = SubscriptionEpisodeState.MISSING.value();
+    private static final String EP_IN_FLIGHT = SubscriptionEpisodeState.IN_FLIGHT.value();
+    private static final String EP_BLOCKED = SubscriptionEpisodeState.BLOCKED.value();
 
     /** 推送后找不到对应种子的宽限期：超过它才判失败（qB 解析磁力元数据需要时间） */
     private static final long GRACE_MILLIS = 10 * 60 * 1000L;
@@ -41,13 +44,21 @@ public class DownloadTrackService {
      *  代价：真实的超长慢速下载超过该时长也会被释放（其 guid 按附录B 拉黑，该集靠别的种子恢复）。 */
     private static final long ZOMBIE_TIMEOUT_MILLIS = 24 * 60 * 60 * 1000L;
 
+    /** 同一集连续失败达到该次数后不再回退 MISSING，转 BLOCKED 停止自动重试，避免已下架/失效资源被无限次静默重试 */
+    private final int maxConsecutiveFailures;
+
     private final IPtDownloadRecordPlusService recordService;
     private final IPtSubscriptionEpisodePlusService episodeService;
+    private final DownloadCompletionSyncTrigger completionSyncTrigger;
 
     public DownloadTrackService(IPtDownloadRecordPlusService recordService,
-                                IPtSubscriptionEpisodePlusService episodeService) {
+                                IPtSubscriptionEpisodePlusService episodeService,
+                                DownloadCompletionSyncTrigger completionSyncTrigger,
+                                @Value("${pt.download.max-consecutive-failures:3}") int maxConsecutiveFailures) {
         this.recordService = recordService;
         this.episodeService = episodeService;
+        this.completionSyncTrigger = completionSyncTrigger;
+        this.maxConsecutiveFailures = maxConsecutiveFailures;
     }
 
     /**
@@ -67,7 +78,7 @@ public class DownloadTrackService {
             long age = record.getPushedTime() == null
                     ? Long.MAX_VALUE : now - record.getPushedTime().getTime();
             if (matched != null && matched.isCompleted()) {
-                complete(record);
+                complete(record, downloader);
             } else if (matched == null) {
                 if (age >= GRACE_MILLIS) {
                     fail(record, "下载器中已找不到该种子（可能被删除或元数据解析失败）");
@@ -123,7 +134,7 @@ public class DownloadTrackService {
         }
     }
 
-    private void complete(PtDownloadRecordPlus record) {
+    private void complete(PtDownloadRecordPlus record, PtDownloaderPlus downloader) {
         PtDownloadRecordPlus set = new PtDownloadRecordPlus();
         set.setState(STATE_COMPLETED);
         set.setProgress(1.0);
@@ -136,13 +147,19 @@ public class DownloadTrackService {
         }
         notifySafely("✅ 下载完成：" + record.getTitle());
         log.info("下载记录[{}] 已完成：{}", record.getId(), record.getTitle());
-        // 集状态不动，仍是 IN_FLIGHT，等 LibrarySyncTask 经 Emby 确认后转 IN_LIBRARY
+        // 集状态不动，仍是 IN_FLIGHT；下载器关联了 STRM 任务时异步触发一次增量生成+提前对账，
+        // 没关联时纯靠 LibrarySyncTask 下一轮批量对账兜底
+        completionSyncTrigger.triggerAsync(record, downloader);
     }
 
     /**
      * 判记录失败并回退其关联集。反转写序（先集、后记录）保证崩溃安全：
      * 无论崩在哪一步，记录仍处于 PUSHED/DOWNLOADING，会被下一轮重新处理，
      * 不会产生「记录已 FAILED 但集仍 IN_FLIGHT」的永久孤儿。
+     * <p>
+     * 每个关联集各自累加连续失败次数：达到阈值前回退 MISSING（RSS/补搜会重新捡回），
+     * 达到阈值后转 BLOCKED 停止自动重试，避免已下架/失效的资源被无限次静默重试。
+     * </p>
      */
     private void fail(PtDownloadRecordPlus record, String reason) {
         // 1) 先回退关联集（幂等：只动 IN_FLIGHT 的；普通集1条、季包多条统一处理）
@@ -150,13 +167,20 @@ public class DownloadTrackService {
                 new QueryWrapper<PtSubscriptionEpisodePlus>()
                         .eq("download_id", record.getId())
                         .eq("state", EP_IN_FLIGHT));
+        int blockedCount = 0;
         for (PtSubscriptionEpisodePlus episode : episodes) {
+            int fails = (episode.getFailCount() == null ? 0 : episode.getFailCount()) + 1;
+            boolean blocked = fails >= maxConsecutiveFailures;
             PtSubscriptionEpisodePlus set = new PtSubscriptionEpisodePlus();
-            set.setState(EP_MISSING);
+            set.setState(blocked ? EP_BLOCKED : EP_MISSING);
             set.setDownloadId(null);
+            set.setFailCount(fails);
             episodeService.update(set, new UpdateWrapper<PtSubscriptionEpisodePlus>()
                     .eq("id", episode.getId())
                     .eq("state", EP_IN_FLIGHT));
+            if (blocked) {
+                blockedCount++;
+            }
         }
         // 2) 再置记录 FAILED（条件更新门控通知，避免重叠轮询重复发）
         PtDownloadRecordPlus set = new PtDownloadRecordPlus();
@@ -170,5 +194,9 @@ public class DownloadTrackService {
         }
         notifySafely("❌ 下载失败：" + record.getTitle() + "，已释放待下轮重新匹配");
         log.warn("下载记录[{}] 失败，{} 个集回退缺失：{}", record.getId(), episodes.size(), record.getTitle());
+        if (blockedCount > 0) {
+            notifySafely("🚫 " + record.getTitle() + " 连续失败达 " + maxConsecutiveFailures
+                    + " 次，已停止自动重试，需到下载记录管理页人工重试");
+        }
     }
 }

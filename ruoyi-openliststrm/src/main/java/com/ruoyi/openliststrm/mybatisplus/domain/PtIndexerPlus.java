@@ -64,4 +64,8 @@ public class PtIndexerPlus extends BaseEntity {
     /** 连续失败次数，成功后归零 */
     @TableField("fail_count")
     private Integer failCount;
+
+    /** 自动停用/最近一次自愈探测失败的时间，用于冷却期计时 */
+    @TableField("disabled_at")
+    private Date disabledAt;
 }

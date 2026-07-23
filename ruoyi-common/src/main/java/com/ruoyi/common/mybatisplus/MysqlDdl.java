@@ -54,7 +54,10 @@ public class MysqlDdl extends SimpleDdl {
                 "sql/20260729-pt-subscription-imdb-id.sql",
                 "sql/20260730-pt-download-record-progress.sql",
                 "sql/20260731-pt-download-record-menu.sql",
-                "sql/20260732-pt-search-log.sql"
+                "sql/20260732-pt-search-log.sql",
+                "sql/20260733-pt-indexer-self-heal.sql",
+                "sql/20260734-pt-episode-fail-count.sql",
+                "sql/20260735-pt-downloader-strm-task-link.sql"
         );
     }
 }

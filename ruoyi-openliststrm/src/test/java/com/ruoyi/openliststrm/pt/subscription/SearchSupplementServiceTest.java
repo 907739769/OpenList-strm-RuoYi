@@ -1,5 +1,6 @@
 package com.ruoyi.openliststrm.pt.subscription;
 
+import com.ruoyi.openliststrm.helper.TgHelper;
 import com.ruoyi.openliststrm.mybatisplus.domain.PtIndexerPlus;
 import com.ruoyi.openliststrm.mybatisplus.domain.PtSubscriptionEpisodePlus;
 import com.ruoyi.openliststrm.mybatisplus.domain.PtSubscriptionPlus;
@@ -17,6 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
@@ -27,6 +29,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -38,6 +41,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.same;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -769,6 +773,20 @@ class SearchSupplementServiceTest {
     }
 
     @Test
+    void supplementOnCreate_电影补搜异常_不抛出异常仍正常返回() throws Exception {
+        PtSubscriptionPlus movie = movieSub(20, "手机", "2003");
+        when(subscriptionService.getById(20)).thenReturn(movie);
+        when(episodeService.listBySubscription(20)).thenReturn(List.of(episode(0, "MISSING")));
+        when(indexerService.listEnabled()).thenReturn(List.of());
+        when(subscriptionEngine.pushBest(eq(movie), eq(0), anyList()))
+                .thenThrow(new RuntimeException("boom"));
+
+        assertDoesNotThrow(() -> service.supplementOnCreate(20));
+
+        verify(subscriptionEngine, times(1)).pushBest(eq(movie), eq(0), anyList());
+    }
+
+    @Test
     void supplementOnCreate_剧集季包命中_不逐集兜底() throws Exception {
         PtSubscriptionPlus sub = tvSub(10, 1, 2);
         when(subscriptionService.getById(10)).thenReturn(sub);
@@ -848,5 +866,85 @@ class SearchSupplementServiceTest {
         service.supplementOnCreate(10);
 
         verify(subscriptionEngine, times(1)).pushBest(eq(sub), eq(2), anyList());
+    }
+
+    // ---------- supplementOnCreate 全部落空时的告警通知 ----------
+
+    @Test
+    void supplementOnCreate_电影补搜全部落空_发送告警通知() throws Exception {
+        PtSubscriptionPlus movie = movieSub(20, "手机", "2003");
+        when(subscriptionService.getById(20)).thenReturn(movie);
+        when(episodeService.listBySubscription(20)).thenReturn(List.of(episode(0, "MISSING")));
+        when(indexerService.listEnabled()).thenReturn(List.of());
+        when(subscriptionEngine.pushBest(eq(movie), eq(0), anyList())).thenReturn(false);
+
+        try (MockedStatic<TgHelper> tg = mockStatic(TgHelper.class)) {
+            service.supplementOnCreate(20);
+            tg.verify(() -> TgHelper.sendMsg(anyString()));
+        }
+    }
+
+    @Test
+    void supplementOnCreate_电影补搜命中_不发送告警通知() throws Exception {
+        PtSubscriptionPlus movie = movieSub(20, "手机", "2003");
+        when(subscriptionService.getById(20)).thenReturn(movie);
+        when(episodeService.listBySubscription(20)).thenReturn(List.of(episode(0, "MISSING")));
+        when(indexerService.listEnabled()).thenReturn(List.of());
+        when(subscriptionEngine.pushBest(eq(movie), eq(0), anyList())).thenReturn(true);
+
+        try (MockedStatic<TgHelper> tg = mockStatic(TgHelper.class)) {
+            service.supplementOnCreate(20);
+            tg.verify(() -> TgHelper.sendMsg(anyString()), never());
+        }
+    }
+
+    @Test
+    void supplementOnCreate_剧集季包和逐集全部落空_发送告警通知() throws Exception {
+        PtSubscriptionPlus sub = tvSub(10, 1, 2);
+        when(subscriptionService.getById(10)).thenReturn(sub);
+        List<PtSubscriptionEpisodePlus> episodes = List.of(
+                episode(1, "MISSING"), episode(2, "MISSING"));
+        when(episodeService.listBySubscription(10)).thenReturn(episodes, episodes);
+        when(indexerService.listEnabled()).thenReturn(List.of());
+        when(subscriptionEngine.pushBest(any(), anyInt(), anyList())).thenReturn(false);
+
+        try (MockedStatic<TgHelper> tg = mockStatic(TgHelper.class)) {
+            service.supplementOnCreate(10);
+            tg.verify(() -> TgHelper.sendMsg(anyString()));
+        }
+    }
+
+    @Test
+    void supplementOnCreate_剧集季包命中_不发送告警通知() throws Exception {
+        PtSubscriptionPlus sub = tvSub(10, 1, 2);
+        when(subscriptionService.getById(10)).thenReturn(sub);
+        when(episodeService.listBySubscription(10)).thenReturn(
+                List.of(episode(1, "MISSING"), episode(2, "MISSING")),
+                List.of(episode(1, "IN_FLIGHT"), episode(2, "IN_FLIGHT")));
+        when(indexerService.listEnabled()).thenReturn(List.of());
+        when(subscriptionEngine.pushBest(eq(sub), eq(SubscriptionMatcher.SEASON_PACK), anyList())).thenReturn(true);
+
+        try (MockedStatic<TgHelper> tg = mockStatic(TgHelper.class)) {
+            service.supplementOnCreate(10);
+            tg.verify(() -> TgHelper.sendMsg(anyString()), never());
+        }
+    }
+
+    @Test
+    void supplementOnCreate_剧集季包未命中但逐集命中_不发送告警通知() throws Exception {
+        PtSubscriptionPlus sub = tvSub(10, 1, 2);
+        when(subscriptionService.getById(10)).thenReturn(sub);
+        List<PtSubscriptionEpisodePlus> episodes = List.of(
+                episode(1, "MISSING"), episode(2, "MISSING"));
+        when(episodeService.listBySubscription(10)).thenReturn(episodes, episodes);
+        when(indexerService.listEnabled()).thenReturn(List.of());
+        when(subscriptionEngine.pushBest(eq(sub), eq(SubscriptionMatcher.SEASON_PACK), anyList())).thenReturn(false);
+        when(subscriptionEngine.pushBest(eq(sub), eq(1), anyList())).thenReturn(true);
+        when(subscriptionEngine.pushBest(eq(sub), eq(2), anyList())).thenReturn(false);
+
+        try (MockedStatic<TgHelper> tg = mockStatic(TgHelper.class)) {
+            service.supplementOnCreate(10);
+            tg.verify(() -> TgHelper.sendMsg(anyString()), never());
+        }
     }
 }

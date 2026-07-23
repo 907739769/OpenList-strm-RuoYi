@@ -7,6 +7,7 @@ import com.ruoyi.openliststrm.mybatisplus.service.IPtFilterConfigPlusService;
 import com.ruoyi.openliststrm.mybatisplus.service.IPtSubscriptionEpisodePlusService;
 import com.ruoyi.openliststrm.mybatisplus.service.IPtSubscriptionPlusService;
 import com.ruoyi.openliststrm.pt.subscription.SearchSupplementService;
+import com.ruoyi.openliststrm.pt.subscription.SubscriptionEpisodeState;
 import com.ruoyi.openliststrm.pt.subscription.SubscriptionMatcher;
 import com.ruoyi.openliststrm.pt.subscription.SubscriptionService;
 import lombok.extern.slf4j.Slf4j;
@@ -24,7 +25,7 @@ import java.util.List;
 @Service
 public class AutoSearchService {
 
-    private static final String STATE_MISSING = "MISSING";
+    private static final String STATE_MISSING = SubscriptionEpisodeState.MISSING.value();
     private static final String AUTO_SEARCH_ON = "1";
     private static final int DEFAULT_INTERVAL_HOURS = 24;
 

@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * RSS 轮询心跳：每 60 秒检查一次哪些索引器到期，到期的才真正拉取
@@ -29,6 +30,9 @@ public class RssPollTask {
 
     private final TaskScheduler scheduler = SpringUtils.getBean("virtualScheduledExecutor");
 
+    /** 单轮耗时超过心跳间隔时，避免重叠触发重复拉取所有索引器 */
+    private final AtomicBoolean running = new AtomicBoolean(false);
+
     @EventListener(ApplicationReadyEvent.class)
     public void start() {
         ThreadTraceIdUtil.initTraceId();
@@ -43,10 +47,16 @@ public class RssPollTask {
     }
 
     private void poll() {
+        if (!running.compareAndSet(false, true)) {
+            log.debug("RssPollTask 上一轮尚未结束，跳过本次触发");
+            return;
+        }
         try {
             rssPollService.poll();
         } catch (Exception e) {
             log.error("RssPollTask poll error", e);
+        } finally {
+            running.set(false);
         }
     }
 }

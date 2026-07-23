@@ -33,9 +33,9 @@ public class SubscriptionService {
     /** 媒体类型：电影。判断是否电影只看它，绝不能用 season == 0（剧集特别篇也是第 0 季） */
     public static final String TYPE_MOVIE = "MOVIE";
 
-    public static final String STATE_MISSING = "MISSING";
-    public static final String STATE_IN_FLIGHT = "IN_FLIGHT";
-    public static final String STATE_IN_LIBRARY = "IN_LIBRARY";
+    public static final String STATE_MISSING = SubscriptionEpisodeState.MISSING.value();
+    public static final String STATE_IN_FLIGHT = SubscriptionEpisodeState.IN_FLIGHT.value();
+    public static final String STATE_IN_LIBRARY = SubscriptionEpisodeState.IN_LIBRARY.value();
 
     public static final String STATUS_ACTIVE = "ACTIVE";
     public static final String STATUS_COMPLETED = "COMPLETED";

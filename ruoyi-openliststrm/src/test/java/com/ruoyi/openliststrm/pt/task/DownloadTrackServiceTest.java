@@ -24,6 +24,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -36,9 +39,10 @@ class DownloadTrackServiceTest {
 
     @Mock private IPtDownloadRecordPlusService recordService;
     @Mock private IPtSubscriptionEpisodePlusService episodeService;
+    @Mock private DownloadCompletionSyncTrigger completionSyncTrigger;
 
     private DownloadTrackService service() {
-        return new DownloadTrackService(recordService, episodeService);
+        return new DownloadTrackService(recordService, episodeService, completionSyncTrigger, 3);
     }
 
     private PtDownloaderPlus downloader() {
@@ -74,8 +78,9 @@ class DownloadTrackServiceTest {
         when(recordService.update(any(PtDownloadRecordPlus.class), any(Wrapper.class))).thenReturn(true);
         PtDownloadRecordPlus r = record(100, 2, "osr-pt-aaa", "DOWNLOADING", 60_000);
         when(recordService.list(any(Wrapper.class))).thenReturn(List.of(r));
+        PtDownloaderPlus dl = downloader();
 
-        service().track(downloader(), List.of(torrent("osr-pt,osr-pt-aaa", 1.0)));
+        service().track(dl, List.of(torrent("osr-pt,osr-pt-aaa", 1.0)));
 
         ArgumentCaptor<PtDownloadRecordPlus> captor = ArgumentCaptor.forClass(PtDownloadRecordPlus.class);
         verify(recordService).update(captor.capture(), any(Wrapper.class));
@@ -84,6 +89,8 @@ class DownloadTrackServiceTest {
         assertNotNull(captor.getValue().getCompletedTime());
         // 集状态不该被改（等 Emby 对账）
         verify(episodeService, never()).update(any(), any(Wrapper.class));
+        // 完成后异步触发一次 STRM 联动同步，用同一个 downloader 引用
+        verify(completionSyncTrigger).triggerAsync(eq(r), same(dl));
     }
 
     @Test
@@ -214,6 +221,8 @@ class DownloadTrackServiceTest {
             service().track(downloader(), List.of(torrent("osr-pt,osr-pt-aaa", 1.0)));
             tg.verify(() -> TgHelper.sendMsg(anyString()), never());
         }
+        // 已被并发轮次处理过，不该重复触发 STRM 联动同步
+        verify(completionSyncTrigger, never()).triggerAsync(any(), any());
     }
 
     @Test
@@ -230,9 +239,67 @@ class DownloadTrackServiceTest {
     }
 
     private PtSubscriptionEpisodePlus episodeRow(int id) {
+        return episodeRow(id, 0);
+    }
+
+    private PtSubscriptionEpisodePlus episodeRow(int id, int failCount) {
         PtSubscriptionEpisodePlus ep = new PtSubscriptionEpisodePlus();
         ep.setId(id);
         ep.setState("IN_FLIGHT");
+        ep.setFailCount(failCount);
         return ep;
+    }
+
+    // ---------- 失败重试熔断 ----------
+
+    @Test
+    void 连续失败未达阈值_回退MISSING并递增失败计数() {
+        when(recordService.update(any(PtDownloadRecordPlus.class), any(Wrapper.class))).thenReturn(true);
+        PtDownloadRecordPlus r = record(100, 2, "osr-pt-aaa", "DOWNLOADING", 20 * 60_000);
+        when(recordService.list(any(Wrapper.class))).thenReturn(List.of(r));
+        when(episodeService.list(any(Wrapper.class))).thenReturn(List.of(episodeRow(500, 1)));
+
+        service().track(downloader(), List.of(torrent("osr-pt,osr-pt-other", 0.5)));
+
+        ArgumentCaptor<PtSubscriptionEpisodePlus> captor = ArgumentCaptor.forClass(PtSubscriptionEpisodePlus.class);
+        verify(episodeService).update(captor.capture(), any(Wrapper.class));
+        assertEquals("MISSING", captor.getValue().getState());
+        assertEquals(2, captor.getValue().getFailCount());
+    }
+
+    @Test
+    void 连续失败达到阈值_集转BLOCKED不再回退MISSING_并额外告警() {
+        when(recordService.update(any(PtDownloadRecordPlus.class), any(Wrapper.class))).thenReturn(true);
+        PtDownloadRecordPlus r = record(100, 2, "osr-pt-aaa", "DOWNLOADING", 20 * 60_000);
+        when(recordService.list(any(Wrapper.class))).thenReturn(List.of(r));
+        // 已失败 2 次，本次是第 3 次，达到默认阈值 3
+        when(episodeService.list(any(Wrapper.class))).thenReturn(List.of(episodeRow(500, 2)));
+
+        try (MockedStatic<TgHelper> tg = mockStatic(TgHelper.class)) {
+            service().track(downloader(), List.of(torrent("osr-pt,osr-pt-other", 0.5)));
+
+            ArgumentCaptor<PtSubscriptionEpisodePlus> captor = ArgumentCaptor.forClass(PtSubscriptionEpisodePlus.class);
+            verify(episodeService).update(captor.capture(), any(Wrapper.class));
+            assertEquals("BLOCKED", captor.getValue().getState());
+            assertEquals(3, captor.getValue().getFailCount());
+            tg.verify(() -> TgHelper.sendMsg(argThat(m -> m.contains("停止自动重试"))));
+        }
+    }
+
+    @Test
+    void 季包失败_部分集达到阈值_只有对应集转BLOCKED其余仍MISSING() {
+        when(recordService.update(any(PtDownloadRecordPlus.class), any(Wrapper.class))).thenReturn(true);
+        PtDownloadRecordPlus r = record(100, -1, "osr-pt-pack", "DOWNLOADING", 20 * 60_000);
+        when(recordService.list(any(Wrapper.class))).thenReturn(List.of(r));
+        when(episodeService.list(any(Wrapper.class))).thenReturn(
+                List.of(episodeRow(501, 2), episodeRow(502, 0)));
+
+        service().track(downloader(), List.of(torrent("osr-pt", 0.5)));
+
+        ArgumentCaptor<PtSubscriptionEpisodePlus> captor = ArgumentCaptor.forClass(PtSubscriptionEpisodePlus.class);
+        verify(episodeService, times(2)).update(captor.capture(), any(Wrapper.class));
+        List<PtSubscriptionEpisodePlus> updates = captor.getAllValues();
+        assertEquals("BLOCKED", updates.get(0).getState());
+        assertEquals("MISSING", updates.get(1).getState());
     }
 }

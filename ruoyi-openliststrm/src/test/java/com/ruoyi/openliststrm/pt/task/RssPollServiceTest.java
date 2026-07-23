@@ -28,6 +28,8 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -38,7 +40,7 @@ class RssPollServiceTest {
     @Mock private SubscriptionEngine subscriptionEngine;
 
     private RssPollService service() {
-        return new RssPollService(indexerService, torznabClient, subscriptionEngine);
+        return new RssPollService(indexerService, torznabClient, subscriptionEngine, 2);
     }
 
     private PtIndexerPlus indexer(int id, Integer pollInterval, java.util.Date lastPoll, int failCount) {
@@ -219,5 +221,70 @@ class RssPollServiceTest {
             assertEquals("1", captor.getValue().getEnabled());
             tg.verify(() -> TgHelper.sendMsg(argThat(m -> m.contains("已连续失败 3 次"))));
         }
+    }
+
+    // ---------- 自愈 ----------
+
+    private PtIndexerPlus disabledIndexer(int id, java.util.Date disabledAt) {
+        PtIndexerPlus i = indexer(id, 600, null, 10);
+        i.setEnabled("0");
+        i.setDisabledAt(disabledAt);
+        return i;
+    }
+
+    @Test
+    void 自愈_冷却期已过且探测成功_自动重新启用并通知() throws Exception {
+        when(indexerService.listDisabled()).thenReturn(
+                List.of(disabledIndexer(1, new java.util.Date(System.currentTimeMillis() - 3 * 3600_000L))));
+        when(torznabClient.testConnection(any())).thenReturn(true);
+
+        try (MockedStatic<TgHelper> tg = mockStatic(TgHelper.class)) {
+            service().poll();
+
+            ArgumentCaptor<PtIndexerPlus> captor = ArgumentCaptor.forClass(PtIndexerPlus.class);
+            verify(indexerService).updateById(captor.capture());
+            assertEquals("1", captor.getValue().getEnabled());
+            assertEquals(0, captor.getValue().getFailCount());
+            assertNull(captor.getValue().getDisabledAt());
+            tg.verify(() -> TgHelper.sendMsg(argThat(m -> m.contains("自动重新启用"))));
+        }
+    }
+
+    @Test
+    void 自愈_冷却期已过但探测仍失败_重置冷却计时不通知() throws Exception {
+        when(indexerService.listDisabled()).thenReturn(
+                List.of(disabledIndexer(1, new java.util.Date(System.currentTimeMillis() - 3 * 3600_000L))));
+        when(torznabClient.testConnection(any())).thenReturn(false);
+
+        try (MockedStatic<TgHelper> tg = mockStatic(TgHelper.class)) {
+            service().poll();
+
+            ArgumentCaptor<PtIndexerPlus> captor = ArgumentCaptor.forClass(PtIndexerPlus.class);
+            verify(indexerService).updateById(captor.capture());
+            assertEquals("0", captor.getValue().getEnabled());
+            assertNotNull(captor.getValue().getDisabledAt());
+            tg.verify(() -> TgHelper.sendMsg(anyString()), never());
+        }
+    }
+
+    @Test
+    void 自愈_冷却期未过_跳过探测() throws Exception {
+        when(indexerService.listDisabled()).thenReturn(
+                List.of(disabledIndexer(1, new java.util.Date(System.currentTimeMillis() - 3600_000L))));
+
+        service().poll();
+
+        verify(torznabClient, never()).testConnection(any());
+        verify(indexerService, never()).updateById(any());
+    }
+
+    @Test
+    void 自愈_人工停用disabledAt为空_不做探测() throws Exception {
+        when(indexerService.listDisabled()).thenReturn(List.of(disabledIndexer(1, null)));
+
+        service().poll();
+
+        verify(torznabClient, never()).testConnection(any());
+        verify(indexerService, never()).updateById(any());
     }
 }
