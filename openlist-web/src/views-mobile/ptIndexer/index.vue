@@ -124,7 +124,33 @@
           <el-input v-model="form.apiKey" type="password" show-password placeholder="请输入 Torznab apikey" />
         </el-form-item>
         <el-form-item label="分类" prop="categories">
-          <el-input v-model="form.categories" placeholder="逗号分隔分类 ID，留空表示不限" />
+          <div class="category-field">
+            <el-select
+              v-model="categoriesSelected"
+              multiple
+              filterable
+              allow-create
+              default-first-option
+              collapse-tags
+              collapse-tags-tooltip
+              placeholder="点击右侧「获取分类」后选择，或直接输入分类 ID"
+            >
+              <el-option-group
+                v-for="parent in categoryOptions"
+                :key="parent.id"
+                :label="`${parent.name} (${parent.id})`"
+              >
+                <el-option :label="`${parent.name} (${parent.id})`" :value="String(parent.id)" />
+                <el-option
+                  v-for="child in parent.children"
+                  :key="child.id"
+                  :label="`　${child.name} (${child.id})`"
+                  :value="String(child.id)"
+                />
+              </el-option-group>
+            </el-select>
+            <el-button :loading="categoriesLoading" @click="fetchCategories">获取分类</el-button>
+          </div>
         </el-form-item>
         <el-form-item label="轮询周期" prop="pollInterval">
           <el-input-number v-model="form.pollInterval" :min="60" :step="60" style="width: 100%" />
@@ -158,6 +184,7 @@ const {
   open, dialogTitle, submitLoading, formRef, form, rules,
   handleAdd, handleUpdate, submitForm, handleDelete,
   testLoading, handleTest,
+  categoriesLoading, categoryOptions, fetchCategories, categoriesSelected,
   totalPages, prevPage, nextPage, handleSizeChange,
   searchCollapsed
 } = usePtIndexer()
@@ -318,6 +345,17 @@ const {
     bottom: calc(56px + 24px);
     padding: 14px 24px;
     font-size: 15px;
+  }
+}
+
+.category-field {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+
+  .el-select {
+    flex: 1;
+    min-width: 0;
   }
 }
 
