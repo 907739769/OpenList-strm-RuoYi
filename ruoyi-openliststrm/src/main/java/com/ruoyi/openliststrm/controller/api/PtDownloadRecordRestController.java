@@ -34,9 +34,9 @@ public class PtDownloadRecordRestController extends BaseController {
     private DownloadRecordAdminService adminService;
 
     @GetMapping({"", "/list"})
-    public Result<PageResult<DownloadRecordView>> list(@RequestParam(required = false) Integer subId,
-                                                        @RequestParam(required = false) String state,
-                                                        @RequestParam(required = false) String title) {
+    public Result<PageResult<DownloadRecordView>> list(@RequestParam(value = "subId", required = false) Integer subId,
+                                                        @RequestParam(value = "state", required = false) String state,
+                                                        @RequestParam(value = "title", required = false) String title) {
         LambdaQueryWrapper<PtDownloadRecordPlus> wrapper = new LambdaQueryWrapper<>();
         if (subId != null) {
             wrapper.eq(PtDownloadRecordPlus::getSubId, subId);
