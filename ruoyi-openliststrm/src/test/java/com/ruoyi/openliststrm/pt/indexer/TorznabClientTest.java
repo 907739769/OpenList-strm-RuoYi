@@ -192,6 +192,45 @@ class TorznabClientTest {
     }
 
     @Test
+    void getCategories_正常响应_解析出分类树() throws Exception {
+        server.enqueue(new MockResponse().setBody("""
+                <caps>
+                  <categories>
+                    <category id="5000" name="TV">
+                      <subcat id="5040" name="TV/HD"/>
+                    </category>
+                  </categories>
+                </caps>
+                """));
+
+        List<CategoryOption> categories = client.getCategories(indexer(null));
+
+        assertEquals(1, categories.size());
+        assertEquals(5000, categories.get(0).id());
+        assertEquals("TV", categories.get(0).name());
+        assertEquals(1, categories.get(0).children().size());
+        assertEquals(5040, categories.get(0).children().get(0).id());
+    }
+
+    @Test
+    void getCategories_请求参数正确_不带cat参数() throws Exception {
+        server.enqueue(new MockResponse().setBody("<caps><categories/></caps>"));
+
+        client.getCategories(indexer("5000,5030"));
+
+        RecordedRequest request = server.takeRequest();
+        assertEquals("caps", request.getRequestUrl().queryParameter("t"));
+        assertEquals(null, request.getRequestUrl().queryParameter("cat"));
+    }
+
+    @Test
+    void getCategories_HTTP错误码_抛IOException() {
+        server.enqueue(new MockResponse().setResponseCode(500).setBody("boom"));
+
+        assertThrows(IOException.class, () -> client.getCategories(indexer(null)));
+    }
+
+    @Test
     void searchByExternalId_电影按imdbid拼URL_不带season和ep() throws Exception {
         server.enqueue(new MockResponse().setBody(SAMPLE_XML));
 

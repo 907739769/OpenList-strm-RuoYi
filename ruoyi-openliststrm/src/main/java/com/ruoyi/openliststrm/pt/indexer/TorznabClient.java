@@ -94,6 +94,18 @@ public class TorznabClient {
     }
 
     /**
+     * 获取索引器支持的分类树（t=caps 响应中的 categories 节点），供前端分类下拉使用。
+     * 与 {@link #getCaps} 不同，本方法不吞异常——前端需要区分"未获取"与"获取失败"并提示具体原因。
+     *
+     * @throws IOException              网络异常或 HTTP 非 2xx
+     * @throws IllegalArgumentException 索引器地址非法
+     */
+    public List<CategoryOption> getCategories(PtIndexerPlus indexer) throws IOException {
+        String body = execute(buildUrl(indexer, "caps"));
+        return TorznabCapsParser.parseCategories(body);
+    }
+
+    /**
      * 按外部 ID（IMDb/TMDB）精确搜索，用于订阅搜索补集的第一优先级。
      *
      * @param movie      true=电影(t=movie)，false=剧集(t=tvsearch)
