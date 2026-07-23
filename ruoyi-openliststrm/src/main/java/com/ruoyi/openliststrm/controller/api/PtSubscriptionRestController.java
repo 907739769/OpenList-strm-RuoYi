@@ -11,6 +11,7 @@ import com.ruoyi.openliststrm.mybatisplus.service.IPtSearchLogPlusService;
 import com.ruoyi.openliststrm.mybatisplus.service.IPtSubscriptionEpisodePlusService;
 import com.ruoyi.openliststrm.mybatisplus.service.IPtSubscriptionPlusService;
 import com.ruoyi.openliststrm.pt.subscription.SearchSupplementService;
+import com.ruoyi.openliststrm.pt.subscription.SubscriptionSearchOnCreateTrigger;
 import com.ruoyi.openliststrm.pt.subscription.SubscriptionService;
 import com.ruoyi.openliststrm.pt.subscription.TmdbSearchService;
 import com.ruoyi.openliststrm.pt.subscription.dto.SearchRequest;
@@ -45,6 +46,9 @@ public class PtSubscriptionRestController extends BaseCrudRestController<IPtSubs
 
     @Autowired
     private SearchSupplementService searchSupplementService;
+
+    @Autowired
+    private SubscriptionSearchOnCreateTrigger searchOnCreateTrigger;
 
     @Autowired
     private IPtSearchLogPlusService searchLogService;
@@ -93,7 +97,10 @@ public class PtSubscriptionRestController extends BaseCrudRestController<IPtSubs
     @PostMapping("/subscribe")
     public Result<Void> subscribe(@RequestBody SubscribeRequest request) {
         try {
-            subscriptionBiz.subscribe(request);
+            PtSubscriptionPlus sub = subscriptionBiz.subscribe(request);
+            if (SubscriptionService.STATUS_ACTIVE.equals(sub.getStatus())) {
+                searchOnCreateTrigger.triggerAsync(sub.getId());
+            }
             return Result.success();
         } catch (IllegalArgumentException e) {
             return Result.error(e.getMessage());
