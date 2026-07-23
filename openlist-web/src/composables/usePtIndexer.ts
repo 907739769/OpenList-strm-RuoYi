@@ -6,13 +6,20 @@ import {
   addPtIndexerApi,
   updatePtIndexerApi,
   deletePtIndexerApi,
-  testPtIndexerApi
+  testPtIndexerApi,
+  getPtIndexerCategoriesApi
 } from '@/api/openlist/ptIndexer'
 import type { SearchParams } from '@/types'
 
 interface PtIndexerQuery extends SearchParams {
   name?: string
   enabled?: string
+}
+
+interface CategoryOption {
+  id: number
+  name: string
+  children: CategoryOption[]
 }
 
 /**
@@ -77,6 +84,35 @@ export function usePtIndexer() {
     }
   }
 
+  // ---------- 分类获取（caps 接口） ----------
+  const categoriesLoading = ref(false)
+  const categoryOptions = ref<CategoryOption[]>([])
+
+  const fetchCategories = async () => {
+    if (!base.form.value.url || !base.form.value.apiKey) {
+      ElMessage.warning('请先填写接口地址与 apikey')
+      return
+    }
+    categoriesLoading.value = true
+    try {
+      categoryOptions.value = await getPtIndexerCategoriesApi(base.form.value) as unknown as CategoryOption[]
+      ElMessage.success('分类获取成功')
+    } catch (e) {
+      // 失败提示已由 axios 拦截器统一弹出，见 handleTest 同类注释
+      console.error('[PT索引器] 获取分类失败:', e)
+    } finally {
+      categoriesLoading.value = false
+    }
+  }
+
+  // 分类字段落库/提交仍是逗号分隔字符串，仅在下拉展示层转换为数组
+  const categoriesSelected = computed<string[]>({
+    get: () => (base.form.value.categories ? String(base.form.value.categories).split(',').filter(Boolean) : []),
+    set: (val: string[]) => {
+      base.form.value.categories = val.length ? val.join(',') : undefined
+    }
+  })
+
   // ---------- 卡片勾选（PC 卡片网格 / 移动端卡片列表共用） ----------
   const toggleSelect = (id: number) => {
     const idx = base.selectedIds.value.indexOf(id)
@@ -130,6 +166,7 @@ export function usePtIndexer() {
 
   return {
     ...base, testLoading, handleTest,
+    categoriesLoading, categoryOptions, fetchCategories, categoriesSelected,
     toggleSelect, handleCardClick, clearSelection,
     totalPages, prevPage, nextPage, handleSizeChange,
     searchCollapsed
