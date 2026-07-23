@@ -9,6 +9,7 @@ import {
   testPtDownloaderApi,
   validateSavePathApi
 } from '@/api/openlist/ptDownloader'
+import { getStrmTaskListApi } from '@/api/openlist/strmTask'
 import type { SearchParams } from '@/types'
 
 interface PtDownloaderQuery extends SearchParams {
@@ -37,7 +38,8 @@ export function usePtDownloader() {
       password: undefined,
       savePath: undefined,
       tag: 'osr-pt',
-      enabled: '1'
+      enabled: '1',
+      strmTaskId: undefined
     }),
     rules: {
       name: [{ required: true, message: '名称不能为空', trigger: 'blur' }],
@@ -58,6 +60,18 @@ export function usePtDownloader() {
   const testLoading = ref(false)
   /** 保存路径校验警告文案，空串表示无警告 */
   const savePathWarning = ref('')
+
+  /** 可关联的 STRM 任务列表，供表单下拉选择——下载完成后据此触发一次增量生成+提前对账 */
+  const strmTaskOptions = ref<any[]>([])
+  const loadStrmTaskOptions = async () => {
+    try {
+      const res = await getStrmTaskListApi({ pageNum: 1, pageSize: 100 })
+      strmTaskOptions.value = res?.records || []
+    } catch (e) {
+      console.error('[PT下载器] 加载 STRM 任务列表失败:', e)
+    }
+  }
+  loadStrmTaskOptions()
 
   const handleTest = async () => {
     if (!base.form.value.host || !base.form.value.port) {
@@ -177,6 +191,6 @@ export function usePtDownloader() {
     ...base, testLoading, handleTest, savePathWarning, handleSavePathBlur, handleAdd, handleUpdate,
     toggleSelect, handleCardClick, clearSelection,
     totalPages, prevPage, nextPage, handleSizeChange,
-    searchCollapsed
+    searchCollapsed, strmTaskOptions
   }
 }

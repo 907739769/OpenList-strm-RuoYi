@@ -136,6 +136,16 @@
         <el-form-item label="标签" prop="tag">
           <el-input v-model="form.tag" placeholder="推送种子时打的标签" />
         </el-form-item>
+        <el-form-item label="关联STRM任务" prop="strmTaskId">
+          <el-select v-model="form.strmTaskId" placeholder="下载完成后触发该任务增量生成，可不选" clearable :style="{ width: '100%' }">
+            <el-option
+              v-for="task in strmTaskOptions"
+              :key="task.strmTaskId"
+              :label="task.strmTaskPath"
+              :value="task.strmTaskId"
+            />
+          </el-select>
+        </el-form-item>
         <el-form-item label="状态" prop="enabled">
           <el-radio-group v-model="form.enabled">
             <el-radio value="1">启用</el-radio>
@@ -163,7 +173,7 @@ const {
   selectedIds, single, multiple, toggleSelect,
   open, dialogTitle, submitLoading, formRef, form, rules,
   handleAdd, handleUpdate, submitForm, handleDelete,
-  testLoading, handleTest, savePathWarning, handleSavePathBlur
+  testLoading, handleTest, savePathWarning, handleSavePathBlur, strmTaskOptions
 } = usePtDownloader()
 </script>
 

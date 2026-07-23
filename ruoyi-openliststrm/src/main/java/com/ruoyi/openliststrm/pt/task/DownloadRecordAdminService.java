@@ -1,15 +1,20 @@
 package com.ruoyi.openliststrm.pt.task;
 
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.ruoyi.common.core.domain.PageResult;
 import com.ruoyi.openliststrm.mybatisplus.domain.PtDownloadRecordPlus;
 import com.ruoyi.openliststrm.mybatisplus.domain.PtDownloaderPlus;
 import com.ruoyi.openliststrm.mybatisplus.domain.PtIndexerPlus;
+import com.ruoyi.openliststrm.mybatisplus.domain.PtSubscriptionEpisodePlus;
 import com.ruoyi.openliststrm.mybatisplus.domain.PtSubscriptionPlus;
 import com.ruoyi.openliststrm.mybatisplus.service.IPtDownloadRecordPlusService;
 import com.ruoyi.openliststrm.mybatisplus.service.IPtDownloaderPlusService;
 import com.ruoyi.openliststrm.mybatisplus.service.IPtIndexerPlusService;
+import com.ruoyi.openliststrm.mybatisplus.service.IPtSubscriptionEpisodePlusService;
 import com.ruoyi.openliststrm.mybatisplus.service.IPtSubscriptionPlusService;
 import com.ruoyi.openliststrm.pt.subscription.SearchSupplementService;
+import com.ruoyi.openliststrm.pt.subscription.SubscriptionEpisodeState;
 import com.ruoyi.openliststrm.pt.subscription.SubscriptionMatcher;
 import com.ruoyi.openliststrm.pt.subscription.SubscriptionService;
 import com.ruoyi.openliststrm.pt.subscription.dto.SupplementResult;
@@ -29,23 +34,28 @@ import java.util.stream.Collectors;
 @Service
 public class DownloadRecordAdminService {
 
-    private static final String STATE_FAILED = "FAILED";
+    private static final String STATE_FAILED = DownloadRecordState.FAILED.value();
+    private static final String EP_STATE_BLOCKED = SubscriptionEpisodeState.BLOCKED.value();
+    private static final String EP_STATE_MISSING = SubscriptionEpisodeState.MISSING.value();
 
     private final IPtDownloadRecordPlusService recordService;
     private final IPtSubscriptionPlusService subscriptionService;
     private final IPtIndexerPlusService indexerService;
     private final IPtDownloaderPlusService downloaderService;
+    private final IPtSubscriptionEpisodePlusService episodeService;
     private final SearchSupplementService searchSupplementService;
 
     public DownloadRecordAdminService(IPtDownloadRecordPlusService recordService,
                                       IPtSubscriptionPlusService subscriptionService,
                                       IPtIndexerPlusService indexerService,
                                       IPtDownloaderPlusService downloaderService,
+                                      IPtSubscriptionEpisodePlusService episodeService,
                                       SearchSupplementService searchSupplementService) {
         this.recordService = recordService;
         this.subscriptionService = subscriptionService;
         this.indexerService = indexerService;
         this.downloaderService = downloaderService;
+        this.episodeService = episodeService;
         this.searchSupplementService = searchSupplementService;
     }
 
@@ -109,6 +119,11 @@ public class DownloadRecordAdminService {
 
     /**
      * 手动重试一条失败的下载记录：按订阅标题 + 季/集号拼出关键词，走与"搜索补齐"相同的三级回退链路。
+     * <p>
+     * 若关联集已因连续失败达到熔断阈值转为 BLOCKED，搜索补齐内部的占位逻辑只认 MISSING 状态，
+     * 直接重试会静默占位失败；这里先把该记录对应的 BLOCKED 集重置回 MISSING 并清零失败计数，
+     * 相当于人工重新给一次机会。
+     * </p>
      *
      * @throws IllegalArgumentException 记录不存在、记录不是 FAILED 状态、关联订阅不存在或未在订阅中
      */
@@ -127,8 +142,31 @@ public class DownloadRecordAdminService {
         if (!SubscriptionService.STATUS_ACTIVE.equals(sub.getStatus())) {
             throw new IllegalArgumentException("订阅未在订阅中(当前状态 " + sub.getStatus() + ")，无法重试");
         }
+        resetBlockedEpisodes(sub.getId(), record.getEpisode());
         String keyword = buildKeyword(sub, record.getEpisode());
         return searchSupplementService.supplement(sub.getId(), record.getEpisode(), keyword);
+    }
+
+    /**
+     * 把该订阅下处于 BLOCKED 的目标集重置回 MISSING、失败计数清零。
+     * 季包重试（episode 为哨兵值）清空该订阅下所有 BLOCKED 集，普通集只清对应那一条。
+     */
+    private void resetBlockedEpisodes(Integer subId, int episode) {
+        QueryWrapper<PtSubscriptionEpisodePlus> query = new QueryWrapper<PtSubscriptionEpisodePlus>()
+                .eq("sub_id", subId)
+                .eq("state", EP_STATE_BLOCKED);
+        if (episode != SubscriptionMatcher.SEASON_PACK) {
+            query.eq("episode", episode);
+        }
+        List<PtSubscriptionEpisodePlus> blocked = episodeService.list(query);
+        for (PtSubscriptionEpisodePlus ep : blocked) {
+            PtSubscriptionEpisodePlus set = new PtSubscriptionEpisodePlus();
+            set.setState(EP_STATE_MISSING);
+            set.setFailCount(0);
+            episodeService.update(set, new UpdateWrapper<PtSubscriptionEpisodePlus>()
+                    .eq("id", ep.getId())
+                    .eq("state", EP_STATE_BLOCKED));
+        }
     }
 
     private String buildKeyword(PtSubscriptionPlus sub, int episode) {

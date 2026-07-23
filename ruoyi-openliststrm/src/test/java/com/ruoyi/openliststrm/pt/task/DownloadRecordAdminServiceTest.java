@@ -1,18 +1,22 @@
 package com.ruoyi.openliststrm.pt.task;
 
 import com.ruoyi.common.core.domain.PageResult;
+import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.ruoyi.openliststrm.mybatisplus.domain.PtDownloadRecordPlus;
 import com.ruoyi.openliststrm.mybatisplus.domain.PtDownloaderPlus;
 import com.ruoyi.openliststrm.mybatisplus.domain.PtIndexerPlus;
+import com.ruoyi.openliststrm.mybatisplus.domain.PtSubscriptionEpisodePlus;
 import com.ruoyi.openliststrm.mybatisplus.domain.PtSubscriptionPlus;
 import com.ruoyi.openliststrm.mybatisplus.service.IPtDownloadRecordPlusService;
 import com.ruoyi.openliststrm.mybatisplus.service.IPtDownloaderPlusService;
 import com.ruoyi.openliststrm.mybatisplus.service.IPtIndexerPlusService;
+import com.ruoyi.openliststrm.mybatisplus.service.IPtSubscriptionEpisodePlusService;
 import com.ruoyi.openliststrm.mybatisplus.service.IPtSubscriptionPlusService;
 import com.ruoyi.openliststrm.pt.subscription.SearchSupplementService;
 import com.ruoyi.openliststrm.pt.subscription.dto.SupplementResult;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
@@ -22,8 +26,11 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -34,11 +41,12 @@ class DownloadRecordAdminServiceTest {
     @Mock private IPtSubscriptionPlusService subscriptionService;
     @Mock private IPtIndexerPlusService indexerService;
     @Mock private IPtDownloaderPlusService downloaderService;
+    @Mock private IPtSubscriptionEpisodePlusService episodeService;
     @Mock private SearchSupplementService searchSupplementService;
 
     private DownloadRecordAdminService service() {
         return new DownloadRecordAdminService(recordService, subscriptionService, indexerService,
-                downloaderService, searchSupplementService);
+                downloaderService, episodeService, searchSupplementService);
     }
 
     private PtDownloadRecordPlus record(int id, int subId, int episode, String state, Integer indexerId, Integer downloaderId) {
@@ -195,5 +203,62 @@ class DownloadRecordAdminServiceTest {
         when(subscriptionService.getById(10)).thenReturn(tvSub(10, "某剧", 1, "PAUSED"));
 
         assertThrows(IllegalArgumentException.class, () -> service().retry(1));
+    }
+
+    // ---------- retry 时重置 BLOCKED 集 ----------
+
+    private PtSubscriptionEpisodePlus blockedEpisode(int id, int episode) {
+        PtSubscriptionEpisodePlus ep = new PtSubscriptionEpisodePlus();
+        ep.setId(id);
+        ep.setEpisode(episode);
+        ep.setState("BLOCKED");
+        ep.setFailCount(3);
+        return ep;
+    }
+
+    @Test
+    void retry_普通集已熔断BLOCKED_重置回MISSING并清零失败计数再搜索() {
+        PtDownloadRecordPlus r = record(1, 10, 5, "FAILED", 20, 30);
+        when(recordService.getById(1)).thenReturn(r);
+        when(subscriptionService.getById(10)).thenReturn(tvSub(10, "某剧", 1, "ACTIVE"));
+        when(episodeService.list(any(Wrapper.class))).thenReturn(List.of(blockedEpisode(500, 5)));
+        when(searchSupplementService.supplement(eq(10), eq(5), eq("某剧 S01E05")))
+                .thenReturn(new SupplementResult(true, 1));
+
+        service().retry(1);
+
+        ArgumentCaptor<PtSubscriptionEpisodePlus> captor = ArgumentCaptor.forClass(PtSubscriptionEpisodePlus.class);
+        verify(episodeService).update(captor.capture(), any(Wrapper.class));
+        assertEquals("MISSING", captor.getValue().getState());
+        assertEquals(0, captor.getValue().getFailCount());
+    }
+
+    @Test
+    void retry_季包重试_清空该订阅下所有BLOCKED集() {
+        PtDownloadRecordPlus r = record(1, 10, -1, "FAILED", 20, 30);
+        when(recordService.getById(1)).thenReturn(r);
+        when(subscriptionService.getById(10)).thenReturn(tvSub(10, "某剧", 1, "ACTIVE"));
+        when(episodeService.list(any(Wrapper.class))).thenReturn(
+                List.of(blockedEpisode(501, 1), blockedEpisode(502, 2)));
+        when(searchSupplementService.supplement(eq(10), eq(-1), eq("某剧 S01")))
+                .thenReturn(new SupplementResult(false, 0));
+
+        service().retry(1);
+
+        verify(episodeService, org.mockito.Mockito.times(2)).update(any(), any(Wrapper.class));
+    }
+
+    @Test
+    void retry_没有BLOCKED集_不触发重置更新() {
+        PtDownloadRecordPlus r = record(1, 10, 5, "FAILED", 20, 30);
+        when(recordService.getById(1)).thenReturn(r);
+        when(subscriptionService.getById(10)).thenReturn(tvSub(10, "某剧", 1, "ACTIVE"));
+        when(episodeService.list(any(Wrapper.class))).thenReturn(List.of());
+        when(searchSupplementService.supplement(eq(10), eq(5), eq("某剧 S01E05")))
+                .thenReturn(new SupplementResult(true, 1));
+
+        service().retry(1);
+
+        verify(episodeService, never()).update(any(), any(Wrapper.class));
     }
 }

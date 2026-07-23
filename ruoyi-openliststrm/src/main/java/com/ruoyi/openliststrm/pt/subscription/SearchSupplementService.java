@@ -1,6 +1,7 @@
 package com.ruoyi.openliststrm.pt.subscription;
 
 import com.ruoyi.common.utils.StringUtils;
+import com.ruoyi.openliststrm.helper.TgHelper;
 import com.ruoyi.openliststrm.mybatisplus.domain.PtIndexerPlus;
 import com.ruoyi.openliststrm.mybatisplus.domain.PtSubscriptionEpisodePlus;
 import com.ruoyi.openliststrm.mybatisplus.domain.PtSubscriptionPlus;
@@ -120,6 +121,7 @@ public class SearchSupplementService {
      * 建订阅后一次性补搜历史资源：电影只搜一次；剧集先试整季包，季包搜不到再对仍缺失的
      * 集逐一兜底。供 {@link SubscriptionSearchOnCreateTrigger} 异步调用——顶层不抛异常，
      * 季包搜索与每一集的搜索都各自 try/catch，任一目标失败不影响其余目标继续搜索。
+     * 全部目标都没能推送成功时发一次通知，避免用户只能靠翻 pt_search_log 排查"为什么没搜到"。
      */
     public void supplementOnCreate(Integer subId) {
         PtSubscriptionPlus sub = subscriptionService.getById(subId);
@@ -135,20 +137,27 @@ public class SearchSupplementService {
 
         boolean movie = SubscriptionService.TYPE_MOVIE.equalsIgnoreCase(sub.getMediaType());
         if (movie) {
+            boolean pushed = false;
             try {
-                supplement(subId, 0, sub.getTitle());
+                pushed = supplement(subId, 0, sub.getTitle()).isPushed();
             } catch (Exception e) {
                 log.warn("订阅[{}] 建订阅补搜失败：{}", subId, e.getMessage());
+            }
+            if (!pushed) {
+                notifyNoResult(sub);
             }
             return;
         }
 
+        boolean seasonPushed = false;
         try {
-            supplement(subId, SubscriptionMatcher.SEASON_PACK, sub.getTitle() + " S" + pad(sub.getSeason()));
+            seasonPushed = supplement(subId, SubscriptionMatcher.SEASON_PACK,
+                    sub.getTitle() + " S" + pad(sub.getSeason())).isPushed();
         } catch (Exception e) {
             log.warn("订阅[{}] 建订阅补搜整季包失败：{}", subId, e.getMessage());
         }
 
+        boolean anyEpisodePushed = false;
         List<PtSubscriptionEpisodePlus> remaining = episodeService.listBySubscription(subId);
         for (PtSubscriptionEpisodePlus ep : remaining) {
             if (!SubscriptionService.STATE_MISSING.equals(ep.getState())) {
@@ -156,10 +165,29 @@ public class SearchSupplementService {
             }
             try {
                 String keyword = sub.getTitle() + " S" + pad(sub.getSeason()) + "E" + pad(ep.getEpisode());
-                supplement(subId, ep.getEpisode(), keyword);
+                if (supplement(subId, ep.getEpisode(), keyword).isPushed()) {
+                    anyEpisodePushed = true;
+                }
             } catch (Exception e) {
                 log.warn("订阅[{}] 建订阅补搜第{}集失败：{}", subId, ep.getEpisode(), e.getMessage());
             }
+        }
+
+        if (!seasonPushed && !anyEpisodePushed) {
+            notifyNoResult(sub);
+        }
+    }
+
+    private void notifyNoResult(PtSubscriptionPlus sub) {
+        notifySafely("🔍 订阅[" + sub.getTitle() + "] 建订阅补搜未找到可用资源，"
+                + "可等待自动补搜/RSS 命中，或检查索引器配置");
+    }
+
+    private void notifySafely(String msg) {
+        try {
+            TgHelper.sendMsg(msg);
+        } catch (Exception e) {
+            log.debug("发送通知失败（不影响主流程）：{}", e.getMessage());
         }
     }
 

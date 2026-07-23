@@ -35,9 +35,13 @@ public class PtSubscriptionEpisodePlus extends BaseEntity {
     @TableField("episode")
     private Integer episode;
 
-    /** 状态 MISSING/IN_FLIGHT/IN_LIBRARY */
+    /** 状态 MISSING/IN_FLIGHT/IN_LIBRARY/BLOCKED */
     @TableField("state")
     private String state;
+
+    /** 连续失败次数，达到阈值后状态转 BLOCKED 停止自动重试，成功入库前不清零 */
+    @TableField("fail_count")
+    private Integer failCount;
 
     /** 已下载质量，为洗版预留 */
     @TableField("quality")

@@ -19,6 +19,7 @@ import com.ruoyi.openliststrm.pt.filter.TorrentFilterEngine;
 import com.ruoyi.openliststrm.pt.indexer.GuidHasher;
 import com.ruoyi.openliststrm.pt.model.TorrentInfo;
 import com.ruoyi.openliststrm.pt.subscription.dto.MatchResult;
+import com.ruoyi.openliststrm.pt.task.DownloadRecordState;
 import com.ruoyi.openliststrm.rename.MediaParser;
 import com.ruoyi.openliststrm.rename.model.MediaInfo;
 import lombok.extern.slf4j.Slf4j;
@@ -45,9 +46,9 @@ import java.util.Set;
 @Component
 public class SubscriptionEngine {
 
-    private static final String STATE_MISSING = "MISSING";
-    private static final String STATE_IN_FLIGHT = "IN_FLIGHT";
-    private static final String RECORD_PUSHED = "PUSHED";
+    private static final String STATE_MISSING = SubscriptionEpisodeState.MISSING.value();
+    private static final String STATE_IN_FLIGHT = SubscriptionEpisodeState.IN_FLIGHT.value();
+    private static final String RECORD_PUSHED = DownloadRecordState.PUSHED.value();
 
     /** 唯一标签前缀，用于把下载记录回映到下载器里的种子 */
     private static final String TAG_PREFIX = "osr-pt-";

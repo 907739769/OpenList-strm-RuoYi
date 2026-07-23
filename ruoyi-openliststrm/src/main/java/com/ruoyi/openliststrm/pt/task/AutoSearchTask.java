@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * 自动补搜心跳：每 30 分钟检查一次哪些订阅开启了自动补搜且到期，到期的发起一次搜索
@@ -29,6 +30,9 @@ public class AutoSearchTask {
 
     private final TaskScheduler scheduler = SpringUtils.getBean("virtualScheduledExecutor");
 
+    /** 单轮耗时超过心跳间隔时，避免重叠触发重复扫描所有订阅 */
+    private final AtomicBoolean running = new AtomicBoolean(false);
+
     @EventListener(ApplicationReadyEvent.class)
     public void start() {
         ThreadTraceIdUtil.initTraceId();
@@ -43,10 +47,16 @@ public class AutoSearchTask {
     }
 
     private void poll() {
+        if (!running.compareAndSet(false, true)) {
+            log.debug("AutoSearchTask 上一轮尚未结束，跳过本次触发");
+            return;
+        }
         try {
             autoSearchService.run();
         } catch (Exception e) {
             log.error("AutoSearchTask poll error", e);
+        } finally {
+            running.set(false);
         }
     }
 }
