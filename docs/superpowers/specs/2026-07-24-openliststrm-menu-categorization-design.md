@@ -85,16 +85,14 @@
 
 **`el-sub-menu` 的 `index` 取值需要特别处理，不能直接用 `menu.path`**：后端 `AuthApiController.buildMenus`/`derivePath` 对 `menu_type='M'`（`url='#'`）的目录节点，是用"第一个子节点 url 的父目录部分"反推出 `path` 的（`derivePath()` 方法）。本次分类之后，`OpenListStrm`(2006) 和新增的 4 个子目录都是 `url='#'` 的目录节点，反推出来的 `path` 会互相撞车（比如 2006、同步管理、STRM管理、重命名管理都会反推成 `/openliststrm`）——这也是当前 `DesktopLayout.vue` 里 `el-sub-menu` 的 `index` 已经在用 `menu.children[0].path` 而不是 `menu.path` 的原因（回避顶层目录 path 不唯一的问题，只是之前只有一层目录，没暴露出"子目录之间也会撞"的问题）。
 
-`SidebarMenuItem.vue` 因此需要一个递归函数，沿着 `children[0]` 一直往下找到最深一级的叶子节点，用**叶子节点的 `path`**作为当前 `el-sub-menu` 的 `index`（叶子节点都是真实页面，`path` 全局唯一）：
+第一版方案想沿着 `children[0]` 递归找最深一级叶子节点的 `path` 来当 `index`，但推演后发现同样会撞车：对"最左侧一条链全是单子节点目录"的情况（比如 `OpenListStrm → 同步管理 → 同步任务配置`），外层目录、中间目录、最终叶子三者算出来的"第一个叶子 path"是同一个值，三个节点的 `index` 又会撞在一起。
+
+`el-sub-menu` 的 `index` 其实不需要是一个真实路径——它只在 `router` 模式下用于"点击叶子节点导航"，标题本身不可点击导航，只用来做展开/收起和内部登记的唯一 key，所以只要**全局唯一**即可，不需要来自 path。改用 `menu.name`（后端 `menuMeta` 直接写的 `menu_name`，比如"同步管理""STRM管理"，业务上本来就要求全局唯一——现有 `convertMenuToRoute` 已经拿 `menu.name` 当 Vue Router 的路由 `name`，要求全局唯一，这个前提已经成立）：
 
 ```ts
-function firstLeafPath(menu: MenuRoute): string {
-  if (!menu.children || menu.children.length === 0) return menu.path
-  return firstLeafPath(menu.children[0])
-}
+// el-sub-menu 用 menu.name 当 index（目录标题不可点击导航，只需全局唯一）
+// el-menu-item 用 menu.path 当 index（叶子节点是真实路由，需要能被 router 模式正确导航）
 ```
-
-这样无论目录嵌套多少层，每个 `el-sub-menu` 的 `index` 都保证唯一，不会出现 Element Plus 内部 `openedMenus`/激活状态因 `index` 重复而错乱的问题。
 
 `DesktopLayout.vue` 和 `MobileLayout.vue` 里原来那段 `v-for="menu in sidebarMenus"` 展开的 `el-sub-menu`/`el-menu-item` 逻辑，替换成：
 ```vue
