@@ -80,8 +80,21 @@
 ## 前端设计
 
 新增 `openlist-web/src/components/SidebarMenuItem.vue`：递归组件，props 接收单个 `MenuRoute`：
-- 有 `children`（长度>0）→ 渲染 `el-sub-menu`（`index` 用自身 `path`，`title` 插槽放 icon + `meta.title`），内部对每个 child 递归渲染 `<SidebarMenuItem>`
+- 有 `children`（长度>0）→ 渲染 `el-sub-menu`，内部对每个 child 递归渲染 `<SidebarMenuItem>`
 - 无 `children` → 渲染 `el-menu-item`（`index` 直接用 `menu.path`，因为现有叶子页面 `url` 都是以 `/` 开头的绝对路径，无需拼接父路径）
+
+**`el-sub-menu` 的 `index` 取值需要特别处理，不能直接用 `menu.path`**：后端 `AuthApiController.buildMenus`/`derivePath` 对 `menu_type='M'`（`url='#'`）的目录节点，是用"第一个子节点 url 的父目录部分"反推出 `path` 的（`derivePath()` 方法）。本次分类之后，`OpenListStrm`(2006) 和新增的 4 个子目录都是 `url='#'` 的目录节点，反推出来的 `path` 会互相撞车（比如 2006、同步管理、STRM管理、重命名管理都会反推成 `/openliststrm`）——这也是当前 `DesktopLayout.vue` 里 `el-sub-menu` 的 `index` 已经在用 `menu.children[0].path` 而不是 `menu.path` 的原因（回避顶层目录 path 不唯一的问题，只是之前只有一层目录，没暴露出"子目录之间也会撞"的问题）。
+
+`SidebarMenuItem.vue` 因此需要一个递归函数，沿着 `children[0]` 一直往下找到最深一级的叶子节点，用**叶子节点的 `path`**作为当前 `el-sub-menu` 的 `index`（叶子节点都是真实页面，`path` 全局唯一）：
+
+```ts
+function firstLeafPath(menu: MenuRoute): string {
+  if (!menu.children || menu.children.length === 0) return menu.path
+  return firstLeafPath(menu.children[0])
+}
+```
+
+这样无论目录嵌套多少层，每个 `el-sub-menu` 的 `index` 都保证唯一，不会出现 Element Plus 内部 `openedMenus`/激活状态因 `index` 重复而错乱的问题。
 
 `DesktopLayout.vue` 和 `MobileLayout.vue` 里原来那段 `v-for="menu in sidebarMenus"` 展开的 `el-sub-menu`/`el-menu-item` 逻辑，替换成：
 ```vue
