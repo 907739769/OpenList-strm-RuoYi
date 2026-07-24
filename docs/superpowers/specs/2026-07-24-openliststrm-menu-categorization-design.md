@@ -47,12 +47,14 @@
 
 | menu_id | menu_name | icon（须在 `useMenuIcon.ts` 的 `iconMap` 中） | order_num（挂在2006下） |
 |---|---|---|---|
-| 2067 | 同步管理 | `fa fa-copy` | 1 |
-| 2068 | STRM管理 | `fa fa-video-play` | 2 |
-| 2069 | 重命名管理 | `fa fa-edit` | 3 |
+| 2067 | 同步管理 | `fa fa-send-o` | 1 |
+| 2068 | STRM管理 | `fa fa-video-camera` | 2 |
+| 2069 | 重命名管理 | `fa fa-file-code-o` | 3 |
 | 2070 | PT下载管理 | `fa fa-bars` | 4 |
 
 四个 icon 类名在当前（dev 分支）`useMenuIcon.ts` 的 `iconMap` 里均已存在，不会重演"图标不显示"的历史问题（见 commit `0248e124`）。
+
+> 上表为最终值。2067/2068/2069 最初分别用的是 `fa fa-copy`/`fa fa-video-play`/`fa fa-edit`，后来发现和已有子菜单（2013/2019/2025/2037/2049）的图标撞车，由后续迁移 `20260737-fix-menu-group-icon-duplication.sql` 改成了现在的值（2070 的 `fa fa-bars` 未变）。
 
 重新挂载现有二级菜单（`UPDATE sys_menu SET parent_id=?, order_num=? WHERE menu_id=?`）：
 
