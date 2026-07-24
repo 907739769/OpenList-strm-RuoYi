@@ -4,7 +4,7 @@
       <el-icon v-if="getIconComponent(menu.meta?.icon)"><component :is="getIconComponent(menu.meta?.icon)" /></el-icon>
       <span>{{ menu.meta?.title }}</span>
     </template>
-    <SidebarMenuItem v-for="child in menu.children" :key="child.path" :menu="child" />
+    <SidebarMenuItem v-for="child in menu.children" :key="child.name || child.path" :menu="child" />
   </el-sub-menu>
   <el-menu-item v-else :index="menu.path">
     <el-icon v-if="getIconComponent(menu.meta?.icon)"><component :is="getIconComponent(menu.meta?.icon)" /></el-icon>

@@ -83,4 +83,55 @@ describe('SidebarMenuItem', () => {
     const item = wrapper.find('.stub-menu-item')
     expect(item.attributes('data-index')).toBe('/openliststrm/task')
   })
+
+  it('同级多个目录反推出的path相同时（模拟 derivePath 撞车场景），仍能各自正确渲染，index/key不受影响', () => {
+    const menu: MenuRoute = {
+      path: '/openliststrm',
+      name: 'OpenListStrm',
+      meta: { title: 'OpenListStrm' },
+      children: [
+        {
+          // 故意和下面两个目录的 path 一样，模拟 derivePath 撞车
+          path: '/openliststrm',
+          name: '同步管理',
+          meta: { title: '同步管理' },
+          children: [leaf('/openliststrm/task', '同步任务配置')]
+        },
+        {
+          // 故意和上面/下面目录的 path 一样
+          path: '/openliststrm',
+          name: 'STRM管理',
+          meta: { title: 'STRM管理' },
+          children: [leaf('/openliststrm/strm_task', 'strm任务配置')]
+        },
+        {
+          // 故意和上面两个目录的 path 一样
+          path: '/openliststrm',
+          name: '重命名管理',
+          meta: { title: '重命名管理' },
+          children: [leaf('/openliststrm/renameTask', '重命名任务配置')]
+        }
+      ]
+    }
+    const wrapper = mount(SidebarMenuItem, { props: { menu }, global: { stubs } })
+
+    // 顶层 OpenListStrm 自己是一个 sub-menu，加上3个子目录各自也是 sub-menu，一共4个
+    const subMenus = wrapper.findAll('.stub-sub-menu')
+    expect(subMenus).toHaveLength(4)
+
+    // v-for 用的 key 撞车（都是 '/openliststrm'）不应导致节点被错误复用或丢失，
+    // index(name) 应该各自唯一
+    const indexes = subMenus.map(s => s.attributes('data-index'))
+    expect(new Set(indexes).size).toBe(indexes.length)
+    expect(indexes).toEqual(['OpenListStrm', '同步管理', 'STRM管理', '重命名管理'])
+
+    // 3个叶子节点都正确渲染出来了，且各自 index 对应各自的 url
+    const items = wrapper.findAll('.stub-menu-item')
+    expect(items).toHaveLength(3)
+    expect(items.map(i => i.attributes('data-index'))).toEqual([
+      '/openliststrm/task',
+      '/openliststrm/strm_task',
+      '/openliststrm/renameTask'
+    ])
+  })
 })
