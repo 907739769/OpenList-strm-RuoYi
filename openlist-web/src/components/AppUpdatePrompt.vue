@@ -100,7 +100,7 @@ const { needRefresh, updating, applyUpdate, dismiss } = useAppUpdate()
 .slide-up-leave-active,
 .slide-left-enter-active,
 .slide-left-leave-active {
-  transition: transform var(--osr-transition-base) ease, opacity var(--osr-transition-base) ease;
+  transition: transform var(--osr-transition-base), opacity var(--osr-transition-base);
 }
 
 .slide-up-enter-from,

@@ -351,7 +351,7 @@ const handleDropdownCommand = async (command: string) => {
    ============================================ */
 .fade-slide-enter-active,
 .fade-slide-leave-active {
-  transition: opacity var(--osr-transition-base) ease;
+  transition: opacity var(--osr-transition-base);
 }
 
 .fade-slide-enter-from {
