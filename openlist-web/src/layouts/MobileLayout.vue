@@ -26,26 +26,7 @@
               <el-icon><Odometer /></el-icon>
               <template #title>首页</template>
             </el-menu-item>
-            <template v-for="menu in sidebarMenus" :key="menu.path">
-              <el-sub-menu v-if="menu.children?.length" :index="menu.path">
-                <template #title>
-                  <el-icon v-if="getIconComponent(menu.meta?.icon)"><component :is="getIconComponent(menu.meta?.icon)" /></el-icon>
-                  <span>{{ menu.meta?.title }}</span>
-                </template>
-                <el-menu-item
-                  v-for="sub in menu.children"
-                  :key="sub.path"
-                  :index="sub.path.startsWith('/') ? sub.path : menu.path + '/' + sub.path"
-                >
-                  <el-icon v-if="getIconComponent(sub.meta?.icon)"><component :is="getIconComponent(sub.meta?.icon)" /></el-icon>
-                  <template #title>{{ sub.meta?.title }}</template>
-                </el-menu-item>
-              </el-sub-menu>
-              <el-menu-item v-else :index="menu.path">
-                <el-icon v-if="getIconComponent(menu.meta?.icon)"><component :is="getIconComponent(menu.meta?.icon)" /></el-icon>
-                <template #title>{{ menu.meta?.title }}</template>
-              </el-menu-item>
-            </template>
+            <SidebarMenuItem v-for="menu in sidebarMenus" :key="menu.path" :menu="menu" />
           </el-menu>
         </el-scrollbar>
       </div>
@@ -122,7 +103,7 @@ import {
   Setting, SwitchButton
 } from '@element-plus/icons-vue'
 import ChangePasswordDialog from '@/components/ChangePasswordDialog.vue'
-import { getIconComponent } from '@/composables/useMenuIcon'
+import SidebarMenuItem from '@/components/SidebarMenuItem.vue'
 
 const route = useRoute()
 const router = useRouter()
