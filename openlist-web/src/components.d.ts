@@ -58,6 +58,7 @@ declare module 'vue' {
     OpenListTree: typeof import('./components/OpenListTree.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    SidebarMenuItem: typeof import('./components/SidebarMenuItem.vue')['default']
   }
   export interface ComponentCustomProperties {
     vLoading: typeof import('element-plus/es')['ElLoadingDirective']
