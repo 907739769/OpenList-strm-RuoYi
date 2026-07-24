@@ -50,7 +50,7 @@
 | 2067 | 同步管理 | `fa fa-copy` | 1 |
 | 2068 | STRM管理 | `fa fa-video-play` | 2 |
 | 2069 | 重命名管理 | `fa fa-edit` | 3 |
-| 2070 | PT下载管理 | `fa fa-download` | 4 |
+| 2070 | PT下载管理 | `fa fa-bars` | 4 |
 
 四个 icon 类名在当前（dev 分支）`useMenuIcon.ts` 的 `iconMap` 里均已存在，不会重演"图标不显示"的历史问题（见 commit `0248e124`）。
 
