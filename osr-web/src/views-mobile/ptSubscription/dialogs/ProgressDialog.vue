@@ -24,14 +24,17 @@
             />
             <span v-if="progress.inFlightCount" class="movie-hint">已推送下载器，尚未入库</span>
             <v-spacer />
+            <!-- 在途也要给这个按钮：种子下完了但上传网盘/STRM/刮削那一段卡住时，集永远停在
+                 IN_FLIGHT——对账只升不降碰不到它，卡死清扫对「文件已确认在种子里」的集只告警
+                 不退回（重下解决不了上传问题），于是没有这个入口就一个出口都没有 -->
             <v-btn
-              v-if="progress.inLibraryCount"
+              v-if="progress.inLibraryCount || progress.inFlightCount"
               variant="text"
               color="warning"
               size="small"
               :loading="resettingEpisode === 0"
               @click="handleResetMovie(currentSubscription)"
-            >重置为未入库</v-btn>
+            >{{ progress.inLibraryCount ? '重置为未入库' : '重置为缺失' }}</v-btn>
           </div>
           <template v-else>
             <v-progress-linear
@@ -84,8 +87,12 @@
                 <span v-if="qualityLabel(ep)" class="ep-quality" :title="upgradeStateHint(ep)">
                   {{ qualityLabel(ep) }}
                 </span>
+                <!-- IN_FLIGHT 也要给：种子下完了但上传网盘/STRM/刮削卡住时集永远停在在途，
+                     对账只升不降、卡死清扫对「文件已确认」的集只告警不退回，这里是唯一的人工出口。
+                     UPGRADING 刻意不给——重置一律置 MISSING，而洗版中的旧版本还在库里，
+                     置 MISSING 会让它被当成缺集从头重下一遍，正确的取消是退回 IN_LIBRARY -->
                 <v-btn
-                  v-if="ep.state === 'IN_LIBRARY' || ep.state === 'BLOCKED'"
+                  v-if="ep.state === 'IN_LIBRARY' || ep.state === 'BLOCKED' || ep.state === 'IN_FLIGHT'"
                   variant="text"
                   color="warning"
                   size="small"
