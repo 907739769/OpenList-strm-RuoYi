@@ -92,14 +92,16 @@
         <v-btn v-else color="success" block @click="run(() => handleResume(sheetTarget))">恢复</v-btn>
         <v-btn color="primary" block @click="run(() => openSeasonSearch(sheetTarget))">搜索补齐</v-btn>
         <v-btn block @click="run(() => handleRefresh(sheetTarget))">对账</v-btn>
-        <!-- 只给已入库的电影：对账只升不降，把影片从媒体库删掉后再点上面那条「对账」
-             不会有任何变化，重下得从这里把它退回缺失。剧集逐集重置在进度弹窗里 -->
+        <!-- 只给电影：对账只升不降，把影片从媒体库删掉后再点上面那条「对账」不会有任何变化，
+             重下得从这里把它退回缺失。剧集逐集重置在进度弹窗里。
+             在途也给——种子下完但上传网盘/STRM/刮削卡住时状态永远停在在途，
+             对账碰不到它、卡死清扫对「文件已确认」的集只告警不退回，没有这条就没有出口 -->
         <v-btn
-          v-if="sheetTarget.mediaType === 'MOVIE' && sheetTarget.inLibraryCount"
+          v-if="sheetTarget.mediaType === 'MOVIE' && (sheetTarget.inLibraryCount || sheetTarget.inFlightCount)"
           color="warning"
           block
           @click="run(() => handleResetMovie(sheetTarget))"
-        >重置为未入库</v-btn>
+        >{{ sheetTarget.inLibraryCount ? '重置为未入库' : '重置为缺失' }}</v-btn>
         <v-btn block @click="run(() => showSearchLogs(sheetTarget))">匹配日志</v-btn>
         <v-btn block @click="run(() => openFilterOverride(sheetTarget))">过滤规则</v-btn>
         <v-btn color="error" block @click="run(() => handleRemove(sheetTarget))">删除</v-btn>

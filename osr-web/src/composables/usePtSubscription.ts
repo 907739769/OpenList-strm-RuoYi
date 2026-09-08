@@ -293,6 +293,19 @@ export function usePtSubscription(options: ListLoadOptions = {}) {
   const currentIsMovie = computed(() => currentSubscription.value?.mediaType === 'MOVIE')
 
   /**
+   * 重置<b>在途</b>的集/电影时补在确认框里的一段。重置只改 OSR 这边的集状态
+   * （置 MISSING、清 download_id、清熔断计数），下载器里的种子与已下好的文件一动不动——
+   * 用户最担心的正是这个，不写清楚就只能靠试。
+   *
+   * 第二句把上传这条岔路指出来：种子已经下完、卡在上传网盘/STRM/刮削的话，重置换来的只是
+   * 白下一遍同样的文件（后端 StuckEpisodeSweepService 对 file_confirmed 的集只告警、
+   * 从不退回重下，就是这个道理）。已入库的那条路径不需要这段，那里的语义本来就是「重下」。
+   */
+  const resetHint = '\n重置只改订阅这边的状态，不会删下载器里的种子或已下好的文件。'
+    + '\n若种子其实已经下载完成，卡住的多半是上传网盘/STRM 那一段，'
+    + '先去「同步任务记录」页看有没有失败的上传可以重试。'
+
+  /**
    * 把电影重置为「未入库」。
    *
    * 底层就是 resetEpisode(id, 0)——电影在集表里只有那一行哨兵记录。单独给一个入口是因为
@@ -302,12 +315,15 @@ export function usePtSubscription(options: ListLoadOptions = {}) {
    * 进度弹窗 →「查看全部集」→ 一行写着「第0集」的重置按钮后面，两层深，名字还对不上。
    *
    * 接受 row 而不是读 currentSubscription：卡片「更多」菜单里也有这个入口，那时进度弹窗根本没开。
+   *
+   * 「在途」也走这个入口，见 resetHint 那条注释。
    */
   const handleResetMovie = async (row: any) => {
     if (!row?.id) return
     try {
       await confirm({
-        message: `确认将《${row.title}》重置为未入库？重置后需要重新匹配/下载。`,
+        message: `确认将《${row.title}》重置为未入库？重置后需要重新匹配/下载。`
+          + (row.inLibraryCount ? '' : resetHint),
         title: '提示',
         type: 'warning'
       })
@@ -330,12 +346,21 @@ export function usePtSubscription(options: ListLoadOptions = {}) {
     }
   }
 
-  /** 重置某一集为缺失：只对 IN_LIBRARY/BLOCKED 这类"卡住"的状态开放，需二次确认 */
+  /**
+   * 重置某一集为缺失：对 IN_LIBRARY/BLOCKED/IN_FLIGHT 这类"卡住"的状态开放，需二次确认。
+   *
+   * IN_FLIGHT 也在内：种子下完了但上传网盘/STRM/刮削那一段卡住时，集永远停在在途——
+   * 对账只升不降碰不到它，卡死清扫对「文件已确认在种子里」的集只告警不退回，
+   * 于是这里是唯一的人工出口（此前它不显示按钮，那样的集在界面上一个出口都没有）。
+   * UPGRADING 不在内：重置一律置 MISSING，而洗版中的旧版本还在库里，
+   * 置 MISSING 会让它被当成缺集从头重下一遍，正确的取消是退回 IN_LIBRARY。
+   */
   const handleResetEpisode = async (ep: any) => {
     if (!currentSubscription.value) return
     try {
       await confirm({
-        message: `确认将第 ${ep.episode} 集重置为缺失？重置后需要重新匹配/下载。`,
+        message: `确认将第 ${ep.episode} 集重置为缺失？重置后需要重新匹配/下载。`
+          + (ep.state === 'IN_FLIGHT' ? resetHint : ''),
         title: '提示',
         type: 'warning'
       })

@@ -55,6 +55,7 @@ import {
   batchResumeSubscriptionApi,
   searchSupplementApi,
   getSubscriptionProgressApi,
+  getSubscriptionEpisodesApi,
   resetEpisodeApi
 } from '@/api/openlist/ptSubscription'
 import { usePtStatusSocket } from '../usePtStatusSocket'
@@ -374,5 +375,44 @@ describe('usePtSubscription 电影的重置入口', () => {
     // 剧集的特别篇也是第 0 季，用 season === 0 判会把它一起当成电影
     composable.currentSubscription.value = { mediaType: 'TV', season: 0 }
     expect(composable.currentIsMovie.value).toBe(false)
+  })
+})
+
+
+describe('usePtSubscription 在途集的重置出口', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    ;(getPtSubscriptionListApi as any).mockResolvedValue({ records: [], total: 0 })
+    ;(confirm as any).mockResolvedValue(undefined)
+    ;(resetEpisodeApi as any).mockResolvedValue(undefined)
+    ;(getSubscriptionEpisodesApi as any).mockResolvedValue([])
+    ;(getSubscriptionProgressApi as any).mockResolvedValue({})
+  })
+
+  it('重置在途集时把「不会删已下好的文件」写进确认框', async () => {
+    const composable = usePtSubscription()
+    composable.currentSubscription.value = { id: 7, mediaType: 'TV' }
+    await composable.handleResetEpisode({ episode: 5, state: 'IN_FLIGHT' })
+    const message = (confirm as any).mock.calls[0][0].message
+    // 在途集的文件多半已经下好了（卡的是上传那一段）。不写清楚重置动不动它，
+    // 用户只能靠试——而试错的代价是几十 GB
+    expect(message).toContain('不会删下载器里的种子')
+    expect(message).toContain('同步任务记录')
+    expect(resetEpisodeApi).toHaveBeenCalledWith(7, 5)
+  })
+
+  it('已入库的集不带那段提示', async () => {
+    const composable = usePtSubscription()
+    composable.currentSubscription.value = { id: 7, mediaType: 'TV' }
+    await composable.handleResetEpisode({ episode: 5, state: 'IN_LIBRARY' })
+    // 这条路径的语义本来就是「重下一遍」，多一段解释只会把真正的问句挤下去
+    expect((confirm as any).mock.calls[0][0].message).not.toContain('同步任务记录')
+  })
+
+  it('在途的电影同样带提示，且照样打到哨兵集号 0', async () => {
+    const composable = usePtSubscription()
+    await composable.handleResetMovie({ id: 7, title: '沙丘', mediaType: 'MOVIE', inFlightCount: 1 })
+    expect((confirm as any).mock.calls[0][0].message).toContain('不会删下载器里的种子')
+    expect(resetEpisodeApi).toHaveBeenCalledWith(7, 0)
   })
 })

@@ -8,9 +8,11 @@ import com.osr.openliststrm.mybatisplus.domain.PtSubscriptionPlus;
 import com.osr.openliststrm.mybatisplus.service.IPtAutoAddLogPlusService;
 import com.osr.openliststrm.mybatisplus.service.IPtAutoAddRulePlusService;
 import com.osr.openliststrm.mybatisplus.service.IPtSubscriptionPlusService;
+import com.osr.openliststrm.pt.PtLogText;
 import com.osr.openliststrm.pt.autoadd.dto.AutoAddRunResult;
 import com.osr.openliststrm.pt.autoadd.source.PopularItem;
 import com.osr.openliststrm.pt.autoadd.source.PopularSource;
+import com.osr.openliststrm.pt.subscription.SubscriptionSearchOnCreateTrigger;
 import com.osr.openliststrm.pt.subscription.SubscriptionService;
 import com.osr.openliststrm.pt.subscription.TmdbSearchService;
 import com.osr.openliststrm.pt.subscription.dto.SubscribeRequest;
@@ -64,6 +66,9 @@ public class AutoAddPopularService {
 
     @Autowired
     private PopularItemResolver resolver;
+
+    @Autowired
+    private SubscriptionSearchOnCreateTrigger searchOnCreateTrigger;
 
     /**
      * 执行单条规则。规则里 source 找不到对应数据源实现时直接跳过。
@@ -131,9 +136,10 @@ public class AutoAddPopularService {
             request.setDownloaderId(rule.getDownloaderId());
             request.setFilterOverride(rule.getFilterOverride());
             try {
-                subscriptionService.subscribe(request);
+                PtSubscriptionPlus sub = subscriptionService.subscribe(request);
                 writeLog(rule, item, season, "ADDED", matchNote);
                 added++;
+                triggerSearchOnCreate(sub);
             } catch (Exception e) {
                 log.warn("热门自动订阅规则[{}]建订阅失败 tmdbId={} title={}：{}",
                         rule.getId(), item.getTmdbId(), item.getTitle(), e.getMessage());
@@ -147,6 +153,37 @@ public class AutoAddPopularService {
         log.info("热门自动订阅规则[{}]{} 执行完成：新增{} 跳过{} 失败{}",
                 rule.getId(), rule.getName(), added, skipped, failed);
         return new AutoAddRunResult(added, skipped, failed);
+    }
+
+    /**
+     * 建订阅后发起一次性补搜历史资源，与 Web / 企微 / MCP 三个入口保持一致。
+     * <p>
+     * <b>缺了这一步，自动订进来的剧不会被任何主动搜索路径碰到</b>：{@code auto_search}
+     * 的库默认是 {@code '0'} 而 {@link SubscriptionService#subscribe} 不改它，
+     * 定期补搜（{@code AutoSearchService}）的候选 SQL 又要求那个开关开着，于是只剩 RSS 轮询
+     * 碰运气——而榜单里的热门剧往往已经播了几集，那批历史集的种子早滑出 24 小时的拉取窗口了。
+     * 现象是订阅列表里躺着一排进度恒为 0 的剧，而执行日志里每条都是 ADDED、一切正常。
+     * </p>
+     * <p>
+     * 这里<b>刻意不顺手打开 {@code auto_search}</b>：那个默认关是有意的（追完的老剧长期空转，
+     * 每轮都要向每个索引器打满一整份检索计划），而自动订阅只会让开着开关的订阅更多。
+     * 「历史集补不上」这个真问题由这一次补搜解决，不需要改默认值。
+     * </p>
+     * <p>
+     * 异常一律吞掉：订阅此时已经建成功并记了 ADDED，触发失败不该把它翻成 FAILED——
+     * 那条日志是用来解释「这轮为什么没加」的，而它确实加上了。
+     * </p>
+     */
+    private void triggerSearchOnCreate(PtSubscriptionPlus sub) {
+        // 建订阅时已经对过一次账，全部集都在库的订阅直接是 COMPLETED，没有可补的东西
+        if (sub == null || !SubscriptionService.STATUS_ACTIVE.equals(sub.getStatus())) {
+            return;
+        }
+        try {
+            searchOnCreateTrigger.triggerAsync(sub.getId());
+        } catch (Exception e) {
+            log.warn("{} 热门自动订阅建订阅后补搜触发失败：{}", PtLogText.subject(sub), e.getMessage());
+        }
     }
 
     /**
