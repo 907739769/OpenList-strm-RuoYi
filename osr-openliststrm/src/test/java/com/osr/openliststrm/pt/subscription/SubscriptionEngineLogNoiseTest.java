@@ -37,9 +37,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -225,10 +227,63 @@ class SubscriptionEngineLogNoiseTest {
             engine.process(batch);
         }
 
-        assertEquals(1, countContaining("无可占位的缺失集"));
-        // 压掉的只是日志：逐次明细照旧落 pt_search_log，否则这就不是降噪而是丢数据
-        verify(searchLogService, times(20))
+        assertEquals(1, countContaining("无需占位"));
+        // 落库与日志同进退：pt_search_log 按订阅只保留 200 条并按 id 削旧，逐次写这条
+        // 零信息量的稳态记录会把真正有诊断价值的淘汰记录挤出窗口（10 分钟一轮 = 144 行/天）
+        verify(searchLogService, times(1))
                 .recordSummary(any(), anyInt(), anyString(), anyString());
+    }
+
+    /** 文案要报集表里的实际状态，不能再写「可能已入库或在途」——那句话连自己都在猜 */
+    @Test
+    void 无可占位时报出实际状态而不是猜() {
+        when(subscriptionService.listActive()).thenReturn(List.of(tvSub(10, "Some Show", 1, 3)));
+        when(episodeService.listBySubscription(10)).thenReturn(List.of(
+                episode(101, 1, "IN_LIBRARY"),
+                episode(102, 2, "IN_FLIGHT"),
+                episode(103, 3, "IN_LIBRARY")));
+
+        engine.process(List.of(torrent("Some.Show.S01E02.1080p.WEB-DL", "g1")));
+
+        org.mockito.ArgumentCaptor<String> reason = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(searchLogService).recordSummary(any(), anyInt(), anyString(), reason.capture());
+        assertTrue(reason.getValue().contains("第 2 集"), reason.getValue());
+        assertTrue(reason.getValue().contains("在途"), reason.getValue());
+    }
+
+    /** 季包分支按状态分类计数，让用户一眼看出这一季究竟卡在哪一档 */
+    @Test
+    void 季包无可占位时按状态分类计数() {
+        when(subscriptionService.listActive()).thenReturn(List.of(tvSub(10, "Some Show", 1, 3)));
+        when(episodeService.listBySubscription(10)).thenReturn(List.of(
+                episode(101, 1, "IN_LIBRARY"),
+                episode(102, 2, "IN_FLIGHT"),
+                episode(103, 3, "IN_LIBRARY")));
+
+        engine.process(List.of(torrent("Some.Show.S01.1080p.WEB-DL", "g1")));
+
+        org.mockito.ArgumentCaptor<String> reason = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(searchLogService).recordSummary(any(), anyInt(), anyString(), reason.capture());
+        assertTrue(reason.getValue().contains("无一缺失"), reason.getValue());
+        assertTrue(reason.getValue().contains("2 集已入库"), reason.getValue());
+        assertTrue(reason.getValue().contains("1 集在途"), reason.getValue());
+    }
+
+    /** 手动/补搜路径不去重：用户刚按下按钮，等的就是这个回音 */
+    @Test
+    void 手动路径的无可占位每次都落库() {
+        PtSubscriptionPlus sub = tvSub(10, "Some Show", 1, 3);
+        when(episodeService.listBySubscription(10)).thenReturn(List.of(
+                episode(101, 1, "IN_LIBRARY"),
+                episode(102, 2, "IN_LIBRARY"),
+                episode(103, 3, "IN_LIBRARY")));
+
+        for (int round = 0; round < 5; round++) {
+            engine.pushManual(sub, 2, List.of(torrent("Some.Show.S01E02.1080p.WEB-DL", "g1")));
+        }
+
+        verify(searchLogService, times(5))
+                .recordSummary(any(), anyInt(), eq(SearchLogService.SOURCE_MANUAL), anyString());
     }
 
     // ---------- 候选都有已有下载记录 ----------
@@ -252,8 +307,8 @@ class SubscriptionEngineLogNoiseTest {
 
         assertEquals(1, countContaining("的候选都有已有下载记录"),
                 "实测一条订阅在 17.5 小时里刷了 106 行逐字相同的日志");
-        // 与「无可占位的缺失集」同理：压掉的只是叙述，逐次明细照旧落 pt_search_log
-        verify(searchLogService, times(30))
+        // 与「无可占位的缺失集」同理：落库同样只在首轮写，理由见那条用例
+        verify(searchLogService, times(1))
                 .recordSummary(any(), anyInt(), anyString(), anyString());
     }
 
