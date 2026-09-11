@@ -152,6 +152,97 @@ class SubscriptionMatcherTest {
         assertNull(result.getEpisodeEnd());
     }
 
+    // ---------- 剧集年份：同名剧串台防线 ----------
+    // 标题全等 + 季号相等这两道判据对同名剧完全无效，年份是第三道。判据是单向的
+    // （种子标的是本季播出年，只会晚于整部剧的首播年），见 SubscriptionMatcher#seriesYearPlausible
+
+    /** 实景：《人生复本》(Dark Matter, 2024) 的 S02 订阅认领了《暗物质》(Dark Matter, 2016) 的 S02 季包 */
+    @Test
+    void 剧集_同名的另一部剧_种子年份远早于首播年_不匹配() {
+        PtSubscriptionPlus sub = tvSub(10, "人生复本", "Dark Matter", 2);
+        sub.setYear("2024");
+
+        assertNull(matcher.match(torrent("Dark Matter", "2016", 2, null), List.of(sub)));
+    }
+
+    @Test
+    void 剧集_第N季晚于首播年很多_照常匹配() {
+        PtSubscriptionPlus sub = tvSub(10, "Some Show", 9);
+        sub.setYear("2005");
+
+        MatchResult result = matcher.match(torrent("Some Show", "2023", 9, 3), List.of(sub));
+
+        assertNotNull(result);
+        assertEquals(3, result.getEpisode());
+    }
+
+    @Test
+    void 剧集_种子年份早一年_在容差内仍匹配() {
+        PtSubscriptionPlus sub = tvSub(10, "Some Show", 1);
+        sub.setYear("2025");
+
+        assertNotNull(matcher.match(torrent("Some Show", "2024", 1, 1), List.of(sub)));
+    }
+
+    @Test
+    void 剧集_种子年份早两年_超出容差_不匹配() {
+        PtSubscriptionPlus sub = tvSub(10, "Some Show", 1);
+        sub.setYear("2025");
+
+        assertNull(matcher.match(torrent("Some Show", "2023", 1, 1), List.of(sub)));
+    }
+
+    /** 与电影相反：剧集种子不标年份相当常见，缺失即淘汰会清掉一大批正确候选 */
+    @Test
+    void 剧集_种子无年份_照常匹配() {
+        PtSubscriptionPlus sub = tvSub(10, "Some Show", 1);
+        sub.setYear("2024");
+
+        assertNotNull(matcher.match(torrent("Some Show", null, 1, 1), List.of(sub)));
+    }
+
+    @Test
+    void 剧集_订阅无年份_照常匹配() {
+        assertNotNull(matcher.match(torrent("Some Show", "2016", 1, 1),
+                List.of(tvSub(10, "Some Show", 1))));
+    }
+
+    /** 年份这一维要排在绝对编号兜底之前：不是这部剧，就没有「按绝对号解释」可言 */
+    @Test
+    void 剧集_年份对不上时_不再走绝对编号兜底() {
+        PtSubscriptionPlus sub = tvSub(10, "Some Show", 23);
+        sub.setYear("2024");
+
+        assertNull(matcher.match(torrent("Some Show", "2016", 1, 1173), List.of(sub),
+                java.util.Map.of(10, absoluteMap(10, 1173, 18))));
+    }
+
+    @Test
+    void seriesYearPlausible_边界与异常输入() {
+        assertTrue(matcher.seriesYearPlausible(null, "2016"));
+        assertTrue(matcher.seriesYearPlausible("2024", null));
+        assertTrue(matcher.seriesYearPlausible("  ", "2016"));
+        assertTrue(matcher.seriesYearPlausible("2024", "   "));
+        // 解析不出数字一律放行，交给季集号去判
+        assertTrue(matcher.seriesYearPlausible("2024", "两千零一十六"));
+        assertTrue(matcher.seriesYearPlausible("不是年份", "2016"));
+        // 两侧带空白照常比较
+        assertFalse(matcher.seriesYearPlausible(" 2024 ", " 2016 "));
+        assertTrue(matcher.seriesYearPlausible("2024", "2024"));
+        assertTrue(matcher.seriesYearPlausible("2024", "2023"));
+        assertFalse(matcher.seriesYearPlausible("2024", "2022"));
+    }
+
+    /** 造一个「绝对号 → 本地集号」映射，用于上面那条绝对编号用例 */
+    private AbsoluteEpisodeMap absoluteMap(int subId, int absolute, int local) {
+        com.osr.openliststrm.mybatisplus.domain.PtSubscriptionEpisodePlus ep =
+                new com.osr.openliststrm.mybatisplus.domain.PtSubscriptionEpisodePlus();
+        ep.setSubId(subId);
+        ep.setEpisode(local);
+        ep.setTmdbEpisodeNumber(absolute);
+        return AbsoluteEpisodeMap.from(List.of(ep));
+    }
+
     // ---------- 电影 ----------
 
     @Test

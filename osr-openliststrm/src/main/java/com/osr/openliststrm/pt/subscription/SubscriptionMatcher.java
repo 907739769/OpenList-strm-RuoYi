@@ -135,6 +135,14 @@ public class SubscriptionMatcher {
             return new MatchResult(sub, MOVIE_EPISODE);
         }
 
+        // 同名剧集串台的唯一防线：标题全等 + 季号相等两道判据对《人生复本》(Dark Matter 2024)
+        // 与《暗物质》(Dark Matter 2016) 这类同名剧<b>完全无效</b>——两部剧的英文名逐字相同，
+        // 都有第 2 季，于是 2016 那部的 S02 季包被 2024 这部的 S02 订阅认领，一路推到下载器，
+        // 而日志里每一步都"正常"。这里补上年份这一维，判据见 seriesYearPlausible
+        if (!seriesYearPlausible(sub.getYear(), torrent.getParsedYear())) {
+            return null;
+        }
+
         if (torrent.getParsedSeason() == null || sub.getSeason() == null
                 || !torrent.getParsedSeason().equals(sub.getSeason())) {
             // 季号对不上不代表不是这部剧的资源：长篇动画按绝对号发布时季号恒为 1
@@ -215,6 +223,61 @@ public class SubscriptionMatcher {
         } catch (NumberFormatException e) {
             // 解析不出数字就没有「相差几年」可言，字符串相等在上面已经判过，走到这里必然是不匹配
             return false;
+        }
+    }
+
+    /**
+     * 剧集年份的<b>向前</b>容差（年）。见 {@link #seriesYearPlausible} 对「为什么只有一个方向」的推导。
+     * <p>
+     * 取 1 是为了吸收「首播日跨年」这一类真实偏差：TMDb 记的 {@code first_air_date} 是
+     * 2025-01-02，而发布组按开播前的宣发年标了 2024。差 2 年及以上早于首播年，对剧集而言
+     * 没有合理解释，多半是解析错了年份或者根本不是这部剧。
+     * </p>
+     */
+    static final int SERIES_YEAR_BACKWARD_TOLERANCE = 1;
+
+    /**
+     * 剧集候选的年份是否讲得通：种子年份<b>明显早于</b>订阅首播年即判定不是这部剧。
+     * <p>
+     * <b>这条判据是单向的，这正是它能成立的原因。</b>订阅的 {@code year} 来自
+     * {@code first_air_date}，是<b>整部剧的首播年</b>，与订阅的是第几季无关
+     * （{@code SubscriptionService#subscribe} 写入）；而发布组在剧集种子上标的通常是
+     * <b>本季的播出年</b>。后者只可能晚于或等于前者——第 2 季不会在第 1 季之前播出。
+     * 于是「种子年份比首播年早很多」是一个确定的错误信号，而「晚很多」完全正常
+     * （长寿剧的第 N 季可以晚首播年十几二十年），一律放行。
+     * </p>
+     * <p>
+     * 与电影侧的 {@link #movieYearMatches} 有两处刻意的不同，不要"统一"掉：
+     * </p>
+     * <ol>
+     *   <li><b>电影是双向 ±1，剧集只卡向前一侧。</b>电影的年份两侧说的是同一件事
+     *       （这部片子哪年上映），偏差只可能来自口径差异；剧集两侧说的是不同的事
+     *       （整部剧首播年 vs 本季播出年），向后的差距是语义本身，不是误差。</li>
+     *   <li><b>电影任一侧缺年份即判不匹配，剧集缺失一律放行。</b>电影没有季集号可交叉验证，
+     *       年份是唯一能区分同名作品的信号，判不出来只能宁可漏；剧集还有季号和集号两道判据，
+     *       而剧集种子不标年份相当常见（{@code Some.Show.S02E05.1080p.WEB-DL} 是最常见的命名），
+     *       缺失即淘汰会把一大批完全正确的候选整批清掉——那是比串台更频繁的故障。</li>
+     * </ol>
+     * <p>
+     * 包内可见供 {@code SearchSupplementService} 的三个候选过滤器复用：RSS 自动匹配与搜索补集
+     * 对「这个候选是不是这部剧」必须给出同一个答案，各写一份迟早漂移（理由同
+     * {@link #movieYearMatches} 与 {@link #normalizeAll}）。
+     * </p>
+     *
+     * @param subYear     订阅记录的年份（整部剧首播年）
+     * @param torrentYear 从种子标题解析出的年份
+     * @return 年份讲得通、或任一侧判不出年份时返回 true
+     */
+    boolean seriesYearPlausible(String subYear, String torrentYear) {
+        if (StringUtils.isBlank(subYear) || StringUtils.isBlank(torrentYear)) {
+            return true;
+        }
+        try {
+            return Integer.parseInt(torrentYear.trim())
+                    >= Integer.parseInt(subYear.trim()) - SERIES_YEAR_BACKWARD_TOLERANCE;
+        } catch (NumberFormatException e) {
+            // 解析不出数字就没有「早了几年」可言，与缺失同等对待：放行，交给季集号去判
+            return true;
         }
     }
 

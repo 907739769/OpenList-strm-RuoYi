@@ -56,6 +56,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
+import java.util.stream.Collectors;
 
 /**
  * 订阅推送引擎：把一批 RSS 种子变成「推给下载器的决策」并落好账。
@@ -119,8 +120,13 @@ public class SubscriptionEngine {
      * 那两条是用户刚刚发起的动作，他等的就是这个回音。
      * </p>
      * <p>
-     * 压掉的只是日志：{@code searchLogService.recordSummary} 在这个分支里照常写
-     * {@code pt_search_log}，逐次的明细一条不少。
+     * <b>落库与日志走同一个判断</b>（{@link #steadyStateSpeak}），首轮写一条、之后静默。
+     * 这一条早先是「只压日志、照常逐次落库」，理由是「压掉的只是叙述，不是数据」——那个推理
+     * 漏了 {@code pt_search_log} <b>按订阅只保留 200 条</b>（{@code SearchLogService} 的
+     * {@code RETENTION_PER_SUBSCRIPTION}）并按 id 削旧：RSS 每轮每订阅写一行，10 分钟一轮
+     * 就是 144 行/天，不到两天占满整个窗口。于是「逐次落库」保住的不是数据，而是拿一条
+     * 零信息量的稳态记录把<b>真正有诊断价值的淘汰记录挤出保留窗口</b>——用户打开匹配日志
+     * 看到的整页都是这一条，而他要查的「这个种子为什么没推给我」早被挤没了。
      * </p>
      */
     private final LogOnce noTargetLogged = new LogOnce();
@@ -129,7 +135,7 @@ public class SubscriptionEngine {
      * 「候选都有已有下载记录」在 RSS 路径上的去重键（{@code 订阅id:集号}），与
      * {@link #noTargetLogged} 同形、同理由：推过的种子会一直留在 24 小时的 RSS 窗口里，
      * 每轮重新判一次、每轮得到同一个答案。实测一条订阅在 17.5 小时里刷了 <b>106 行逐字
-     * 相同</b>的日志（119 行里只有 2 条不重复）。落库的 {@code recordSummary} 不受影响。
+     * 相同</b>的日志（119 行里只有 2 条不重复）。落库同样只在首轮写，理由见上。
      */
     private final LogOnce alreadyRecordedLogged = new LogOnce();
 
@@ -354,13 +360,12 @@ public class SubscriptionEngine {
         if (targets.isEmpty()) {
             String reason = mode.isUpgrade()
                     ? "该集已不在可洗版状态（可能已被其它轮次占位或退回缺失）"
-                    : "无可占位的缺失集（可能已入库或在途）";
-            // RSS 路径去重：见 noTargetLogged 的注释。落库的 recordSummary 不受影响
-            if (!SearchLogService.SOURCE_RSS.equals(source)
-                    || noTargetLogged.firstTime(sub.getId() + ":" + match.getEpisode())) {
+                    : noTargetReason(match, allEpisodes);
+            // RSS 路径去重：见 noTargetLogged 的注释。日志与落库共用这一个判断
+            if (steadyStateSpeak(source, noTargetLogged, sub, match)) {
                 log.debug("{} {}，跳过", PtLogText.subject(sub, match.getEpisode(), null), reason);
+                searchLogService.recordSummary(sub.getId(), match.getEpisode(), source, reason);
             }
-            searchLogService.recordSummary(sub.getId(), match.getEpisode(), source, reason);
             return PushOutcome.fail(reason);
         }
 
@@ -370,17 +375,17 @@ public class SubscriptionEngine {
             if (candidates.isEmpty()) {
                 reason = "搜索未返回任何候选种子";
                 log.debug("{} 无可用候选种子（搜索未返回结果），跳过", PtLogText.subject(sub, match.getEpisode(), null));
+                searchLogService.recordSummary(sub.getId(), match.getEpisode(), source, reason);
             } else {
                 // 手动推送走不到这个分支：excludeAlreadyRecorded 对人工决定不做排除，
                 // 所以这句文案只会出现在自动路径上，可以放心地写成「本轮跳过」
                 reason = "候选种子都已推送过，本轮跳过";
-                // RSS 路径去重：见 alreadyRecordedLogged 的注释
-                if (!SearchLogService.SOURCE_RSS.equals(source)
-                        || alreadyRecordedLogged.firstTime(sub.getId() + ":" + match.getEpisode())) {
+                // 与「无可占位的缺失集」同型的稳态判定：日志与落库共用这一个判断
+                if (steadyStateSpeak(source, alreadyRecordedLogged, sub, match)) {
                     log.debug("{} 的候选都有已有下载记录，跳过", PtLogText.subject(sub, match.getEpisode(), null));
+                    searchLogService.recordSummary(sub.getId(), match.getEpisode(), source, reason);
                 }
             }
-            searchLogService.recordSummary(sub.getId(), match.getEpisode(), source, reason);
             return PushOutcome.fail(reason);
         }
 
@@ -966,6 +971,68 @@ public class SubscriptionEngine {
      * 确定要占位的集：普通集就它自己，季包则是该订阅所有 MISSING 的集，
      * 区间匹配（如 S01E01-03）则是区间内所有 MISSING 的集。
      */
+    /**
+     * 稳态判定这一轮要不要说话：RSS 路径按「订阅+集号」只在首轮说一次，其余路径每次都说。
+     * <p>
+     * <b>日志与落库共用同一个返回值</b>，不要拆成两个判断。两者说的是同一件事，分开判必然
+     * 漂移成「日志压了、库里还在刷」——那正是这个方法要修的状态。
+     * </p>
+     * <p>
+     * 搜索与手动路径恒为 true：那两条是用户刚刚发起的动作，他等的就是这个回音（同
+     * {@code SearchSupplementService#firstRejectionInSearch} 只在一次搜索内折叠、不跨次去重）。
+     * </p>
+     */
+    private boolean steadyStateSpeak(String source, LogOnce dedupe, PtSubscriptionPlus sub, MatchResult match) {
+        return !SearchLogService.SOURCE_RSS.equals(source)
+                || dedupe.firstTime(sub.getId() + ":" + match.getEpisode());
+    }
+
+    /**
+     * 「没有可占位的集」的具体原因，按集表里的<b>实际状态</b>说事。
+     * <p>
+     * 早先固定写「无可占位的缺失集（可能已入库或在途）」——那句话连自己都在猜，而
+     * {@code allEpisodes} 就在手里、状态是确定的。用户打开匹配日志想知道的恰恰是
+     * 「那这一集现在到底怎么了」，一句"可能"回答不了，还得再去翻订阅进度对一遍。
+     * </p>
+     * <p>
+     * 季包与区间按状态分类计数（{@code 本季 12 集无一缺失：10 集已入库、2 集在途}），
+     * 单集直报该集状态。集表里找不到该集时说清楚是「订阅里没有这一集」——那是数据不一致，
+     * 与「这集已经有了」是完全不同的处置方向，混成一句话会把排查带偏。
+     * </p>
+     */
+    private String noTargetReason(MatchResult match, List<PtSubscriptionEpisodePlus> allEpisodes) {
+        if (match.getEpisode() != SubscriptionMatcher.SEASON_PACK && match.getEpisodeEnd() == null) {
+            for (PtSubscriptionEpisodePlus ep : allEpisodes) {
+                if (ep.getEpisode() == match.getEpisode()) {
+                    return "第 " + match.getEpisode() + " 集当前状态为「"
+                            + SubscriptionEpisodeState.labelOf(ep.getState()) + "」，无需占位";
+                }
+            }
+            return "订阅的集列表里没有第 " + match.getEpisode() + " 集，无法占位";
+        }
+        // 季包/区间：只统计本次目标范围内的集，范围外的状态与这条判定无关
+        Map<String, Integer> counts = new LinkedHashMap<>();
+        int total = 0;
+        for (PtSubscriptionEpisodePlus ep : allEpisodes) {
+            if (match.getEpisodeEnd() != null
+                    && (ep.getEpisode() < match.getEpisode() || ep.getEpisode() > match.getEpisodeEnd())) {
+                continue;
+            }
+            total++;
+            counts.merge(SubscriptionEpisodeState.labelOf(ep.getState()), 1, Integer::sum);
+        }
+        if (total == 0) {
+            return "订阅的集列表为空，无法占位";
+        }
+        String scope = match.getEpisodeEnd() != null
+                ? "第 " + match.getEpisode() + "-" + match.getEpisodeEnd() + " 集"
+                : "本季";
+        String detail = counts.entrySet().stream()
+                .map(e -> e.getValue() + " 集" + e.getKey())
+                .collect(Collectors.joining("、"));
+        return scope + " " + total + " 集无一缺失：" + detail;
+    }
+
     private List<PtSubscriptionEpisodePlus> resolveTargets(MatchResult match,
                                                            List<PtSubscriptionEpisodePlus> allEpisodes,
                                                            PushMode mode) {

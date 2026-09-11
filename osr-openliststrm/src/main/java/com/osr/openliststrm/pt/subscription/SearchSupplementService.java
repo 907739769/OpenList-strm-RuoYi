@@ -475,6 +475,13 @@ public class SearchSupplementService {
             throw new IllegalArgumentException("该种子是第 " + parsedSeason + " 季的资源，本订阅是第 "
                     + sub.getSeason() + " 季，已拒绝推送");
         }
+        // 同名剧兜底：候选列表已按同一判据过滤过，这里再拦一次是因为手动推送还能从别处进来
+        // （候选列表是上一次搜索的结果，订阅的年份/季号在那之后可能已被改过）
+        if (!matcher.seriesYearPlausible(sub.getYear(), torrent.getParsedYear())) {
+            throw new IllegalArgumentException("该种子的年份是 " + torrent.getParsedYear()
+                    + "，早于本订阅《" + sub.getTitle() + "》的首播年 " + sub.getYear()
+                    + "，多半是同名的另一部剧，已拒绝推送");
+        }
         if (parsedEpisode == null) {
             return PushTarget.single(episode);
         }
@@ -1256,6 +1263,15 @@ public class SearchSupplementService {
             if (!titleMatches(subTitles, candidate)) {
                 continue;
             }
+            // 同名剧的串台防线，判据与 RSS 链路共用（《人生复本》2024 与《暗物质》2016 英文名
+            // 逐字相同、都有第 2 季，标题+季号两道判据一道都拦不住）
+            if (!matcher.seriesYearPlausible(sub.getYear(), candidate.getParsedYear())) {
+                if (firstRejectionInSearch("year", candidate.getTitle(), candidate.getParsedYear(), sub.getYear())) {
+                    log.debug("候选被年份过滤：{} —— 解析年份={} 早于订阅《{}》首播年={}",
+                            candidate.getTitle(), candidate.getParsedYear(), sub.getTitle(), sub.getYear());
+                }
+                continue;
+            }
             Integer parsedSeason = candidate.getParsedSeason();
             if (parsedSeason == null || !parsedSeason.equals(subSeason)) {
                 // 季号对不上时再看绝对编号：One Piece S01E1173 其实是第 23 季第 18 集。
@@ -1364,6 +1380,14 @@ public class SearchSupplementService {
                 }
                 continue;
             }
+            // 同名剧的串台防线，理由同 filterByTarget
+            if (!matcher.seriesYearPlausible(sub.getYear(), candidate.getParsedYear())) {
+                if (firstRejectionInSearch("year", candidate.getTitle(), candidate.getParsedYear(), sub.getYear())) {
+                    log.debug("候选被年份过滤：{} —— 解析年份={} 早于订阅《{}》首播年={}",
+                            candidate.getTitle(), candidate.getParsedYear(), sub.getTitle(), sub.getYear());
+                }
+                continue;
+            }
             Integer parsedEpisode = candidate.getParsedEpisode();
             if (parsedEpisode == null || rangeIntersectsMissing(parsedEpisode, candidate.getParsedEpisodeEnd(), missingEpisodes)) {
                 matched.add(candidate);
@@ -1397,6 +1421,15 @@ public class SearchSupplementService {
                 if (firstRejectionInSearch("idSeason", candidate.getTitle(), parsedSeason, subSeason)) {
                     log.debug("ID搜索候选被季号过滤：{} —— 解析季号={}，订阅季号={}",
                             candidate.getTitle(), parsedSeason, subSeason);
+                }
+                continue;
+            }
+            // ID 检索这条路径本不该串台，但索引器对 tmdbid/imdbid 参数的支持程度不一，
+            // 不支持的会静默退化成关键词检索——而本方法刻意不校验标题，那时年份是唯一的兜底
+            if (!matcher.seriesYearPlausible(sub.getYear(), candidate.getParsedYear())) {
+                if (firstRejectionInSearch("idYear", candidate.getTitle(), candidate.getParsedYear(), sub.getYear())) {
+                    log.debug("ID搜索候选被年份过滤：{} —— 解析年份={} 早于订阅《{}》首播年={}",
+                            candidate.getTitle(), candidate.getParsedYear(), sub.getTitle(), sub.getYear());
                 }
                 continue;
             }
